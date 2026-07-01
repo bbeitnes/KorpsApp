@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fordelingsverktøy</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fordeling">
+<meta name="theme-color" content="#4f46e5">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { height: 100%; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; display: flex; flex-direction: column; }
+  #sidebar-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 45; }
+  @media (max-width: 1023px) {
+    #sidebar {
+      position: fixed; top: 0; bottom: 0; left: 0; z-index: 50; width: 85vw; max-width: 320px;
+      transform: translateX(-100%); transition: transform .2s ease;
+    }
+    #sidebar.open { transform: translateX(0); }
+    #sidebar-close { display: inline-flex; }
+  }
+  @media (min-width: 1024px) {
+    #sidebar-backdrop, #sidebar-toggle { display: none; }
+    #sidebar-close { display: none; }
+  }
+  .seat {
+    width: 40px; height: 40px; border-radius: 7px; font-size: 9px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    border: 2px solid #cbd5e1; background: #f1f5f9; transition: all .15s;
+    position: relative; overflow: visible; flex-shrink: 0;
+  }
+  .seat:hover { border-color: #4f46e5; background: #eef2ff; }
+  .seat.occupied {
+    background: #4f46e5; border-color: #3730a3; color: white;
+    font-size: 9px; text-align: center; line-height: 1.2; font-weight: 600;
+  }
+  .seat.gap {
+    background: #e2e8f0; border-color: #94a3b8; color: #94a3b8;
+    opacity: 0.6;
+  }
+  .seat.gap:hover { border-color: #64748b; background: #cbd5e1; opacity: 0.8; }
+  .name-item {
+    cursor: pointer; padding: 6px 10px; border-radius: 6px;
+    border: 1px solid #e2e8f0; background: white; font-size: 13px;
+    transition: all .15s; display: flex; align-items: center; justify-content: space-between;
+  }
+  .name-item:hover { border-color: #4f46e5; background: #eef2ff; }
+  .name-item.selected { background: #4f46e5; color: white; border-color: #3730a3; }
+  .name-item.assigned { background: #f8fafc; cursor: default; }
+  .name-item.assigned:hover { border-color: #e2e8f0; background: #f8fafc; }
+  .name-item.assigned .name-text { color: #94a3b8; }
+  .name-item.assigned .assigned-badge { color: #94a3b8; }
+  .name-item[draggable="true"]:active { cursor: grabbing; }
+  .avatar {
+    position: relative; width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    background: #eef2ff; color: #4f46e5; font-size: 9px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    cursor: pointer; border: 2px solid #c7d2fe; transition: all .15s;
+  }
+  .avatar:hover { border-color: #4f46e5; transform: scale(1.08); box-shadow: 0 0 0 3px #eef2ff; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar:not(:has(img))::after {
+    content: '📷'; position: absolute; bottom: -3px; right: -3px; font-size: 9px;
+    background: white; border-radius: 50%; width: 13px; height: 13px;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px #e2e8f0;
+  }
+  .avatar-remove {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(15,23,42,.65); color: white; font-size: 10px; cursor: pointer;
+  }
+  .avatar:hover .avatar-remove { display: flex; }
+  .seat.drop-hover { border-color: #f59e0b !important; background: #fef3c7 !important; transform: scale(1.1); }
+  .room-slot.drop-hover { border-color: #f59e0b !important; background: #fffbeb !important; border-style: solid; }
+  .room-card { border: 2px solid #e2e8f0; border-radius: 12px; background: white; padding: 12px; }
+  .room-slot {
+    min-height: 34px; border: 1px dashed #cbd5e1; border-radius: 6px;
+    padding: 4px 10px; font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between; transition: all .15s;
+  }
+  .room-slot:hover { border-color: #4f46e5; background: #eef2ff; }
+  .room-slot.filled { background: #ecfdf5; border-color: #6ee7b7; border-style: solid; cursor: default; }
+  .tab-btn { padding: 7px 6px; border-radius: 8px; font-weight: 600; font-size: 11px; line-height: 1.25; cursor: pointer; transition: all .15s; text-align: center; }
+  .tab-btn.active { background: #4f46e5; color: white; }
+  .tab-btn:not(.active) { background: white; color: #64748b; border: 1px solid #e2e8f0; }
+  .tab-btn:not(.active):hover { border-color: #4f46e5; color: #4f46e5; }
+  input, textarea, select { outline: none; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: flex; align-items: center; justify-content: center; }
+  .modal { background: white; border-radius: 16px; padding: 28px; min-width: min(380px, 92vw); max-width: 92vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,.3); }
+  @media (max-width: 480px) { .modal { padding: 18px; border-radius: 12px; } }
+  .modal-wide { min-width: min(720px, 92vw); }
+  .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; border: none; }
+  .btn-primary { background: #4f46e5; color: white; }
+  .btn-primary:hover { background: #3730a3; }
+  .btn-secondary { background: white; color: #374151; border: 1px solid #d1d5db; }
+  .btn-secondary:hover { border-color: #4f46e5; color: #4f46e5; }
+  .btn-danger { background: #ef4444; color: white; }
+  .btn-danger:hover { background: #dc2626; }
+  .tooltip {
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: white; font-size: 11px; padding: 4px 8px;
+    border-radius: 5px; white-space: nowrap; pointer-events: none; z-index: 20;
+    opacity: 0; transition: opacity .15s;
+  }
+  .seat:hover .tooltip { opacity: 1; }
+  /* PDF preview */
+  .pdf-preview { font-family: sans-serif; font-size: 13px; color: #1e293b; }
+  .pdf-preview h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .pdf-preview .subtitle { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+  .pdf-preview .group { margin-bottom: 18px; break-inside: avoid; }
+  .pdf-preview .group-title { font-size: 14px; font-weight: 700; background: #f1f5f9; padding: 4px 10px; border-radius: 4px; margin-bottom: 6px; border-left: 4px solid #4f46e5; }
+  .pdf-preview table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .pdf-preview th { background: #f8fafc; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: .05em; }
+  .pdf-preview th, .pdf-preview td { border: 1px solid #e2e8f0; padding: 5px 10px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pdf-preview td.empty { color: #94a3b8; }
+  .pdf-preview .col-seat { width: 70px; }
+  .pdf-preview .col-name { width: auto; }
+  #print-area { display: none; }
+  @media print {
+    body > *:not(#print-area) { display: none !important; }
+    #print-area { display: block !important; font-family: sans-serif; }
+    #print-area .group { break-inside: avoid; margin-bottom: 20px; }
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<header class="bg-white border-b border-slate-200 px-3 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm flex-wrap gap-2 shrink-0">
+  <div class="flex items-center gap-3">
+    <button id="sidebar-toggle" onclick="toggleSidebar()" class="btn btn-secondary lg:hidden" aria-label="Meny">☰</button>
+    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857
+             M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857
+             m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+    </div>
+    <h1 class="text-lg font-bold text-slate-800 hidden sm:block">Fordelingsverktøy</h1>
+  </div>
+  <div class="flex items-center gap-2 flex-wrap">
+<button onclick="saveToFile()" class="btn btn-secondary">💾 <span class="hidden sm:inline">Lagre</span></button>
+    <button onclick="document.getElementById('load-input').click()" class="btn btn-secondary">📂 <span class="hidden sm:inline">Last inn</span></button>
+    <input type="file" id="load-input" accept=".json" class="hidden" onchange="loadFromFile(event)">
+    <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoSelected(event)">
+    <div class="relative">
+      <button id="export-btn" onclick="toggleExportMenu()" class="btn btn-secondary">📤 <span class="hidden sm:inline">Eksporter ▾</span></button>
+      <div id="export-menu" class="hidden absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 min-w-44">
+        <button onclick="showPDFPreview(); toggleExportMenu()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-t-lg">📄 PDF (forhåndsvisning)</button>
+        <button id="export-diagram-btn" onclick="showFormationDiagramPreview(); toggleExportMenu()" class="hidden w-full text-left px-4 py-2 text-sm hover:bg-slate-50">🎺 Oppstilling (tegning)</button>
+        <button onclick="exportCSV(); toggleExportMenu()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50">📊 CSV</button>
+        <button onclick="showGSheetsExport(); toggleExportMenu()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-b-lg">📗 Google Sheets</button>
+      </div>
+    </div>
+    <button onclick="showHelp()" class="btn btn-secondary">❓</button>
+  </div>
+</header>
+
+<!-- MAIN LAYOUT -->
+<div class="flex flex-1 min-h-0">
+
+  <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="w-72 bg-white border-r border-slate-200 flex flex-col">
+    <div class="p-3 border-b border-slate-100 grid grid-cols-2 gap-2 relative">
+      <button id="sidebar-close" onclick="closeSidebar()" class="absolute top-2 right-2 text-slate-400 hover:text-slate-700 text-lg leading-none px-1" aria-label="Lukk meny">✕</button>
+      <button id="tab-concert" class="tab-btn active" onclick="setMode('concert')">🎵 Billettfordeling<br>konserter</button>
+      <button id="tab-formation" class="tab-btn" onclick="setMode('formation')">🎺 Korpsoppsett</button>
+      <button id="tab-room" class="tab-btn" onclick="setMode('room')">🏨 Romfordeling</button>
+      <button id="tab-shift" class="tab-btn" onclick="setMode('shift')">🕐 Vaktlister</button>
+    </div>
+
+    <div class="p-3 border-b border-slate-100">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Navneliste</span>
+        <div class="flex gap-1">
+          <button onclick="showImportNames()" class="text-xs text-indigo-600 hover:underline">Importer</button>
+          <span class="text-slate-300">|</span>
+          <button onclick="clearAssignments()" class="text-xs text-red-500 hover:underline">Nullstill</button>
+        </div>
+      </div>
+      <textarea id="name-input" placeholder="Skriv ett navn per linje..."
+        class="w-full h-28 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
+        oninput="parseNames()"></textarea>
+      <div class="mt-1 text-xs text-slate-400" id="name-count">0 navn</div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-3">
+      <div class="mb-2 flex gap-1">
+        <input type="text" id="name-search" placeholder="Søk navn..."
+          class="flex-1 text-sm border border-slate-200 rounded-lg px-2 py-1 focus:border-indigo-400"
+          oninput="renderNames()">
+        <select id="name-filter"
+          class="text-xs border border-slate-200 rounded-lg px-1 focus:border-indigo-400"
+          onchange="renderNames()">
+          <option value="all">Alle</option>
+          <option value="unassigned">Ikke plassert</option>
+          <option value="assigned">Plassert</option>
+        </select>
+      </div>
+      <div id="name-list" class="flex flex-col gap-1"></div>
+    </div>
+
+    <div class="p-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500">
+      <div id="stats"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 overflow-auto p-3 sm:p-6 min-w-0">
+    <!-- Concert mode -->
+    <div id="mode-concert">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h2 class="text-lg font-semibold text-slate-800">Billettfordeling konserter</h2>
+        <div class="flex flex-wrap gap-2 items-center">
+          <div class="flex flex-wrap gap-3 text-xs text-slate-500 items-center mr-2">
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-indigo-600 border-2 border-indigo-800"></span> Tildelt</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-slate-200 border-2 border-slate-400 opacity-60"></span> Hull</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-slate-100 border-2 border-slate-300"></span> Ledig</span>
+          </div>
+          <button onclick="showRowSetupModal('concert')" class="btn btn-primary">⚙️ Sett opp sal</button>
+        </div>
+      </div>
+      <div id="concert-hint" class="text-slate-400 text-center py-16">
+        <div class="text-5xl mb-3">🎵</div>
+        <p class="text-lg font-medium text-slate-500">Konfigurer konsertsalen</p>
+        <p class="text-sm mt-1">Klikk "Sett opp sal" for å definere rader og seter</p>
+      </div>
+      <div id="concert-layout" class="hidden">
+        <div class="mb-4 text-center text-xs text-slate-400 border-b-2 border-slate-200 pb-2 font-medium tracking-widest uppercase">— SCENE —</div>
+        <div id="seat-grid" class="flex flex-col gap-3 items-center"></div>
+      </div>
+    </div>
+
+    <!-- Formation mode (korpsoppsett) -->
+    <div id="mode-formation" class="hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h2 class="text-lg font-semibold text-slate-800">Korpsoppsett</h2>
+        <div class="flex flex-wrap gap-2 items-center">
+          <div class="flex flex-wrap gap-3 text-xs text-slate-500 items-center mr-2">
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-indigo-600 border-2 border-indigo-800"></span> Tildelt</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-slate-200 border-2 border-slate-400 opacity-60"></span> Hull</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-slate-100 border-2 border-slate-300"></span> Ledig</span>
+          </div>
+          <button onclick="showRowSetupModal('formation')" class="btn btn-primary">⚙️ Sett opp oppstilling</button>
+        </div>
+      </div>
+      <div id="formation-hint" class="text-slate-400 text-center py-16">
+        <div class="text-5xl mb-3">🎺</div>
+        <p class="text-lg font-medium text-slate-500">Konfigurer korpsoppstillingen</p>
+        <p class="text-sm mt-1">Klikk "Sett opp oppstilling" for å definere rader (halvsirkel), antall plasser og justering</p>
+      </div>
+      <div id="formation-layout" class="hidden">
+        <div id="formation-scroll-hint" class="hidden text-xs text-slate-400 text-center mb-2">↔️ Dra sidelengs for å se hele oppstillingen</div>
+        <div id="formation-scroll" class="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div id="formation-canvas" style="position:relative;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room mode -->
+    <div id="mode-room" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-slate-800">Romfordeling</h2>
+        <button onclick="showGroupSetupModal('room')" class="btn btn-primary">⚙️ Sett opp rom</button>
+      </div>
+      <div id="room-hint" class="text-slate-400 text-center py-16">
+        <div class="text-5xl mb-3">🏨</div>
+        <p class="text-lg font-medium text-slate-500">Konfigurer rommene</p>
+        <p class="text-sm mt-1">Klikk "Sett opp rom" for å legge til rom og kapasitet</p>
+      </div>
+      <div id="room-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+    </div>
+
+    <!-- Shift mode (vaktlister) -->
+    <div id="mode-shift" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-slate-800">Vaktlister</h2>
+        <button onclick="showGroupSetupModal('shift')" class="btn btn-primary">⚙️ Sett opp vakter</button>
+      </div>
+      <div id="shift-hint" class="text-slate-400 text-center py-16">
+        <div class="text-5xl mb-3">🕐</div>
+        <p class="text-lg font-medium text-slate-500">Konfigurer vaktlistene</p>
+        <p class="text-sm mt-1">Klikk "Sett opp vakter" for å legge til vakter og antall plasser per vakt</p>
+      </div>
+      <div id="shift-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODALS -->
+<div id="modal-container"></div>
+<div id="print-area"></div>
+
+<script>
+// ===================== STATE =====================
+let state = {
+  mode: 'concert',
+  names: [],
+  concert: { rows: [] },
+  formation: { rows: [] },
+  rooms: [],
+  shifts: [],
+  photos: {} // name -> small JPEG data URL
+};
+let selectedName = null;
+let tabNextHandler = null; // one-shot Tab→next-empty listener
+
+const GROUP_LABELS = {
+  room:  { group: 'Rom',  slot: 'Seng',   icon: '🏨' },
+  shift: { group: 'Vakt', slot: 'Person', icon: '🕐' }
+};
+
+// ===================== INIT =====================
+window.onload = () => {
+  // Register service worker for offline/install-on-homescreen support
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {/* server may not support SW */});
+  }
+
+  const saved = localStorage.getItem('fordeling-autosave');
+  if (saved) {
+    try {
+      const s = JSON.parse(saved);
+      if (confirm('Fant et automatisk lagret prosjekt. Vil du gjenoppta?')) {
+        state = Object.assign({ formation: { rows: [] }, shifts: [], photos: {} }, s);
+        document.getElementById('name-input').value = state.names.join('\n');
+      }
+    } catch(e) {}
+  }
+  render();
+};
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (state.formation.rows.length) renderFormation();
+  }, 100);
+});
+
+let lastAutosavedJson = null;
+setInterval(() => {
+  const json = JSON.stringify(state);
+  if (json === lastAutosavedJson) return;
+  lastAutosavedJson = json;
+  localStorage.setItem('fordeling-autosave', json);
+}, 30000);
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#export-menu') && !e.target.closest('#export-btn')) {
+    document.getElementById('export-menu')?.classList.add('hidden');
+  }
+});
+
+// ===================== MODE =====================
+function setMode(mode) {
+  state.mode = mode;
+  ['concert','formation','room','shift'].forEach(m => {
+    document.getElementById('tab-'+m).className = `tab-btn ${mode===m?'active':''}`;
+    document.getElementById('mode-'+m).classList.toggle('hidden', mode!==m);
+  });
+  selectedName = null;
+  renderNames();
+  updateStats();
+  document.getElementById('export-diagram-btn').classList.toggle('hidden', mode !== 'formation');
+  closeSidebar();
+  // Re-measure now that the panel is actually visible (width was 0 while hidden)
+  if (mode === 'formation' && state.formation.rows.length) renderFormation();
+}
+
+// ===================== MOBILE SIDEBAR =====================
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('hidden');
+}
+
+function closeSidebar() {
+  if (window.innerWidth >= 1024) return; // sidebar is always visible on desktop
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.add('hidden');
+}
+
+// ===================== NAMES =====================
+function parseNames() {
+  const raw = document.getElementById('name-input').value;
+  state.names = raw.split('\n').map(n=>n.trim()).filter(Boolean);
+  document.getElementById('name-count').textContent = `${state.names.length} navn`;
+  renderNames();
+  updateStats();
+}
+
+function renderNames() {
+  const search = document.getElementById('name-search').value.toLowerCase();
+  const filter = document.getElementById('name-filter').value;
+  // Shifts are non-exclusive: nobody is "taken" from the sidebar's perspective in shift mode
+  const assignedSet = state.mode === 'shift' ? new Set() : getExclusiveAssignedNames();
+
+  let filtered = state.names.filter(n => {
+    if (search && !n.toLowerCase().includes(search)) return false;
+    if (filter === 'assigned' && !assignedSet.has(n)) return false;
+    if (filter === 'unassigned' && assignedSet.has(n)) return false;
+    return true;
+  });
+
+  // Sort: unassigned first, assigned at bottom
+  filtered.sort((a, b) => {
+    const aA = assignedSet.has(a) ? 1 : 0;
+    const bA = assignedSet.has(b) ? 1 : 0;
+    return aA - bA;
+  });
+
+  const el = document.getElementById('name-list');
+  el.innerHTML = filtered.map(n => {
+    const isAssigned = assignedSet.has(n);
+    const isSelected = selectedName === n;
+    const photo = state.photos[n];
+    const avatarInner = photo
+      ? `<img src="${photo}" alt="">`
+      : `<span>${initials(n)}</span>`;
+    const removeBtn = photo ? `<span class="avatar-remove" data-remove-photo="${escAttr(n)}" title="Fjern bilde">✕</span>` : '';
+    return `<div class="name-item ${isSelected?'selected':''} ${isAssigned?'assigned':''}"
+                 data-name="${escAttr(n)}"
+                 ${isAssigned ? '' : `draggable="true" onclick="selectName('${escJs(n)}')" style="cursor:grab"`}>
+      <span class="flex items-center gap-2 min-w-0">
+        <span class="avatar" data-avatar-name="${escAttr(n)}" title="${photo?'Bytt eller fjern bilde':'Last opp bilde'}">${avatarInner}${removeBtn}</span>
+        <span class="name-text truncate">${escHtml(n)}</span>
+      </span>
+      ${isAssigned ? '<span class="assigned-badge text-xs shrink-0">✓ plassert</span>' : ''}
+    </div>`;
+  }).join('');
+
+  document.querySelectorAll('#name-list .name-item[draggable="true"]').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', el.dataset.name);
+      e.dataTransfer.effectAllowed = 'move';
+      el.style.opacity = '0.4';
+    });
+    el.addEventListener('dragend', () => { el.style.opacity = ''; });
+  });
+
+  document.querySelectorAll('#name-list .avatar').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      if (e.target.closest('.avatar-remove')) return;
+      openPhotoPicker(el.dataset.avatarName);
+    });
+  });
+  document.querySelectorAll('#name-list .avatar-remove').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      delete state.photos[el.dataset.removePhoto];
+      renderNames();
+      if (state.mode === 'formation') renderFormation();
+    });
+  });
+}
+
+function selectName(name) {
+  selectedName = selectedName === name ? null : name;
+  renderNames();
+}
+
+// ===================== PHOTOS =====================
+let pendingPhotoName = null;
+
+function openPhotoPicker(name) {
+  pendingPhotoName = name;
+  document.getElementById('photo-input').click();
+}
+
+function handlePhotoSelected(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file || !pendingPhotoName) return;
+  const name = pendingPhotoName;
+  pendingPhotoName = null;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      // Crop to a centered square, then downscale to keep storage small
+      // (kept tiny on purpose so 100+ photos still fit in one shared cloud document)
+      const size = 96;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const srcSize = Math.min(img.width, img.height);
+      const sx = (img.width - srcSize) / 2;
+      const sy = (img.height - srcSize) / 2;
+      ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, size, size);
+      state.photos[name] = canvas.toDataURL('image/jpeg', 0.6);
+      renderNames();
+      if (state.mode === 'formation') renderFormation();
+    };
+    img.onerror = () => alert('Kunne ikke lese bildet.');
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Concert, formation and room are mutually exclusive (one placement each).
+// Shifts are independent — a person can hold any number of shifts in
+// addition to a concert seat / formation spot / room.
+function getExclusiveAssignedNames() {
+  const set = new Set();
+  state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  state.rooms.forEach(r => r.occupants.forEach(n => set.add(n)));
+  return set;
+}
+
+function getAssignedNames() {
+  const set = getExclusiveAssignedNames();
+  state.shifts.forEach(r => r.occupants.forEach(n => set.add(n)));
+  return set;
+}
+
+function unassignExclusive(name) {
+  state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
+  state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
+  state.rooms.forEach(r => { r.occupants = r.occupants.filter(n=>n!==name); });
+}
+
+// ===================== ROW-BASED (concert + formation) =====================
+function rowsFor(kind) { return kind === 'concert' ? state.concert.rows : state.formation.rows; }
+function renderRows(kind) { if (kind === 'concert') renderConcert(); else renderFormation(); }
+
+function showRowSetupModal(kind) {
+  const rows = rowsFor(kind);
+  const existing = rows.map(r => {
+    const base = `${r.label}:${r.rawDef || r.seats.length}`;
+    if (kind !== 'formation') return base;
+    const a = r.align === 'left' ? 'v' : r.align === 'right' ? 'h' : 's';
+    return `${base}:${a}`;
+  }).join('\n');
+
+  const title = kind === 'concert' ? 'Sett opp konsertsalen' : 'Sett opp korpsoppstilling';
+  const inputId = kind === 'concert' ? 'setup-input' : 'formation-setup-input';
+  const helpExtra = kind === 'formation'
+    ? `<br>Justering (valgfritt 3. felt): <code class="bg-slate-100 px-1 rounded">v</code>=venstre, <code class="bg-slate-100 px-1 rounded">h</code>=høyre, <code class="bg-slate-100 px-1 rounded">s</code>=senter (standard)<br>
+       Øverste linje i listen = fremste rad (nærmest dirigent)`
+    : '';
+  const placeholderRaw = kind === 'concert'
+    ? 'A:20\nB:20\nC:18\nD:18\nE:16'
+    : 'Fløyte:10:v\nKlarinett:12:s\nKornett:8:h\nTuba:6:s';
+
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">${title}</h2>
+    <p class="text-sm text-slate-500 mb-3">
+      Én rad per linje: <code class="bg-slate-100 px-1 rounded">Radnavn:Antall/plasser</code><br>
+      F.eks: <code class="bg-slate-100 px-1 rounded">A:20</code> eller <code class="bg-slate-100 px-1 rounded">Rad 1:15</code><br>
+      Spesifikke plasser: <code class="bg-slate-100 px-1 rounded">A:1-5,8-12</code>${helpExtra}
+    </p>
+    <textarea id="${inputId}" class="w-full h-48 border border-slate-200 rounded-lg p-3 text-sm font-mono focus:border-indigo-400"
+      placeholder="${placeholderRaw.replace(/\n/g,'&#10;')}">${existing}</textarea>
+    <div class="mt-3 flex gap-2 justify-between">
+      <button onclick="importRowsFromGSheetsModal('${kind}')" class="btn btn-secondary">📗 Importer fra Google Sheets</button>
+      <div class="flex gap-2">
+        <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
+        <button onclick="applyRowSetup('${kind}')" class="btn btn-primary">Bruk</button>
+      </div>
+    </div>
+  `);
+}
+
+function applyRowSetup(kind) {
+  const inputId = kind === 'concert' ? 'setup-input' : 'formation-setup-input';
+  const raw = document.getElementById(inputId).value;
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const newRows = [];
+  for (const line of lines) {
+    const segs = line.split(':');
+    if (segs.length < 2) continue;
+    const label = segs[0].trim();
+    const seatDef = segs[1].trim();
+    if (!label || !seatDef) continue;
+
+    let align = 'center';
+    if (kind === 'formation') {
+      const tok = (segs[2]||'').trim().toLowerCase();
+      if (['v','venstre','left','l'].includes(tok)) align = 'left';
+      else if (['h','høyre','hoyre','right','r'].includes(tok)) align = 'right';
+    }
+
+    let seatIds = [];
+    if (seatDef.includes('-') || seatDef.includes(',')) {
+      for (const part of seatDef.split(',')) {
+        const p = part.trim();
+        if (p.includes('-')) {
+          const [a,b] = p.split('-').map(Number);
+          for (let i=a;i<=b;i++) seatIds.push(String(i));
+        } else {
+          seatIds.push(p);
+        }
+      }
+    } else {
+      const count = parseInt(seatDef);
+      if (!count || count<1) continue;
+      for (let i=1;i<=count;i++) seatIds.push(String(i));
+    }
+
+    const rows = rowsFor(kind);
+    const existing = rows.find(r=>r.label===label);
+    const seats = seatIds.map(id => {
+      const ex = existing?.seats.find(s=>s.id===id);
+      return { id, name: ex?.name || null };
+    });
+    newRows.push({ label, rawDef: seatDef, align, seats });
+  }
+
+  if (kind === 'concert') state.concert.rows = newRows; else state.formation.rows = newRows;
+  closeModal();
+  renderRows(kind);
+  updateStats();
+}
+
+function isGapSeat(row, seatIdx) {
+  // A seat is a "gap" if it's unoccupied and there is at least one occupied seat
+  // both to its left and to its right in the same row
+  const seats = row.seats;
+  if (seats[seatIdx].name) return false;
+  let leftOcc = false, rightOcc = false;
+  for (let i=0; i<seatIdx; i++) if (seats[i].name) { leftOcc = true; break; }
+  for (let i=seatIdx+1; i<seats.length; i++) if (seats[i].name) { rightOcc = true; break; }
+  return leftOcc && rightOcc;
+}
+
+function attachSeatDropHandlers(containerId, kind) {
+  document.querySelectorAll(`#${containerId} .seat:not(.occupied)`).forEach(el => {
+    el.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('drop-hover'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-hover'));
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      el.classList.remove('drop-hover');
+      const name = e.dataTransfer.getData('text/plain');
+      if (!name) return;
+      unassignExclusive(name);
+      const rows = rowsFor(kind);
+      const row = rows.find(r=>r.label===el.dataset.row);
+      const seat = row?.seats.find(s=>s.id===el.dataset.seat);
+      if (seat) seat.name = name;
+      selectedName = null;
+      renderRows(kind); renderNames(); updateStats();
+    });
+  });
+}
+
+// ----- Concert (straight rows) -----
+function renderConcert() {
+  const hint = document.getElementById('concert-hint');
+  const layout = document.getElementById('concert-layout');
+  const grid = document.getElementById('seat-grid');
+
+  if (!state.concert.rows.length) {
+    hint.classList.remove('hidden');
+    layout.classList.add('hidden');
+    return;
+  }
+  hint.classList.add('hidden');
+  layout.classList.remove('hidden');
+
+  grid.innerHTML = state.concert.rows.map(row => {
+    const parts = []; // groups of seats separated by physical gaps
+    let currentGroup = [];
+    for (let idx = 0; idx < row.seats.length; idx++) {
+      const seat = row.seats[idx];
+      const prevSeat = row.seats[idx - 1];
+      if (idx > 0 && !isNaN(parseInt(seat.id)) && !isNaN(parseInt(prevSeat.id))) {
+        if (parseInt(seat.id) - parseInt(prevSeat.id) > 1) {
+          parts.push(currentGroup);
+          currentGroup = [];
+        }
+      }
+      currentGroup.push(seat);
+    }
+    parts.push(currentGroup);
+
+    const seatsHtml = parts.map((group, groupIdx) => {
+      const groupHtml = group.map((seat) => {
+        const rowIdx = row.seats.indexOf(seat);
+        const gapSeat = !seat.name && isGapSeat(row, rowIdx);
+        const cls = seat.name ? 'occupied' : (gapSeat ? 'gap' : '');
+        const tooltipText = seat.name
+          ? escHtml(seat.name)
+          : `Rad ${escHtml(row.label)} · Sete ${escHtml(seat.id)}${gapSeat?' (hull)':''}`;
+        const label = seat.name
+          ? `<span>${initials(seat.name)}</span>`
+          : `<span class="${gapSeat?'text-slate-400':'text-slate-300'} text-xs">${escHtml(seat.id)}</span>`;
+        return `<div class="seat ${cls}"
+                     data-row="${escAttr(row.label)}"
+                     data-seat="${escAttr(seat.id)}"
+                     onclick="seatClick('concert','${escJs(row.label)}','${escJs(seat.id)}')">
+          ${label}
+          <div class="tooltip">${tooltipText}</div>
+        </div>`;
+      }).join('');
+      const sep = groupIdx > 0
+        ? `<div class="flex items-center self-stretch mx-1" title="Fysisk opphold i raden">
+             <div style="width:6px;height:100%;background:repeating-linear-gradient(to bottom,#94a3b8 0,#94a3b8 3px,transparent 3px,transparent 7px);opacity:.5;border-radius:2px"></div>
+           </div>`
+        : '';
+      return sep + groupHtml;
+    }).join('');
+
+    const assigned = row.seats.filter(s=>s.name).length;
+    return `<div class="flex items-center gap-1">
+      <div class="w-10 text-right text-xs font-bold text-slate-500 shrink-0">${escHtml(row.label)}</div>
+      <div class="flex gap-1 flex-wrap items-center ml-1">${seatsHtml}</div>
+      <div class="text-xs text-slate-400 shrink-0 ml-2">${assigned}/${row.seats.length}</div>
+    </div>`;
+  }).join('');
+
+  attachSeatDropHandlers('seat-grid', 'concert');
+}
+
+// ----- Formation (half-circle rows) -----
+function renderFormation() {
+  const hint = document.getElementById('formation-hint');
+  const layout = document.getElementById('formation-layout');
+  const canvas = document.getElementById('formation-canvas');
+  const rows = state.formation.rows;
+
+  if (!rows.length) {
+    hint.classList.remove('hidden');
+    layout.classList.add('hidden');
+    return;
+  }
+  hint.classList.add('hidden');
+  layout.classList.remove('hidden');
+
+  const seatSize = 40;
+
+  // The conductor sits at the center of every row's circle (radius origin).
+  // Rows curve as a dome above the conductor, with radius growing per row
+  // so the formation fills the available width. Only the last row (back,
+  // e.g. percussion) is forced flat — a straight horizontal line.
+  const scrollEl = document.getElementById('formation-scroll');
+  const visibleWidth = scrollEl.clientWidth || 800;
+  const maxSeats = Math.max(1, ...rows.map(r=>r.seats.length));
+  // Never let seats get so cramped that touch targets overlap — grow the
+  // canvas (and let it scroll horizontally) instead of shrinking below this.
+  const MIN_SEAT_SPACING = 44;
+  const minRequiredWidth = seatSize + 48 + (maxSeats-1)*MIN_SEAT_SPACING;
+  const containerWidth = Math.max(visibleWidth, minRequiredWidth);
+  canvas.style.width = containerWidth + 'px';
+  document.getElementById('formation-scroll-hint').classList.toggle('hidden', containerWidth <= visibleWidth + 1);
+
+  const availableWidth = Math.max(200, containerWidth - seatSize - 48);
+  const halfWidthTotal = availableWidth/2;
+  const spacing = maxSeats > 1 ? availableWidth/(maxSeats-1) : 0; // linear spacing for the flat last row
+  const degPerSeat = maxSeats > 1 ? Math.min(9, Math.max(4, 170/(maxSeats-1))) : 8; // angular spacing for curved rows
+
+  const lastIdx = rows.length - 1;
+  const baseRadius = Math.max(60, halfWidthTotal * 0.32);
+  const rowGap = lastIdx > 0 ? (halfWidthTotal - baseRadius) / lastIdx : 0;
+
+  const canvasHeight = halfWidthTotal + 80;
+  const conductorY = canvasHeight - 46;
+
+  let html = '';
+  rows.forEach((row, r) => {
+    const radius = baseRadius + r*rowGap;
+    const N = row.seats.length;
+    const isLastRow = r === lastIdx;
+
+    if (isLastRow) {
+      // Flat horizontal row at the back
+      const rowWidth = (N-1)*spacing;
+      let leftX;
+      if (row.align === 'left') leftX = -halfWidthTotal;
+      else if (row.align === 'right') leftX = halfWidthTotal - rowWidth;
+      else leftX = -rowWidth/2;
+
+      row.seats.forEach((seat, i) => {
+        const x = N === 1 ? leftX : leftX + i*spacing;
+        const y = radius;
+        renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, h => html += h);
+      });
+
+      const lleft = `calc(50% + ${(leftX-34).toFixed(1)}px)`;
+      const ltop = `${(conductorY - radius - 8).toFixed(1)}px`;
+      html += `<div class="absolute text-xs font-bold text-slate-400" style="left:${lleft}; top:${ltop}; width:30px; text-align:right;">${escHtml(row.label)}</div>`;
+    } else {
+      // Concentric arc, dome-shaped, curving up and away from the conductor.
+      // Centered rows span the full 180° so both ends touch the same
+      // horizontal line that anchors the left/right-aligned rows.
+      let startAngle, stepDeg;
+      if (row.align === 'center') {
+        stepDeg = N > 1 ? 180/(N-1) : 0;
+        startAngle = 180;
+      } else {
+        stepDeg = degPerSeat;
+        const span = (N-1)*degPerSeat;
+        startAngle = row.align === 'left' ? 180 : span;
+      }
+
+      row.seats.forEach((seat, i) => {
+        const angleDeg = startAngle - i*stepDeg;
+        const angleRad = angleDeg * Math.PI/180;
+        const x = radius * Math.cos(angleRad);
+        const y = radius * Math.sin(angleRad);
+        renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, h => html += h);
+      });
+
+      const labelAngleRad = startAngle * Math.PI/180;
+      const lx = (radius+24) * Math.cos(labelAngleRad);
+      const ly = (radius+24) * Math.sin(labelAngleRad);
+      const lleft = `calc(50% + ${lx.toFixed(1)}px - 30px)`;
+      const ltop = `${(conductorY - ly - 8).toFixed(1)}px`;
+      html += `<div class="absolute text-xs font-bold text-slate-400" style="left:${lleft}; top:${ltop}; width:60px; text-align:center;">${escHtml(row.label)}</div>`;
+    }
+  });
+
+  html += `<div class="absolute text-xs text-slate-400 font-semibold tracking-widest uppercase" style="left:calc(50% - 40px); top:${conductorY+4}px; width:80px; text-align:center;">🎼 Dirigent</div>`;
+
+  canvas.style.height = canvasHeight + 'px';
+  canvas.innerHTML = html;
+
+  attachSeatDropHandlers('formation-canvas', 'formation');
+}
+
+function renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, append, showNames) {
+  const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
+  const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
+  const gapSeat = !seat.name && isGapSeat(row, i);
+  const cls = seat.name ? 'occupied' : (gapSeat ? 'gap' : '');
+  const tooltipText = seat.name
+    ? escHtml(seat.name)
+    : `Rad ${escHtml(row.label)} · Plass ${escHtml(seat.id)}${gapSeat?' (hull)':''}`;
+  const photo = seat.name && state.photos[seat.name];
+  const label = photo
+    ? `<img src="${photo}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;">`
+    : seat.name
+      ? `<span>${initials(seat.name)}</span>`
+      : `<span class="${gapSeat?'text-slate-400':'text-slate-300'} text-xs">${escHtml(seat.id)}</span>`;
+  append(`<div class="seat ${cls}" style="position:absolute; left:${left}; top:${top};"
+                data-row="${escAttr(row.label)}" data-seat="${escAttr(seat.id)}"
+                onclick="seatClick('formation','${escJs(row.label)}','${escJs(seat.id)}')">
+    ${label}
+    <div class="tooltip">${tooltipText}</div>
+  </div>`);
+
+  if (showNames && seat.name) {
+    const nameLeft = `calc(50% + ${(x-50).toFixed(1)}px)`;
+    const nameTop = `${(conductorY - y - seatSize/2 - 16).toFixed(1)}px`;
+    append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:100px; text-align:center; font-size:9px; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(seat.name)}</div>`);
+  }
+}
+
+function buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, localSpacing, append) {
+  const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
+  const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
+  const gapSeat = !seat.name && isGapSeat(row, i);
+  const cls = seat.name ? 'occupied' : (gapSeat ? 'gap' : '');
+  const photo = seat.name && state.photos[seat.name];
+  const innerLabel = photo
+    ? `<img src="${photo}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;">`
+    : seat.name
+      ? `<span>${initials(seat.name)}</span>`
+      : `<span class="${gapSeat?'text-slate-400':'text-slate-300'}">${escHtml(seat.id)}</span>`;
+  append(`<div class="seat ${cls}" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px; font-size:13px;">
+    ${innerLabel}
+  </div>`);
+
+  if (seat.name) {
+    // Keep the name label narrower than the gap to the neighbouring seat so
+    // labels never run into each other, shrinking the font when seats sit close.
+    const nameWidth = Math.max(34, Math.min(130, localSpacing - 6));
+    const fontSize = nameWidth < 55 ? 8 : nameWidth < 80 ? 10 : nameWidth < 105 ? 11.5 : 13;
+    const nameLeft = `calc(50% + ${(x-nameWidth/2).toFixed(1)}px)`;
+    const nameTop = `${(conductorY - y - seatSize/2 - (fontSize+9)).toFixed(1)}px`;
+    append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(seat.name)}</div>`);
+  }
+}
+
+// Builds the formation diagram geometry as a standalone snapshot (used for
+// preview/print): full landscape page width, larger boxes, and the full
+// name printed above each occupied seat so it stays readable on paper.
+function buildFormationPrintHtml() {
+  const rows = state.formation.rows;
+  const seatSize = 46;
+
+  // Base the geometry on the printable A4-landscape width so the diagram
+  // is generated at (near) the size it will actually appear on paper.
+  const pxPerMm = 96/25.4;
+  const pageMarginMm = 8;
+  const containerWidth = (297 - 2*pageMarginMm) * pxPerMm;
+
+  const availableWidth = Math.max(200, containerWidth - seatSize - 60);
+  const halfWidthTotal = availableWidth/2;
+  const maxSeats = Math.max(1, ...rows.map(r=>r.seats.length));
+  const spacing = maxSeats > 1 ? availableWidth/(maxSeats-1) : 0;
+  const degPerSeat = maxSeats > 1 ? Math.min(9, Math.max(4, 170/(maxSeats-1))) : 8;
+
+  const lastIdx = rows.length - 1;
+  const baseRadius = Math.max(70, halfWidthTotal * 0.32);
+  const rowGap = lastIdx > 0 ? (halfWidthTotal - baseRadius) / lastIdx : 0;
+
+  const canvasHeight = halfWidthTotal + 120; // extra room for name labels above seats
+  const conductorY = canvasHeight - 50;
+
+  let html = '';
+  rows.forEach((row, r) => {
+    const radius = baseRadius + r*rowGap;
+    const N = row.seats.length;
+    const isLastRow = r === lastIdx;
+
+    if (isLastRow) {
+      const rowWidth = (N-1)*spacing;
+      let leftX;
+      if (row.align === 'left') leftX = -halfWidthTotal;
+      else if (row.align === 'right') leftX = halfWidthTotal - rowWidth;
+      else leftX = -rowWidth/2;
+
+      row.seats.forEach((seat, i) => {
+        const x = N === 1 ? leftX : leftX + i*spacing;
+        const y = radius;
+        buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, spacing || 999, h => html += h);
+      });
+
+      const lleft = `calc(50% + ${(leftX-40).toFixed(1)}px)`;
+      const ltop = `${(conductorY - radius - 9).toFixed(1)}px`;
+      html += `<div class="absolute font-bold text-slate-500" style="font-size:13px; left:${lleft}; top:${ltop}; width:36px; text-align:right;">${escHtml(row.label)}</div>`;
+    } else {
+      let startAngle, stepDeg;
+      if (row.align === 'center') {
+        stepDeg = N > 1 ? 180/(N-1) : 0;
+        startAngle = 180;
+      } else {
+        stepDeg = degPerSeat;
+        const span = (N-1)*degPerSeat;
+        startAngle = row.align === 'left' ? 180 : span;
+      }
+
+      const localSpacing = N > 1 ? radius * stepDeg * (Math.PI/180) : 999;
+      row.seats.forEach((seat, i) => {
+        const angleDeg = startAngle - i*stepDeg;
+        const angleRad = angleDeg * Math.PI/180;
+        const x = radius * Math.cos(angleRad);
+        const y = radius * Math.sin(angleRad);
+        buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, localSpacing, h => html += h);
+      });
+
+      const labelAngleRad = startAngle * Math.PI/180;
+      const lx = (radius+28) * Math.cos(labelAngleRad);
+      const ly = (radius+28) * Math.sin(labelAngleRad);
+      const lleft = `calc(50% + ${lx.toFixed(1)}px - 35px)`;
+      const ltop = `${(conductorY - ly - 9).toFixed(1)}px`;
+      html += `<div class="absolute font-bold text-slate-500" style="font-size:13px; left:${lleft}; top:${ltop}; width:70px; text-align:center;">${escHtml(row.label)}</div>`;
+    }
+  });
+
+  html += `<div class="absolute font-semibold tracking-widest uppercase text-slate-500" style="font-size:13px; left:calc(50% - 45px); top:${conductorY+6}px; width:90px; text-align:center;">🎼 Dirigent</div>`;
+
+  return { html, width: containerWidth, height: canvasHeight };
+}
+
+function seatClick(kind, rowLabel, seatId) {
+  const rows = rowsFor(kind);
+  const row = rows.find(r=>r.label===rowLabel);
+  if (!row) return;
+  const seat = row.seats.find(s=>s.id===seatId);
+  if (!seat) return;
+
+  if (seat.name) {
+    showSeatOptions(kind, rowLabel, seatId, seat.name);
+  } else if (selectedName) {
+    unassignExclusive(selectedName);
+    seat.name = selectedName;
+    selectedName = null;
+    renderRows(kind); renderNames(); updateStats();
+  } else {
+    showAssignDialog(kind, rowLabel, seatId);
+  }
+}
+
+function showSeatOptions(kind, rowLabel, seatId, currentName) {
+  showModal(`
+    <h2 class="text-lg font-bold mb-3">${escHtml(rowLabel)}${escHtml(seatId)}</h2>
+    <p class="text-slate-600 mb-4">Tildelt: <strong>${escHtml(currentName)}</strong></p>
+    <div class="flex flex-col gap-2">
+      <button onclick="closeModal(); showAssignDialog('${kind}','${escJs(rowLabel)}','${escJs(seatId)}')" class="btn btn-secondary">🔄 Tildel på nytt</button>
+      <button onclick="removeSeatAssignment('${kind}','${escJs(rowLabel)}','${escJs(seatId)}'); closeModal()" class="btn btn-danger">✕ Fjern tildeling</button>
+      <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
+    </div>
+  `);
+}
+
+function removeSeatAssignment(kind, rowLabel, seatId) {
+  const rows = rowsFor(kind);
+  const row = rows.find(r=>r.label===rowLabel);
+  const seat = row?.seats.find(s=>s.id===seatId);
+  if (seat) seat.name = null;
+  renderRows(kind); renderNames(); updateStats();
+}
+
+function showAssignDialog(kind, rowLabel, seatId) {
+  const unassigned = state.names.filter(n => !getExclusiveAssignedNames().has(n));
+  const listHtml = unassigned.map(n =>
+    `<div class="name-item" data-name="${escAttr(n)}">${escHtml(n)}</div>`
+  ).join('');
+
+  showModal(`
+    <h2 class="text-lg font-bold mb-3">Tildel ${escHtml(rowLabel)}${escHtml(seatId)}</h2>
+    <input type="text" id="assign-search" placeholder="Søk navn..."
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2 focus:border-indigo-400"
+      oninput="filterList('assign-search','assign-list')">
+    <div id="assign-list" class="max-h-64 overflow-y-auto flex flex-col gap-1">${listHtml}</div>
+    <div class="mt-3 flex justify-end"><button onclick="closeModal()" class="btn btn-secondary">Avbryt</button></div>
+  `);
+
+  document.querySelectorAll('#assign-list .name-item').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => doAssignSeat(kind, rowLabel, seatId, el.dataset.name));
+  });
+
+  setTimeout(() => {
+    const inp = document.getElementById('assign-search');
+    if (!inp) return;
+    inp.focus();
+    inp.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const first = document.querySelector('#assign-list .name-item:not([style*="none"])');
+      if (!first) return;
+      doAssignSeat(kind, rowLabel, seatId, first.dataset.name);
+      setupTabNext(kind, rowLabel, seatId);
+    });
+  }, 50);
+}
+
+function doAssignSeat(kind, rowLabel, seatId, name) {
+  const rows = rowsFor(kind);
+  const row = rows.find(r=>r.label===rowLabel);
+  const seat = row?.seats.find(s=>s.id===seatId);
+  if (!seat) return;
+  unassignExclusive(name);
+  seat.name = name;
+  closeModal();
+  renderRows(kind); renderNames(); updateStats();
+}
+
+// ===================== TAB → NEXT EMPTY =====================
+function setupTabNext(kind, lastRow, lastSeatId) {
+  clearTabNext();
+  tabNextHandler = (e) => {
+    if (e.key !== 'Tab') return;
+    e.preventDefault();
+    clearTabNext();
+    openNextEmpty(kind, lastRow, lastSeatId);
+  };
+  document.addEventListener('keydown', tabNextHandler);
+  setTimeout(() => document.addEventListener('click', clearTabNext, { once: true }), 100);
+}
+
+function clearTabNext() {
+  if (tabNextHandler) {
+    document.removeEventListener('keydown', tabNextHandler);
+    tabNextHandler = null;
+  }
+}
+
+function openNextEmpty(kind, lastRow, lastSeatId) {
+  if (kind === 'concert' || kind === 'formation') {
+    const rows = rowsFor(kind);
+    let passed = false;
+    for (const row of rows) {
+      for (const seat of row.seats) {
+        if (row.label === lastRow && seat.id === lastSeatId) { passed = true; continue; }
+        if (passed && !seat.name) { showAssignDialog(kind, row.label, seat.id); return; }
+      }
+    }
+  } else {
+    const groups = groupsFor(kind);
+    let passed = false;
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi];
+      if (gi === lastRow) {
+        passed = true;
+        if (g.occupants.length < g.capacity) { showGroupAssignDialog(kind, gi); return; }
+        continue;
+      }
+      if (passed && g.occupants.length < g.capacity) { showGroupAssignDialog(kind, gi); return; }
+    }
+  }
+}
+
+function filterList(inputId, listId) {
+  const q = document.getElementById(inputId).value.toLowerCase();
+  document.querySelectorAll(`#${listId} .name-item`).forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+// ===================== GROUP-BASED (room + shift) =====================
+function groupsFor(kind) { return kind === 'room' ? state.rooms : state.shifts; }
+function renderGroups(kind) {
+  const L = GROUP_LABELS[kind];
+  const groups = groupsFor(kind);
+  const hint = document.getElementById(kind+'-hint');
+  const grid = document.getElementById(kind+'-grid');
+
+  if (!groups.length) {
+    hint.classList.remove('hidden');
+    grid.classList.add('hidden');
+    return;
+  }
+  hint.classList.add('hidden');
+  grid.classList.remove('hidden');
+
+  // Total shift count per person, used to show a "x vakter" badge (shift mode only)
+  let shiftCounts = null;
+  if (kind === 'shift') {
+    shiftCounts = new Map();
+    groups.forEach(g => g.occupants.forEach(n => shiftCounts.set(n, (shiftCounts.get(n)||0)+1)));
+  }
+
+  grid.innerHTML = groups.map((g, gi) => {
+    const slots = [];
+    for (let i=0; i<g.capacity; i++) {
+      const occ = g.occupants[i] || null;
+      const countBadge = (occ && shiftCounts && shiftCounts.get(occ) > 1)
+        ? `<span class="text-xs font-semibold text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5 ml-1.5" title="${shiftCounts.get(occ)} vakter totalt">${shiftCounts.get(occ)}×</span>`
+        : '';
+      slots.push(`
+        <div class="room-slot ${occ?'filled':''}" data-kind="${kind}" data-group-idx="${gi}" data-slot="${i}">
+          ${occ
+            ? `<span class="flex items-center"><span class="font-medium text-emerald-800">${escHtml(occ)}</span>${countBadge}</span>
+               <button class="remove-occ text-red-400 hover:text-red-600 ml-2 text-lg leading-none" data-kind="${kind}" data-group-idx="${gi}" data-idx="${i}">✕</button>`
+            : `<span class="text-slate-400 text-sm">${L.slot} ${i+1} — ledig</span>`}
+        </div>`);
+    }
+    const pct = Math.round(g.occupants.length/g.capacity*100);
+    return `
+      <div class="room-card">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-bold text-slate-800">${L.group} ${escHtml(g.label)}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+            ${g.occupants.length>=g.capacity?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}">
+            ${g.occupants.length}/${g.capacity}
+          </span>
+        </div>
+        <div class="w-full h-1.5 bg-slate-100 rounded-full mb-3">
+          <div class="h-full rounded-full ${pct>=100?'bg-red-400':'bg-indigo-400'}" style="width:${pct}%"></div>
+        </div>
+        <div class="flex flex-col gap-1.5">${slots.join('')}</div>
+      </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.room-slot').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.remove-occ')) return;
+      groupSlotClick(el.dataset.kind, parseInt(el.dataset.groupIdx), parseInt(el.dataset.slot));
+    });
+  });
+  grid.querySelectorAll('.remove-occ').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      removeGroupOccupant(el.dataset.kind, parseInt(el.dataset.groupIdx), parseInt(el.dataset.idx));
+    });
+  });
+  grid.querySelectorAll('.room-slot:not(.filled)').forEach(el => {
+    el.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('drop-hover'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-hover'));
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      el.classList.remove('drop-hover');
+      const name = e.dataTransfer.getData('text/plain');
+      if (!name) return;
+      const groups2 = groupsFor(el.dataset.kind);
+      const g = groups2[parseInt(el.dataset.groupIdx)];
+      if (!g || g.occupants.length >= g.capacity || g.occupants.includes(name)) return;
+      if (el.dataset.kind === 'shift') {
+        // Shifts are non-exclusive: keep any other assignments this person already has
+      } else {
+        unassignExclusive(name);
+      }
+      g.occupants.push(name);
+      selectedName = null;
+      renderGroups(el.dataset.kind); renderNames(); updateStats();
+    });
+  });
+}
+
+function showGroupSetupModal(kind) {
+  const L = GROUP_LABELS[kind];
+  const groups = groupsFor(kind);
+  const existing = groups.map(g=>`${g.label}:${g.capacity}`).join('\n');
+  const inputId = kind+'-setup-input';
+  const placeholder = kind === 'room'
+    ? '101:2\n102:2\n103:3\n104:4'
+    : 'Innsjekk kl 10-12:4\nScene kl 14-16:3\nRydding kl 22-23:6';
+
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">Sett opp ${kind==='room'?'rom':'vaktlister'}</h2>
+    <p class="text-sm text-slate-500 mb-3">Én ${kind==='room'?'rad':'vakt'} per linje: <code class="bg-slate-100 px-1 rounded">${L.group}navn:Antall plasser</code><br>
+    F.eks: <code class="bg-slate-100 px-1 rounded">${kind==='room'?'101:2':'Kiosk kl 12-14:3'}</code></p>
+    <textarea id="${inputId}" class="w-full h-48 border border-slate-200 rounded-lg p-3 text-sm font-mono focus:border-indigo-400"
+      placeholder="${placeholder.replace(/\n/g,'&#10;')}">${existing}</textarea>
+    <div class="mt-3 flex gap-2 justify-between">
+      <button onclick="importGroupsFromGSheetsModal('${kind}')" class="btn btn-secondary">📗 Importer fra Google Sheets</button>
+      <div class="flex gap-2">
+        <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
+        <button onclick="applyGroupSetup('${kind}')" class="btn btn-primary">Bruk</button>
+      </div>
+    </div>
+  `);
+}
+
+function applyGroupSetup(kind) {
+  const inputId = kind+'-setup-input';
+  const raw = document.getElementById(inputId).value;
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const newGroups = [];
+  for (const line of lines) {
+    const colonIdx = line.lastIndexOf(':');
+    if (colonIdx < 0) continue;
+    const label = line.slice(0, colonIdx).trim();
+    const capacity = parseInt(line.slice(colonIdx+1));
+    if (!label || !capacity || capacity<1) continue;
+    const groups = groupsFor(kind);
+    const existing = groups.find(g=>g.label===label);
+    newGroups.push({ id: label.replace(/\s/g,'_'), label, capacity, occupants: existing?.occupants.slice(0,capacity)||[] });
+  }
+  if (kind === 'room') state.rooms = newGroups; else state.shifts = newGroups;
+  closeModal();
+  renderGroups(kind); updateStats();
+}
+
+function groupSlotClick(kind, groupIdx, slotIdx) {
+  const groups = groupsFor(kind);
+  const g = groups[groupIdx];
+  if (!g) return;
+  if (g.occupants[slotIdx]) return;
+
+  if (selectedName) {
+    if (g.occupants.includes(selectedName)) { selectedName = null; renderNames(); return; }
+    if (kind !== 'shift') unassignExclusive(selectedName);
+    g.occupants.push(selectedName);
+    selectedName = null;
+    renderGroups(kind); renderNames(); updateStats();
+  } else {
+    showGroupAssignDialog(kind, groupIdx);
+  }
+}
+
+function removeGroupOccupant(kind, groupIdx, idx) {
+  const groups = groupsFor(kind);
+  const g = groups[groupIdx];
+  if (!g) return;
+  g.occupants.splice(idx, 1);
+  renderGroups(kind); renderNames(); updateStats();
+}
+
+function showGroupAssignDialog(kind, groupIdx) {
+  const L = GROUP_LABELS[kind];
+  const g = groupsFor(kind)[groupIdx];
+  if (!g) return;
+  // Shifts only need to avoid double-booking the SAME shift; everything else
+  // (concert/formation/room) stays mutually exclusive as before.
+  const unassigned = kind === 'shift'
+    ? state.names.filter(n => !g.occupants.includes(n))
+    : state.names.filter(n => !getExclusiveAssignedNames().has(n));
+  const listHtml = unassigned.map(n =>
+    `<div class="name-item" data-name="${escAttr(n)}">${escHtml(n)}</div>`
+  ).join('');
+
+  showModal(`
+    <h2 class="text-lg font-bold mb-3">Tildel til ${L.group.toLowerCase()} ${escHtml(g.label)}</h2>
+    <input type="text" id="group-assign-search" placeholder="Søk navn..."
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2 focus:border-indigo-400"
+      oninput="filterList('group-assign-search','group-assign-list')">
+    <div id="group-assign-list" class="max-h-64 overflow-y-auto flex flex-col gap-1">${listHtml}</div>
+    <div class="mt-3 flex justify-end"><button onclick="closeModal()" class="btn btn-secondary">Avbryt</button></div>
+  `);
+
+  document.querySelectorAll('#group-assign-list .name-item').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => doAssignGroup(kind, groupIdx, el.dataset.name));
+  });
+
+  setTimeout(() => {
+    const inp = document.getElementById('group-assign-search');
+    if (!inp) return;
+    inp.focus();
+    inp.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const first = document.querySelector('#group-assign-list .name-item:not([style*="none"])');
+      if (!first) return;
+      doAssignGroup(kind, groupIdx, first.dataset.name);
+      setupTabNext(kind, groupIdx, null);
+    });
+  }, 50);
+}
+
+function doAssignGroup(kind, groupIdx, name) {
+  const groups = groupsFor(kind);
+  const g = groups[groupIdx];
+  if (!g || g.occupants.includes(name)) { closeModal(); return; }
+  if (g.occupants.length >= g.capacity) {
+    closeModal();
+    alert('Fullt!');
+    return;
+  }
+  if (kind !== 'shift') unassignExclusive(name);
+  g.occupants.push(name);
+  closeModal();
+  renderGroups(kind); renderNames(); updateStats();
+}
+
+// ===================== STATS =====================
+function updateStats() {
+  const el = document.getElementById('stats');
+  const assigned = getAssignedNames().size;
+  const total = state.names.length;
+  let extra;
+  if (state.mode === 'concert' || state.mode === 'formation') {
+    const rows = rowsFor(state.mode);
+    const totalSeats = rows.reduce((s,r)=>s+r.seats.length,0);
+    const occupied = rows.reduce((s,r)=>s+r.seats.filter(se=>se.name).length,0);
+    extra = `Plasser: <b>${occupied}/${totalSeats}</b>`;
+  } else {
+    const groups = groupsFor(state.mode);
+    const totalCap = groups.reduce((s,g)=>s+g.capacity,0);
+    const occupied = groups.reduce((s,g)=>s+g.occupants.length,0);
+    extra = `Plasser: <b>${occupied}/${totalCap}</b>`;
+  }
+  el.innerHTML = `Navn: <b>${assigned}/${total}</b> plassert &nbsp;·&nbsp; ${extra}`;
+}
+
+// ===================== CLEAR =====================
+function clearAssignments() {
+  if (!confirm('Fjerne alle tildelinger?')) return;
+  state.concert.rows.forEach(r=>r.seats.forEach(s=>s.name=null));
+  state.formation.rows.forEach(r=>r.seats.forEach(s=>s.name=null));
+  state.rooms.forEach(r=>r.occupants=[]);
+  state.shifts.forEach(r=>r.occupants=[]);
+  selectedName = null;
+  render();
+}
+
+// ===================== RENDER =====================
+function render() {
+  parseNames();
+  renderConcert();
+  renderFormation();
+  renderGroups('room');
+  renderGroups('shift');
+  setMode(state.mode);
+  updateStats();
+}
+
+// ===================== IMPORT NAMES =====================
+function showImportNames() {
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">Importer navn</h2>
+    <div class="flex flex-col gap-3">
+      <div>
+        <label class="text-sm font-medium text-slate-700 mb-1 block">Lim inn fra Excel/regneark</label>
+        <textarea id="paste-names" class="w-full h-32 border border-slate-200 rounded-lg p-2 text-sm"
+          placeholder="Lim inn én kolonne med navn her..."></textarea>
+        <button onclick="applyPastedNames()" class="btn btn-primary mt-2 text-sm">Bruk innlimte navn</button>
+      </div>
+      <hr class="border-slate-200">
+      <div>
+        <label class="text-sm font-medium text-slate-700 mb-1 block">Importer fra Google Sheets</label>
+        <p class="text-xs text-slate-400 mb-2">Arket må publiseres: Fil → Del → Publiser på nettet → CSV</p>
+        <input type="text" id="gsheet-url" placeholder="https://docs.google.com/spreadsheets/d/..."
+          class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+        <div class="text-xs text-slate-400 mt-1">
+          Kolonne: <input type="text" id="gsheet-col" value="A" class="w-12 border border-slate-200 rounded px-1">
+          Rad start: <input type="number" id="gsheet-row" value="1" class="w-14 border border-slate-200 rounded px-1">
+        </div>
+        <button onclick="importNamesFromGSheets()" class="btn btn-primary mt-2 text-sm">📗 Hent navn</button>
+      </div>
+    </div>
+    <div class="mt-4 flex justify-end"><button onclick="closeModal()" class="btn btn-secondary">Lukk</button></div>
+  `);
+}
+
+function applyPastedNames() {
+  const text = document.getElementById('paste-names').value;
+  const names = text.split(/[\n\t]/).map(n=>n.trim()).filter(Boolean);
+  const existing = document.getElementById('name-input').value.trim();
+  document.getElementById('name-input').value = existing ? existing+'\n'+names.join('\n') : names.join('\n');
+  parseNames();
+  closeModal();
+}
+
+async function importNamesFromGSheets() {
+  const url = document.getElementById('gsheet-url').value.trim();
+  const col = document.getElementById('gsheet-col').value || 'A';
+  const startRow = parseInt(document.getElementById('gsheet-row').value) || 1;
+  const csvUrl = gSheetToCsvUrl(url);
+  if (!csvUrl) { alert('Ugyldig URL.'); return; }
+  try {
+    const resp = await fetch(csvUrl);
+    const text = await resp.text();
+    const rows = parseCsvRows(text);
+    const colIdx = colToIdx(col);
+    const names = rows.slice(startRow-1).map(r=>(r[colIdx]||'').trim()).filter(Boolean);
+    const existing = document.getElementById('name-input').value.trim();
+    document.getElementById('name-input').value = existing ? existing+'\n'+names.join('\n') : names.join('\n');
+    parseNames();
+    closeModal();
+  } catch(e) {
+    alert('Kunne ikke hente data. Kontroller at arket er publisert.');
+  }
+}
+
+function colToIdx(col) {
+  col = (col || 'A').toUpperCase().trim();
+  let idx = 0;
+  for (let i = 0; i < col.length; i++) idx = idx * 26 + (col.charCodeAt(i) - 64);
+  return idx - 1; // 0-based
+}
+
+function gSheetToCsvUrl(url, gid) {
+  const m = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!m) return null;
+  return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv${gid?'&gid='+gid:''}`;
+}
+
+function parseCsvRows(text) {
+  return text.split('\n').map(line => {
+    const cells = [];
+    let cur = '', inQ = false;
+    for (let i=0; i<line.length; i++) {
+      if (line[i]==='"') { inQ=!inQ; }
+      else if (line[i]===',' && !inQ) { cells.push(cur); cur=''; }
+      else { cur+=line[i]; }
+    }
+    cells.push(cur);
+    return cells;
+  });
+}
+
+function colInput(id, label, defaultVal) {
+  return `<div class="flex flex-col gap-0.5">
+    <label class="text-xs text-slate-500">${label}</label>
+    <input type="text" id="${id}" value="${defaultVal}"
+      class="w-14 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center font-mono uppercase focus:border-indigo-400"
+      oninput="this.value=this.value.toUpperCase()">
+  </div>`;
+}
+
+// ----- Import rows (concert / formation) from Google Sheets -----
+function importRowsFromGSheetsModal(kind) {
+  const title = kind === 'concert' ? 'Importer salfordeling' : 'Importer korpsoppstilling';
+  const col3 = kind === 'formation' ? colInput('gimp-col3','Justering v/h/s (valgfri)','C') : '';
+  showModal(`
+    <h2 class="text-lg font-bold mb-1">${title} fra Google Sheets</h2>
+    <p class="text-xs text-slate-500 mb-3">Velg kolonner for radnavn og antall/plasser${kind==='formation'?' (og evt. justering)':''}</p>
+    <input type="text" id="gimp-url" placeholder="Google Sheets URL"
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:border-indigo-400">
+    <div class="flex gap-3 mb-3 flex-wrap">
+      ${colInput('gimp-col1','Radnavn (kol.)','A')}
+      ${colInput('gimp-col2','Antall/plasser (kol.)','B')}
+      ${col3}
+      <div class="flex flex-col gap-0.5">
+        <label class="text-xs text-slate-500">Fra rad nr.</label>
+        <input type="number" id="gimp-startrow" value="1" min="1"
+          class="w-14 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:border-indigo-400">
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="doImportRowsFromGSheets('${kind}')" class="btn btn-primary">Importer</button>
+      <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
+    </div>
+  `);
+}
+
+async function doImportRowsFromGSheets(kind) {
+  const url = document.getElementById('gimp-url').value.trim();
+  const col1 = document.getElementById('gimp-col1').value || 'A';
+  const col2 = document.getElementById('gimp-col2').value || 'B';
+  const col3el = document.getElementById('gimp-col3');
+  const col3 = col3el ? (col3el.value || '') : '';
+  const startRow = parseInt(document.getElementById('gimp-startrow').value) || 1;
+  const csvUrl = gSheetToCsvUrl(url);
+  if (!csvUrl) { alert('Ugyldig URL'); return; }
+  try {
+    const resp = await fetch(csvUrl);
+    const text = await resp.text();
+    const rows = parseCsvRows(text).slice(startRow - 1);
+    const idx1 = colToIdx(col1), idx2 = colToIdx(col2);
+    const idx3 = col3 ? colToIdx(col3) : null;
+    const lines = rows
+      .filter(r => (r[idx1]||'').trim() && (r[idx2]||'').trim())
+      .map(r => {
+        let line = `${r[idx1].trim()}:${r[idx2].trim()}`;
+        if (idx3 !== null && (r[idx3]||'').trim()) line += `:${r[idx3].trim()}`;
+        return line;
+      });
+    const inputId = kind === 'concert' ? 'setup-input' : 'formation-setup-input';
+    document.getElementById(inputId).value = lines.join('\n');
+    closeModal();
+    showRowSetupModal(kind);
+  } catch(e) { alert('Kunne ikke hente data.'); }
+}
+
+// ----- Import groups (room / shift) from Google Sheets -----
+function importGroupsFromGSheetsModal(kind) {
+  showModal(`
+    <h2 class="text-lg font-bold mb-1">Importer ${kind==='room'?'rom':'vaktliste'} fra Google Sheets</h2>
+    <p class="text-xs text-slate-500 mb-3">Velg kolonner for navn og kapasitet</p>
+    <input type="text" id="gimp-url" placeholder="Google Sheets URL"
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:border-indigo-400">
+    <div class="flex gap-3 mb-3 flex-wrap">
+      ${colInput('gimp-col1', kind==='room'?'Romnavn (kol.)':'Vaktnavn (kol.)','A')}
+      ${colInput('gimp-col2','Kapasitet (kol.)','B')}
+      <div class="flex flex-col gap-0.5">
+        <label class="text-xs text-slate-500">Fra rad nr.</label>
+        <input type="number" id="gimp-startrow" value="1" min="1"
+          class="w-14 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:border-indigo-400">
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="doImportGroupsFromGSheets('${kind}')" class="btn btn-primary">Importer</button>
+      <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
+    </div>
+  `);
+}
+
+async function doImportGroupsFromGSheets(kind) {
+  const url = document.getElementById('gimp-url').value.trim();
+  const col1 = document.getElementById('gimp-col1').value || 'A';
+  const col2 = document.getElementById('gimp-col2').value || 'B';
+  const startRow = parseInt(document.getElementById('gimp-startrow').value) || 1;
+  const csvUrl = gSheetToCsvUrl(url);
+  if (!csvUrl) { alert('Ugyldig URL'); return; }
+  try {
+    const resp = await fetch(csvUrl);
+    const text = await resp.text();
+    const rows = parseCsvRows(text).slice(startRow - 1);
+    const idx1 = colToIdx(col1), idx2 = colToIdx(col2);
+    const lines = rows
+      .filter(r => (r[idx1]||'').trim() && (r[idx2]||'').trim())
+      .map(r => `${r[idx1].trim()}:${r[idx2].trim()}`);
+    const inputId = kind+'-setup-input';
+    document.getElementById(inputId).value = lines.join('\n');
+    closeModal();
+    showGroupSetupModal(kind);
+  } catch(e) { alert('Kunne ikke hente data.'); }
+}
+
+// ===================== SAVE / LOAD =====================
+function saveToFile() {
+  const defaultName = `fordeling-${new Date().toISOString().slice(0,10)}`;
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">Lagre prosjekt</h2>
+    <p class="text-sm text-slate-500 mb-3">Filen inkluderer navn, fordelinger og opplastede bilder.</p>
+    <label class="text-xs font-medium text-slate-600 mb-1 block">Filnavn</label>
+    <div class="flex items-center gap-1 mb-4">
+      <input type="text" id="save-filename" value="${escAttr(defaultName)}"
+        class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-400">
+      <span class="text-sm text-slate-400">.json</span>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
+      <button onclick="doSaveToFile()" class="btn btn-primary">💾 Last ned</button>
+    </div>
+  `);
+  setTimeout(() => {
+    const inp = document.getElementById('save-filename');
+    if (!inp) return;
+    inp.focus();
+    inp.select();
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') doSaveToFile(); });
+  }, 50);
+}
+
+function doSaveToFile() {
+  const raw = document.getElementById('save-filename').value.trim();
+  const safeName = (raw || `fordeling-${new Date().toISOString().slice(0,10)}`)
+    .replace(/[\\/:*?"<>|]/g, '-');
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${safeName}.json`;
+  a.click();
+  closeModal();
+}
+
+function loadFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const loaded = JSON.parse(e.target.result);
+      state = Object.assign({ formation: { rows: [] }, shifts: [], photos: {} }, loaded);
+      document.getElementById('name-input').value = state.names.join('\n');
+      render();
+    } catch(err) { alert('Ugyldig fil.'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ===================== PDF PREVIEW =====================
+function buildPdfHtml() {
+  const date = new Date().toLocaleDateString('no-NO', {day:'2-digit',month:'long',year:'numeric'});
+  let body = '';
+  const assignedSet = getAssignedNames();
+  const unassigned = state.names.filter(n=>!assignedSet.has(n));
+
+  if (state.mode === 'concert' || state.mode === 'formation') {
+    const rows = rowsFor(state.mode);
+    const title = state.mode === 'concert' ? 'Billettfordeling konserter' : 'Korpsoppsett';
+    body += `<h1>${title}</h1><div class="subtitle">Generert ${date}</div>`;
+    rows.forEach(row => {
+      const occupied = row.seats.filter(s=>s.name);
+      body += `<div class="group">
+        <div class="group-title">Rad ${escHtml(row.label)} &nbsp;·&nbsp; ${occupied.length} av ${row.seats.length} plasser tildelt</div>
+        <table>
+          <colgroup><col class="col-seat"><col class="col-name"></colgroup>
+          <tr><th>Plass</th><th>Navn</th></tr>
+          ${row.seats.map(s => `<tr><td>${escHtml(s.id)}</td><td class="${s.name?'':'empty'}">${escHtml(s.name||'—')}</td></tr>`).join('')}
+        </table>
+      </div>`;
+    });
+  } else {
+    const L = GROUP_LABELS[state.mode];
+    const groups = groupsFor(state.mode);
+    const title = state.mode === 'room' ? 'Romfordeling' : 'Vaktlister';
+    body += `<h1>${title}</h1><div class="subtitle">Generert ${date}</div>`;
+    groups.forEach(g => {
+      body += `<div class="group">
+        <div class="group-title">${L.group} ${escHtml(g.label)} &nbsp;·&nbsp; ${g.occupants.length} av ${g.capacity} plasser</div>
+        <table>
+          <colgroup><col class="col-seat"><col class="col-name"></colgroup>
+          <tr><th>${L.slot}</th><th>Navn</th></tr>
+          ${Array.from({length:g.capacity},(_,i)=>`<tr><td>${i+1}</td><td class="${g.occupants[i]?'':'empty'}">${escHtml(g.occupants[i]||'—')}</td></tr>`).join('')}
+        </table>
+      </div>`;
+    });
+  }
+
+  if (unassigned.length) {
+    body += `<div class="group">
+      <div class="group-title" style="border-left-color:#ef4444">Ikke plassert (${unassigned.length})</div>
+      <table><tr><th>Navn</th></tr>${unassigned.map(n=>`<tr><td>${escHtml(n)}</td></tr>`).join('')}</table>
+    </div>`;
+  }
+  return `<div class="pdf-preview">${body}</div>`;
+}
+
+function showPDFPreview() {
+  const previewHtml = buildPdfHtml();
+  showModal(`
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold">Forhåndsvisning</h2>
+      <div class="flex gap-2">
+        <button onclick="doPrint()" class="btn btn-primary">🖨️ Skriv ut / Lagre PDF</button>
+        <button onclick="closeModal()" class="btn btn-secondary">Lukk</button>
+      </div>
+    </div>
+    <div class="border border-slate-200 rounded-lg p-6 bg-white overflow-auto" style="max-height:65vh">
+      ${previewHtml}
+    </div>
+  `, true);
+}
+
+function doPrint() {
+  document.getElementById('print-area').innerHTML = `
+    <style>
+      body{font-family:sans-serif;font-size:12px;color:#1e293b}
+      .pdf-preview h1{font-size:20px;font-weight:700;margin-bottom:2px}
+      .subtitle{font-size:11px;color:#64748b;margin-bottom:16px}
+      .group{margin-bottom:18px;break-inside:avoid;page-break-inside:avoid}
+      .group-title{font-size:13px;font-weight:700;background:#f1f5f9;padding:4px 10px;border-radius:4px;margin-bottom:6px;border-left:4px solid #4f46e5}
+      table{border-collapse:collapse;width:100%;table-layout:fixed}
+      th{background:#f8fafc;font-weight:600;font-size:10px;text-transform:uppercase;color:#64748b;letter-spacing:.05em}
+      th,td{border:1px solid #e2e8f0;padding:4px 9px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      td.empty{color:#94a3b8}
+      .col-seat{width:70px}
+    </style>
+    ${buildPdfHtml()}
+  `;
+  closeModal();
+  setTimeout(() => window.print(), 100);
+}
+
+// ===================== FORMATION DIAGRAM PREVIEW/PRINT =====================
+function showFormationDiagramPreview() {
+  if (!state.formation.rows.length) { alert('Sett opp en korpsoppstilling først.'); return; }
+  const { html, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml();
+
+  // Mirror the A4-landscape print area so what you see is what you get
+  const boxWidth = Math.min(window.innerWidth * 0.84, 1180);
+  const boxHeight = boxWidth * (210/297) - 40; // A4 landscape ratio, minus a small title allowance
+  const scale = Math.min(boxWidth/diagramWidth, boxHeight/diagramHeight);
+  const scaledWidth = diagramWidth*scale;
+  const scaledHeight = diagramHeight*scale;
+
+  const snapshot = `
+    <div style="width:${scaledWidth.toFixed(1)}px; height:${scaledHeight.toFixed(1)}px; overflow:hidden;">
+      <div style="position:relative; width:${diagramWidth}px; height:${diagramHeight}px; transform:scale(${scale.toFixed(4)}); transform-origin: top left;">
+        ${html}
+      </div>
+    </div>`;
+
+  showModal(`
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold">Forhåndsvisning – oppstilling</h2>
+      <div class="flex gap-2">
+        <button onclick="doPrintFormationDiagram()" class="btn btn-primary">🖨️ Skriv ut / Lagre PDF</button>
+        <button onclick="closeModal()" class="btn btn-secondary">Lukk</button>
+      </div>
+    </div>
+    <div class="border border-slate-200 rounded-lg p-6 bg-white" style="width:${(boxWidth+20).toFixed(0)}px; max-width:88vw;">
+      <h1 class="text-lg font-bold mb-1">Korpsoppsett</h1>
+      <div class="text-xs text-slate-500 mb-3">Generert ${new Date().toLocaleDateString('no-NO', {day:'2-digit',month:'long',year:'numeric'})} · liggende A4</div>
+      ${snapshot}
+    </div>
+  `, true, boxWidth+60);
+}
+
+function doPrintFormationDiagram() {
+  const date = new Date().toLocaleDateString('no-NO', {day:'2-digit',month:'long',year:'numeric'});
+  const { html, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml();
+
+  // A4 landscape printable area at 96dpi, minus page margins and a compact title row
+  const pxPerMm = 96/25.4;
+  const pageMarginMm = 8;
+  const pageWidthPx = (297 - 2*pageMarginMm) * pxPerMm;
+  const pageHeightPx = (210 - 2*pageMarginMm) * pxPerMm - 34; // 34px reserved for a compact title row
+
+  const scale = Math.min(pageWidthPx/diagramWidth, pageHeightPx/diagramHeight);
+  const scaledWidth = diagramWidth*scale;
+  const scaledHeight = diagramHeight*scale;
+
+  document.getElementById('print-area').innerHTML = `
+    <style>
+      @page { size: A4 landscape; margin: ${pageMarginMm}mm; }
+      body{font-family:sans-serif;font-size:12px;color:#1e293b}
+      .titlebar{display:flex; align-items:baseline; gap:10px; margin-bottom:6px}
+      h1{font-size:15px;font-weight:700;margin:0}
+      .subtitle{font-size:10px;color:#64748b;margin:0}
+    </style>
+    <div class="titlebar">
+      <h1>Korpsoppsett</h1>
+      <div class="subtitle">Generert ${date}</div>
+    </div>
+    <div style="width:${scaledWidth.toFixed(1)}px; height:${scaledHeight.toFixed(1)}px; overflow:hidden;">
+      <div style="position:relative; width:${diagramWidth}px; height:${diagramHeight}px; transform:scale(${scale.toFixed(4)}); transform-origin: top left;">
+        ${html}
+      </div>
+    </div>
+  `;
+  closeModal();
+  setTimeout(() => window.print(), 100);
+}
+
+// ===================== EXPORT CSV =====================
+function exportCSV() {
+  let csv = '';
+  if (state.mode === 'concert' || state.mode === 'formation') {
+    csv = 'Rad,Plass,Navn\n';
+    rowsFor(state.mode).forEach(r => r.seats.forEach(s => {
+      csv += `"${r.label}","${s.id}","${(s.name||'').replace(/"/g,'""')}"\n`;
+    }));
+  } else {
+    const L = GROUP_LABELS[state.mode];
+    csv = `${L.group},Kapasitet,${L.slot},Navn\n`;
+    groupsFor(state.mode).forEach(g => {
+      for (let i=0;i<g.capacity;i++) {
+        csv += `"${g.label}","${g.capacity}","${i+1}","${(g.occupants[i]||'').replace(/"/g,'""')}"\n`;
+      }
+    });
+  }
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `fordeling-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ===================== GOOGLE SHEETS EXPORT =====================
+function showGSheetsExport() {
+  let csv = '';
+  if (state.mode === 'concert' || state.mode === 'formation') {
+    csv = 'Rad,Plass,Navn\n';
+    rowsFor(state.mode).forEach(r => r.seats.forEach(s => {
+      csv += `${r.label},${s.id},${s.name||''}\n`;
+    }));
+  } else {
+    const L = GROUP_LABELS[state.mode];
+    csv = `${L.group},Kapasitet,${L.slot},Navn\n`;
+    groupsFor(state.mode).forEach(g => {
+      for (let i=0;i<g.capacity;i++) {
+        csv += `${g.label},${g.capacity},${i+1},${g.occupants[i]||''}\n`;
+      }
+    });
+  }
+  showModal(`
+    <h2 class="text-xl font-bold mb-3">Eksporter til Google Sheets</h2>
+    <p class="text-sm text-slate-500 mb-3">
+      1. Kopier teksten under<br>
+      2. Åpne Google Sheets → Fil → Importer → Last opp<br>
+      <em>Eller: last ned CSV-filen direkte</em>
+    </p>
+    <textarea class="w-full h-40 font-mono text-xs border border-slate-200 rounded-lg p-2"
+      readonly onclick="this.select()">${csv}</textarea>
+    <div class="flex gap-2 mt-3 justify-between">
+      <button onclick="exportCSV();closeModal()" class="btn btn-secondary">💾 Last ned CSV</button>
+      <button onclick="closeModal()" class="btn btn-primary">Lukk</button>
+    </div>
+  `);
+}
+
+// ===================== HELP =====================
+function showHelp() {
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">Hjelp</h2>
+    <div class="text-sm text-slate-600 flex flex-col gap-3">
+      <div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter.</div>
+      <div><strong>🎺 Korpsmodus:</strong> Rader vises som en halvsirkel rundt dirigentpunktet. Sett opp rader med antall plasser og justering (venstre/senter/høyre) – øverste linje i oppsettet er fremste rad.</div>
+      <div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass.</div>
+      <div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt.</div>
+      <div><strong>🖱️ Tildeling:</strong> Klikk et navn og deretter en plass, eller dra navnet direkte til plassen. Etter Enter i søk kan du trykke Tab for å hoppe til neste ledige plass.</div>
+      <div><strong>📷 Bilder:</strong> Klikk den lille runde sirkelen ved et navn i navnelisten for å laste opp et portrettbilde. Bildet vises i stedet for initialer i Korpsoppsett, både på skjerm og i utskrift.</div>
+      <div><strong>💾 Lagring:</strong> «Lagre» laster ned en .json-fil. «Last inn» gjenopptar. Automatisk lagring i nettleseren skjer hvert 30. sek.</div>
+      <div><strong>📗 Google Sheets:</strong> Publiser arket offentlig: Fil → Del → Publiser på nettet → CSV. Du velger selv hvilke kolonner som skal brukes ved import.</div>
+      <div><strong>📄 PDF:</strong> Eksporter → PDF gir forhåndsvisning gruppert per rad/rom/vakt med liste over ikke-tildelte.</div>
+    </div>
+    <div class="mt-4 flex justify-end"><button onclick="closeModal()" class="btn btn-primary">OK</button></div>
+  `);
+}
+
+// ===================== MODAL =====================
+function showModal(html, wide, customMaxWidthPx) {
+  const style = customMaxWidthPx ? `style="max-width:${customMaxWidthPx.toFixed(0)}px;"` : '';
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-bg" onclick="bgCloseModal(event)">
+      <div class="modal ${wide?'modal-wide':''}" ${style}>${html}</div>
+    </div>
+  `;
+}
+
+function closeModal() {
+  document.getElementById('modal-container').innerHTML = '';
+}
+
+function bgCloseModal(e) {
+  if (e.target.classList.contains('modal-bg')) closeModal();
+}
+
+function toggleExportMenu() {
+  document.getElementById('export-menu').classList.toggle('hidden');
+}
+
+// ===================== UTILS =====================
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  if (!s) return '';
+  return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escJs(s) {
+  if (!s) return '';
+  return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+}
+function initials(name) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0,3).toUpperCase();
+  return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+}
+</script>
+</body>
+</html>

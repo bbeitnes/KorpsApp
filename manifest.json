@@ -1,0 +1,14 @@
+{
+  "name": "Fordelingsverktøy",
+  "short_name": "Fordeling",
+  "description": "Fordeling av billetter, korpsoppsett, rom og vaktlister",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
