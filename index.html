@@ -537,14 +537,15 @@ function showRowSetupModal(kind) {
   const existing = rows.map(r => {
     const base = `${r.label}:${r.rawDef || r.seats.length}`;
     if (kind !== 'formation') return base;
-    const a = r.align === 'left' ? 'v' : r.align === 'right' ? 'h' : 's';
-    return `${base}:${a}`;
+    const a = r.align === 'left' ? 'v' : r.align === 'right' ? 'h' : r.align === 'flat' ? 'f' : 's';
+    return `${base}:${a}${r.large ? ':x' : ''}`;
   }).join('\n');
 
   const title = kind === 'concert' ? 'Sett opp konsertsalen' : 'Sett opp korpsoppstilling';
   const inputId = kind === 'concert' ? 'setup-input' : 'formation-setup-input';
   const helpExtra = kind === 'formation'
-    ? `<br>Justering (valgfritt 3. felt): <code class="bg-slate-100 px-1 rounded">v</code>=venstre, <code class="bg-slate-100 px-1 rounded">h</code>=høyre, <code class="bg-slate-100 px-1 rounded">s</code>=senter (standard)<br>
+    ? `<br>Justering (valgfritt 3. felt): <code class="bg-slate-100 px-1 rounded">v</code>=venstre, <code class="bg-slate-100 px-1 rounded">h</code>=høyre, <code class="bg-slate-100 px-1 rounded">s</code>=senter (standard), <code class="bg-slate-100 px-1 rounded">f</code>=flat horisontal rad<br>
+       Størrelse (valgfritt 4. felt): <code class="bg-slate-100 px-1 rounded">x</code>=ekstra stor (f.eks. for instrumentbilder)<br>
        Øverste linje i listen = fremste rad (nærmest dirigent)`
     : '';
   const placeholderRaw = kind === 'concert'
@@ -587,7 +588,9 @@ function applyRowSetup(kind) {
       const tok = (segs[2]||'').trim().toLowerCase();
       if (['v','venstre','left','l'].includes(tok)) align = 'left';
       else if (['h','høyre','hoyre','right','r'].includes(tok)) align = 'right';
+      else if (['f','flat','horisontal'].includes(tok)) align = 'flat';
     }
+    const large = kind === 'formation' && ['x','stor','large','xl'].includes((segs[3]||'').trim().toLowerCase());
 
     let seatIds = [];
     if (seatDef.includes('-') || seatDef.includes(',')) {
@@ -612,7 +615,7 @@ function applyRowSetup(kind) {
       const ex = existing?.seats.find(s=>s.id===id);
       return { id, name: ex?.name || null };
     });
-    newRows.push({ label, rawDef: seatDef, align, seats });
+    newRows.push({ label, rawDef: seatDef, align, large, seats });
   }
 
   if (kind === 'concert') state.concert.rows = newRows; else state.formation.rows = newRows;
@@ -735,18 +738,12 @@ function renderFormation() {
   hint.classList.add('hidden');
   layout.classList.remove('hidden');
 
-  const seatSize = 40;
+  const seatSize = 54;
 
-  // The conductor sits at the center of every row's circle (radius origin).
-  // Rows curve as a dome above the conductor, with radius growing per row
-  // so the formation fills the available width. Only the last row (back,
-  // e.g. percussion) is forced flat — a straight horizontal line.
   const scrollEl = document.getElementById('formation-scroll');
   const visibleWidth = scrollEl.clientWidth || 800;
   const maxSeats = Math.max(1, ...rows.map(r=>r.seats.length));
-  // Never let seats get so cramped that touch targets overlap — grow the
-  // canvas (and let it scroll horizontally) instead of shrinking below this.
-  const MIN_SEAT_SPACING = 44;
+  const MIN_SEAT_SPACING = 58;
   const minRequiredWidth = seatSize + 48 + (maxSeats-1)*MIN_SEAT_SPACING;
   const containerWidth = Math.max(visibleWidth, minRequiredWidth);
   canvas.style.width = containerWidth + 'px';
@@ -754,67 +751,59 @@ function renderFormation() {
 
   const availableWidth = Math.max(200, containerWidth - seatSize - 48);
   const halfWidthTotal = availableWidth/2;
-  const spacing = maxSeats > 1 ? availableWidth/(maxSeats-1) : 0; // linear spacing for the flat last row
-  const degPerSeat = maxSeats > 1 ? Math.min(9, Math.max(4, 170/(maxSeats-1))) : 8; // angular spacing for curved rows
+  const spacing = maxSeats > 1 ? availableWidth/(maxSeats-1) : 0;
+  const degPerSeat = maxSeats > 1 ? Math.min(9, Math.max(4, 170/(maxSeats-1))) : 8;
 
   const lastIdx = rows.length - 1;
   const baseRadius = Math.max(60, halfWidthTotal * 0.32);
   const rowGap = lastIdx > 0 ? (halfWidthTotal - baseRadius) / lastIdx : 0;
 
-  const canvasHeight = halfWidthTotal + 80;
+  // Extra top padding so name labels above the topmost row are not clipped
+  const canvasHeight = halfWidthTotal + 110;
   const conductorY = canvasHeight - 46;
 
   let html = '';
   rows.forEach((row, r) => {
     const radius = baseRadius + r*rowGap;
     const N = row.seats.length;
-    const isLastRow = r === lastIdx;
+    const isFlat = r === lastIdx || row.align === 'flat';
+    const rowSeatSize = row.large ? Math.round(seatSize * 1.6) : seatSize;
 
-    if (isLastRow) {
-      // Flat horizontal row at the back
-      const rowWidth = (N-1)*spacing;
+    const rowSpacing = Math.max(spacing, rowSeatSize + 8);
+
+    if (isFlat) {
+      const rowWidth = (N-1)*rowSpacing;
       let leftX;
       if (row.align === 'left') leftX = -halfWidthTotal;
       else if (row.align === 'right') leftX = halfWidthTotal - rowWidth;
       else leftX = -rowWidth/2;
 
       row.seats.forEach((seat, i) => {
-        const x = N === 1 ? leftX : leftX + i*spacing;
+        const x = N === 1 ? leftX : leftX + i*rowSpacing;
         const y = radius;
-        renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, h => html += h);
+        renderFormationSeat(row, seat, i, x, y, conductorY, rowSeatSize, rowSpacing, true, h => html += h);
       });
 
-      const lleft = `calc(50% + ${(leftX-34).toFixed(1)}px)`;
-      const ltop = `${(conductorY - radius - 8).toFixed(1)}px`;
-      html += `<div class="absolute text-xs font-bold text-slate-400" style="left:${lleft}; top:${ltop}; width:30px; text-align:right;">${escHtml(row.label)}</div>`;
     } else {
-      // Concentric arc, dome-shaped, curving up and away from the conductor.
-      // Centered rows span the full 180° so both ends touch the same
-      // horizontal line that anchors the left/right-aligned rows.
       let startAngle, stepDeg;
+      const minStepDeg = rowSeatSize * 180 / (radius * Math.PI) + 2;
       if (row.align === 'center') {
-        stepDeg = N > 1 ? 180/(N-1) : 0;
+        stepDeg = N > 1 ? Math.max(180/(N-1), minStepDeg) : 0;
         startAngle = 180;
       } else {
-        stepDeg = degPerSeat;
-        const span = (N-1)*degPerSeat;
-        startAngle = row.align === 'left' ? 180 : span;
+        stepDeg = Math.max(17, minStepDeg);
+        startAngle = row.align === 'left' ? 180 : (N - 1) * stepDeg;
       }
 
+      const localSpacing = N > 1 ? radius * stepDeg * (Math.PI/180) : 999;
       row.seats.forEach((seat, i) => {
         const angleDeg = startAngle - i*stepDeg;
         const angleRad = angleDeg * Math.PI/180;
         const x = radius * Math.cos(angleRad);
         const y = radius * Math.sin(angleRad);
-        renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, h => html += h);
+        renderFormationSeat(row, seat, i, x, y, conductorY, rowSeatSize, localSpacing, false, h => html += h);
       });
 
-      const labelAngleRad = startAngle * Math.PI/180;
-      const lx = (radius+24) * Math.cos(labelAngleRad);
-      const ly = (radius+24) * Math.sin(labelAngleRad);
-      const lleft = `calc(50% + ${lx.toFixed(1)}px - 30px)`;
-      const ltop = `${(conductorY - ly - 8).toFixed(1)}px`;
-      html += `<div class="absolute text-xs font-bold text-slate-400" style="left:${lleft}; top:${ltop}; width:60px; text-align:center;">${escHtml(row.label)}</div>`;
     }
   });
 
@@ -826,7 +815,7 @@ function renderFormation() {
   attachSeatDropHandlers('formation-canvas', 'formation');
 }
 
-function renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, append, showNames) {
+function renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, localSpacing, isFlat, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
   const gapSeat = !seat.name && isGapSeat(row, i);
@@ -838,23 +827,26 @@ function renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, append, s
   const label = photo
     ? `<img src="${photo}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;">`
     : seat.name
-      ? `<span>${initials(seat.name)}</span>`
+      ? `<span style="font-size:11px;font-weight:700;">${initials(seat.name)}</span>`
       : `<span class="${gapSeat?'text-slate-400':'text-slate-300'} text-xs">${escHtml(seat.id)}</span>`;
-  append(`<div class="seat ${cls}" style="position:absolute; left:${left}; top:${top};"
+  append(`<div class="seat ${cls}" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px;"
                 data-row="${escAttr(row.label)}" data-seat="${escAttr(seat.id)}"
                 onclick="seatClick('formation','${escJs(row.label)}','${escJs(seat.id)}')">
     ${label}
     <div class="tooltip">${tooltipText}</div>
   </div>`);
 
-  if (showNames && seat.name) {
-    const nameLeft = `calc(50% + ${(x-50).toFixed(1)}px)`;
-    const nameTop = `${(conductorY - y - seatSize/2 - 16).toFixed(1)}px`;
-    append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:100px; text-align:center; font-size:9px; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(seat.name)}</div>`);
+  if (seat.name) {
+    const nameWidth = Math.max(44, Math.min(150, localSpacing - 4));
+    const fontSize = nameWidth < 60 ? 8 : nameWidth < 85 ? 10 : nameWidth < 110 ? 11 : 12;
+    const nameLeft = `calc(50% + ${(x - nameWidth/2).toFixed(1)}px)`;
+    const nameTop = `${(conductorY - y - seatSize/2 - fontSize - 5).toFixed(1)}px`;
+    const displayName = seat.name.split(',').map(s => escHtml(s.trim())).join('<br>');
+    append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:#1e293b; white-space:normal; overflow:hidden; pointer-events:none; line-height:1.2;">${displayName}</div>`);
   }
 }
 
-function buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, localSpacing, append) {
+function buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, localSpacing, isFlat, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
   const gapSeat = !seat.name && isGapSeat(row, i);
@@ -870,13 +862,10 @@ function buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, local
   </div>`);
 
   if (seat.name) {
-    // Keep the name label narrower than the gap to the neighbouring seat so
-    // labels never run into each other, shrinking the font when seats sit close.
-    const nameWidth = Math.max(34, Math.min(130, localSpacing - 6));
-    const fontSize = nameWidth < 55 ? 8 : nameWidth < 80 ? 10 : nameWidth < 105 ? 11.5 : 13;
-    const nameLeft = `calc(50% + ${(x-nameWidth/2).toFixed(1)}px)`;
-    const nameTop = `${(conductorY - y - seatSize/2 - (fontSize+9)).toFixed(1)}px`;
-    append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(seat.name)}</div>`);
+    const displayName = seat.name.split(',').map(s => escHtml(s.trim())).join('<br>');
+    const nameLeft = `calc(50% + ${x.toFixed(1)}px)`;
+    const nameTop = `${(conductorY - y + seatSize/2 + 3).toFixed(1)}px`;
+    append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; transform:translateX(-50%); font-size:10px; font-weight:700; color:#1e293b; white-space:normal; text-align:center; line-height:1.3;">${displayName}</div>`);
   }
 }
 
@@ -893,7 +882,7 @@ function buildFormationPrintHtml() {
   const pageMarginMm = 8;
   const containerWidth = (297 - 2*pageMarginMm) * pxPerMm;
 
-  const availableWidth = Math.max(200, containerWidth - seatSize - 60);
+  const availableWidth = Math.max(200, containerWidth - seatSize - 8);
   const halfWidthTotal = availableWidth/2;
   const maxSeats = Math.max(1, ...rows.map(r=>r.seats.length));
   const spacing = maxSeats > 1 ? availableWidth/(maxSeats-1) : 0;
@@ -903,40 +892,42 @@ function buildFormationPrintHtml() {
   const baseRadius = Math.max(70, halfWidthTotal * 0.32);
   const rowGap = lastIdx > 0 ? (halfWidthTotal - baseRadius) / lastIdx : 0;
 
-  const canvasHeight = halfWidthTotal + 120; // extra room for name labels above seats
-  const conductorY = canvasHeight - 50;
+  // Names sit below each seat, so extra height goes at the bottom
+  const nameRowHeight = 16;
+  const canvasHeight = halfWidthTotal + 80 + nameRowHeight;
+  const conductorY = canvasHeight - 50 - nameRowHeight;
 
   let html = '';
   rows.forEach((row, r) => {
     const radius = baseRadius + r*rowGap;
     const N = row.seats.length;
-    const isLastRow = r === lastIdx;
+    const isFlat = r === lastIdx || row.align === 'flat';
 
-    if (isLastRow) {
-      const rowWidth = (N-1)*spacing;
+    const rowSeatSize = row.large ? Math.round(seatSize * 1.6) : seatSize;
+    const rowSpacing = Math.max(spacing, rowSeatSize + 8);
+
+    if (isFlat) {
+      const rowWidth = (N-1)*rowSpacing;
       let leftX;
       if (row.align === 'left') leftX = -halfWidthTotal;
       else if (row.align === 'right') leftX = halfWidthTotal - rowWidth;
       else leftX = -rowWidth/2;
 
       row.seats.forEach((seat, i) => {
-        const x = N === 1 ? leftX : leftX + i*spacing;
+        const x = N === 1 ? leftX : leftX + i*rowSpacing;
         const y = radius;
-        buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, spacing || 999, h => html += h);
+        buildFormationPrintSeat(row, seat, i, x, y, conductorY, rowSeatSize, rowSpacing, true, h => html += h);
       });
 
-      const lleft = `calc(50% + ${(leftX-40).toFixed(1)}px)`;
-      const ltop = `${(conductorY - radius - 9).toFixed(1)}px`;
-      html += `<div class="absolute font-bold text-slate-500" style="font-size:13px; left:${lleft}; top:${ltop}; width:36px; text-align:right;">${escHtml(row.label)}</div>`;
     } else {
       let startAngle, stepDeg;
+      const minStepDeg = rowSeatSize * 180 / (radius * Math.PI) + 2;
       if (row.align === 'center') {
-        stepDeg = N > 1 ? 180/(N-1) : 0;
+        stepDeg = N > 1 ? Math.max(180/(N-1), minStepDeg) : 0;
         startAngle = 180;
       } else {
-        stepDeg = degPerSeat;
-        const span = (N-1)*degPerSeat;
-        startAngle = row.align === 'left' ? 180 : span;
+        stepDeg = Math.max(17, minStepDeg);
+        startAngle = row.align === 'left' ? 180 : (N - 1) * stepDeg;
       }
 
       const localSpacing = N > 1 ? radius * stepDeg * (Math.PI/180) : 999;
@@ -945,21 +936,22 @@ function buildFormationPrintHtml() {
         const angleRad = angleDeg * Math.PI/180;
         const x = radius * Math.cos(angleRad);
         const y = radius * Math.sin(angleRad);
-        buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, localSpacing, h => html += h);
+        buildFormationPrintSeat(row, seat, i, x, y, conductorY, rowSeatSize, localSpacing, false, h => html += h);
       });
 
       const labelAngleRad = startAngle * Math.PI/180;
       const lx = (radius+28) * Math.cos(labelAngleRad);
       const ly = (radius+28) * Math.sin(labelAngleRad);
-      const lleft = `calc(50% + ${lx.toFixed(1)}px - 35px)`;
-      const ltop = `${(conductorY - ly - 9).toFixed(1)}px`;
-      html += `<div class="absolute font-bold text-slate-500" style="font-size:13px; left:${lleft}; top:${ltop}; width:70px; text-align:center;">${escHtml(row.label)}</div>`;
     }
   });
 
   html += `<div class="absolute font-semibold tracking-widest uppercase text-slate-500" style="font-size:13px; left:calc(50% - 45px); top:${conductorY+6}px; width:90px; text-align:center;">🎼 Dirigent</div>`;
 
-  return { html, width: containerWidth, height: canvasHeight };
+  const subtitle = `<div style="margin-top:10px; font-size:11px; color:#475569; display:flex; flex-wrap:wrap; gap:4px 18px;">
+    ${rows.map(r => `<span><strong>${escHtml(r.label)}:</strong> ${r.seats.length} plasser</span>`).join('')}
+  </div>`;
+
+  return { html, subtitle, width: containerWidth, height: canvasHeight };
 }
 
 function seatClick(kind, rowLabel, seatId) {
@@ -1692,11 +1684,11 @@ function doPrint() {
 // ===================== FORMATION DIAGRAM PREVIEW/PRINT =====================
 function showFormationDiagramPreview() {
   if (!state.formation.rows.length) { alert('Sett opp en korpsoppstilling først.'); return; }
-  const { html, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml();
+  const { html, subtitle, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml();
 
   // Mirror the A4-landscape print area so what you see is what you get
   const boxWidth = Math.min(window.innerWidth * 0.84, 1180);
-  const boxHeight = boxWidth * (210/297) - 40; // A4 landscape ratio, minus a small title allowance
+  const boxHeight = boxWidth * (210/297) - 40;
   const scale = Math.min(boxWidth/diagramWidth, boxHeight/diagramHeight);
   const scaledWidth = diagramWidth*scale;
   const scaledHeight = diagramHeight*scale;
@@ -1706,7 +1698,8 @@ function showFormationDiagramPreview() {
       <div style="position:relative; width:${diagramWidth}px; height:${diagramHeight}px; transform:scale(${scale.toFixed(4)}); transform-origin: top left;">
         ${html}
       </div>
-    </div>`;
+    </div>
+    ${subtitle}`;
 
   showModal(`
     <div class="flex items-center justify-between mb-4">
@@ -1726,13 +1719,12 @@ function showFormationDiagramPreview() {
 
 function doPrintFormationDiagram() {
   const date = new Date().toLocaleDateString('no-NO', {day:'2-digit',month:'long',year:'numeric'});
-  const { html, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml();
+  const { html, subtitle, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml();
 
-  // A4 landscape printable area at 96dpi, minus page margins and a compact title row
   const pxPerMm = 96/25.4;
-  const pageMarginMm = 8;
+  const pageMarginMm = 4;
   const pageWidthPx = (297 - 2*pageMarginMm) * pxPerMm;
-  const pageHeightPx = (210 - 2*pageMarginMm) * pxPerMm - 34; // 34px reserved for a compact title row
+  const pageHeightPx = (210 - 2*pageMarginMm) * pxPerMm - 34;
 
   const scale = Math.min(pageWidthPx/diagramWidth, pageHeightPx/diagramHeight);
   const scaledWidth = diagramWidth*scale;
@@ -1744,17 +1736,18 @@ function doPrintFormationDiagram() {
       body{font-family:sans-serif;font-size:12px;color:#1e293b}
       .titlebar{display:flex; align-items:baseline; gap:10px; margin-bottom:6px}
       h1{font-size:15px;font-weight:700;margin:0}
-      .subtitle{font-size:10px;color:#64748b;margin:0}
+      .dateline{font-size:10px;color:#64748b;margin:0}
     </style>
     <div class="titlebar">
       <h1>Korpsoppsett</h1>
-      <div class="subtitle">Generert ${date}</div>
+      <div class="dateline">Generert ${date}</div>
     </div>
     <div style="width:${scaledWidth.toFixed(1)}px; height:${scaledHeight.toFixed(1)}px; overflow:hidden;">
       <div style="position:relative; width:${diagramWidth}px; height:${diagramHeight}px; transform:scale(${scale.toFixed(4)}); transform-origin: top left;">
         ${html}
       </div>
     </div>
+    ${subtitle}
   `;
   closeModal();
   setTimeout(() => window.print(), 100);
