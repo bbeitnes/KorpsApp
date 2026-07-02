@@ -240,7 +240,12 @@
     <!-- Formation mode (korpsoppsett) -->
     <div id="mode-formation" class="hidden">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <h2 class="text-lg font-semibold text-slate-800">Korpsoppsett</h2>
+        <div class="flex items-center gap-2">
+          <h2 class="text-lg font-semibold text-slate-800">Korpsoppsett</h2>
+          <input id="formation-title-input" type="text" placeholder="Korpsens navn…" maxlength="80"
+            class="border border-slate-200 rounded px-2 py-1 text-sm text-slate-700 w-52 focus:border-indigo-400 focus:outline-none"
+            oninput="state.formation.title = this.value; autoSave();">
+        </div>
         <div class="flex flex-wrap gap-2 items-center">
           <div class="flex flex-wrap gap-3 text-xs text-slate-500 items-center mr-2">
             <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-indigo-600 border-2 border-indigo-800"></span> Tildelt</span>
@@ -304,7 +309,7 @@ let state = {
   mode: 'concert',
   names: [],
   concert: { rows: [] },
-  formation: { rows: [] },
+  formation: { rows: [], title: '' },
   rooms: [],
   shifts: [],
   photos: {} // name -> small JPEG data URL
@@ -329,7 +334,7 @@ window.onload = () => {
     try {
       const s = JSON.parse(saved);
       if (confirm('Fant et automatisk lagret prosjekt. Vil du gjenoppta?')) {
-        state = Object.assign({ formation: { rows: [] }, shifts: [], photos: {} }, s);
+        state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], photos: {} }, s);
         document.getElementById('name-input').value = state.names.join('\n');
       }
     } catch(e) {}
@@ -538,14 +543,14 @@ function showRowSetupModal(kind) {
   const existing = rows.map(r => {
     const base = `${r.label}:${r.rawDef || r.seats.length}`;
     if (kind !== 'formation') return base;
-    const a = r.align === 'left' ? 'v' : r.align === 'right' ? 'h' : r.align === 'flat' ? 'f' : 's';
+    const a = r.align === 'left' ? 'v' : r.align === 'right' ? 'h' : r.align === 'flat' ? 'f' : r.align === 'shallow' ? 'b' : 's';
     return `${base}:${a}${r.large ? ':x' : ''}`;
   }).join('\n');
 
   const title = kind === 'concert' ? 'Sett opp konsertsalen' : 'Sett opp korpsoppstilling';
   const inputId = kind === 'concert' ? 'setup-input' : 'formation-setup-input';
   const helpExtra = kind === 'formation'
-    ? `<br>Justering (valgfritt 3. felt): <code class="bg-slate-100 px-1 rounded">v</code>=venstre, <code class="bg-slate-100 px-1 rounded">h</code>=høyre, <code class="bg-slate-100 px-1 rounded">s</code>=senter (standard), <code class="bg-slate-100 px-1 rounded">f</code>=flat horisontal rad<br>
+    ? `<br>Justering (valgfritt 3. felt): <code class="bg-slate-100 px-1 rounded">v</code>=venstre, <code class="bg-slate-100 px-1 rounded">h</code>=høyre, <code class="bg-slate-100 px-1 rounded">s</code>=senter (standard), <code class="bg-slate-100 px-1 rounded">b</code>=bred/slak bue, <code class="bg-slate-100 px-1 rounded">f</code>=flat horisontal rad<br>
        Størrelse (valgfritt 4. felt): <code class="bg-slate-100 px-1 rounded">x</code>=ekstra stor (f.eks. for instrumentbilder)<br>
        Øverste linje i listen = fremste rad (nærmest dirigent)`
     : '';
@@ -590,6 +595,7 @@ function applyRowSetup(kind) {
       if (['v','venstre','left','l'].includes(tok)) align = 'left';
       else if (['h','høyre','hoyre','right','r'].includes(tok)) align = 'right';
       else if (['f','flat','horisontal'].includes(tok)) align = 'flat';
+      else if (['b','bred','slak','shallow','wide'].includes(tok)) align = 'shallow';
     }
     const large = kind === 'formation' && ['x','stor','large','xl'].includes((segs[3]||'').trim().toLowerCase());
 
@@ -731,6 +737,11 @@ function renderFormation() {
   const canvas = document.getElementById('formation-canvas');
   const rows = state.formation.rows;
 
+  const titleInput = document.getElementById('formation-title-input');
+  if (titleInput && titleInput.value !== (state.formation.title || '')) {
+    titleInput.value = state.formation.title || '';
+  }
+
   if (!rows.length) {
     hint.classList.remove('hidden');
     layout.classList.add('hidden');
@@ -767,7 +778,7 @@ function renderFormation() {
   rows.forEach((row, r) => {
     const radius = baseRadius + r*rowGap;
     const N = row.seats.length;
-    const isFlat = r === lastIdx || row.align === 'flat';
+    const isFlat = row.align === 'flat';
     const rowSeatSize = row.large ? Math.round(seatSize * 1.6) : seatSize;
 
     const rowSpacing = Math.max(spacing, rowSeatSize + 8);
@@ -789,8 +800,11 @@ function renderFormation() {
       let startAngle, stepDeg;
       const minStepDeg = rowSeatSize * 180 / (radius * Math.PI) + 2;
       if (row.align === 'center') {
-        stepDeg = N > 1 ? Math.max(180/(N-1), minStepDeg) : 0;
+        stepDeg = N > 1 ? 180/(N-1) : 0;
         startAngle = 180;
+      } else if (row.align === 'shallow') {
+        stepDeg = N > 1 ? 120/(N-1) : 0;
+        startAngle = 150;
       } else {
         stepDeg = Math.max(17, minStepDeg);
         startAngle = row.align === 'left' ? 180 : (N - 1) * stepDeg;
@@ -906,7 +920,7 @@ function buildFormationPrintHtml() {
   rows.forEach((row, r) => {
     const radius = baseRadius + r*rowGap;
     const N = row.seats.length;
-    const isFlat = r === lastIdx || row.align === 'flat';
+    const isFlat = row.align === 'flat';
 
     const rowSeatSize = row.large ? Math.round(seatSize * 1.6) : seatSize;
     const rowSpacing = Math.max(spacing, rowSeatSize + 8);
@@ -928,8 +942,11 @@ function buildFormationPrintHtml() {
       let startAngle, stepDeg;
       const minStepDeg = rowSeatSize * 180 / (radius * Math.PI) + 2;
       if (row.align === 'center') {
-        stepDeg = N > 1 ? Math.max(180/(N-1), minStepDeg) : 0;
+        stepDeg = N > 1 ? 180/(N-1) : 0;
         startAngle = 180;
+      } else if (row.align === 'shallow') {
+        stepDeg = N > 1 ? 120/(N-1) : 0;
+        startAngle = 150;
       } else {
         stepDeg = Math.max(17, minStepDeg);
         startAngle = row.align === 'left' ? 180 : (N - 1) * stepDeg;
@@ -1715,8 +1732,8 @@ function showFormationDiagramPreview() {
       </div>
     </div>
     <div class="border border-slate-200 rounded-lg p-6 bg-white" style="width:${(boxWidth+20).toFixed(0)}px; max-width:88vw;">
-      <h1 class="text-lg font-bold mb-1">Korpsoppsett</h1>
-      <div class="text-xs text-slate-500 mb-3">Generert ${new Date().toLocaleDateString('no-NO', {day:'2-digit',month:'long',year:'numeric'})} · liggende A4</div>
+      <h1 class="text-lg font-bold mb-1">${state.formation.title ? escHtml(state.formation.title) + ' – Korpsoppsett' : 'Korpsoppsett'}</h1>
+      <div class="text-xs text-slate-500 mb-3">Generert ${new Date().toLocaleDateString('no-NO', {day:'2-digit',month:'long',year:'numeric'})}</div>
       ${snapshot}
     </div>
   `, true, boxWidth+60);
@@ -1744,7 +1761,7 @@ function doPrintFormationDiagram() {
       .dateline{font-size:10px;color:#64748b;margin:0}
     </style>
     <div class="titlebar">
-      <h1>Korpsoppsett</h1>
+      <h1>${state.formation.title ? escHtml(state.formation.title) + ' – Korpsoppsett' : 'Korpsoppsett'}</h1>
       <div class="dateline">Generert ${date}</div>
     </div>
     <div style="width:${scaledWidth.toFixed(1)}px; height:${scaledHeight.toFixed(1)}px; overflow:hidden;">
