@@ -366,6 +366,7 @@ window.onload = () => {
   // Fresh project (or a save with no percussion list yet) starts from the default instruments
   document.getElementById('instrument-input').value = state.instruments.join('\n');
   render();
+  seedDefaultInstrumentPhotos();
 };
 
 let resizeTimer = null;
@@ -519,6 +520,7 @@ function resetInstrumentsToDefault() {
   state.instruments = DEFAULT_INSTRUMENTS.slice();
   document.getElementById('instrument-input').value = state.instruments.join('\n');
   parseInstruments();
+  seedDefaultInstrumentPhotos();
 }
 
 function renderInstruments() {
@@ -584,6 +586,28 @@ function openPhotoPicker(name) {
   document.getElementById('photo-input').click();
 }
 
+// Crop to a centered square, then downscale to keep storage small
+// (kept tiny on purpose so 100+ photos still fit in one shared cloud document).
+// Shared by manual uploads and the automatic default-instrument photo loader below.
+function cropImageSourceToSquareDataUrl(imgSrc) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 96;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const srcSize = Math.min(img.width, img.height);
+      const sx = (img.width - srcSize) / 2;
+      const sy = (img.height - srcSize) / 2;
+      ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, size, size);
+      resolve(canvas.toDataURL('image/jpeg', 0.6));
+    };
+    img.onerror = () => reject(new Error('Kunne ikke lese bildet.'));
+    img.src = imgSrc;
+  });
+}
+
 function handlePhotoSelected(event) {
   const file = event.target.files[0];
   event.target.value = '';
@@ -593,27 +617,61 @@ function handlePhotoSelected(event) {
 
   const reader = new FileReader();
   reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      // Crop to a centered square, then downscale to keep storage small
-      // (kept tiny on purpose so 100+ photos still fit in one shared cloud document)
-      const size = 96;
-      const canvas = document.createElement('canvas');
-      canvas.width = size; canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      const srcSize = Math.min(img.width, img.height);
-      const sx = (img.width - srcSize) / 2;
-      const sy = (img.height - srcSize) / 2;
-      ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, size, size);
-      state.photos[name] = canvas.toDataURL('image/jpeg', 0.6);
+    cropImageSourceToSquareDataUrl(e.target.result).then(dataUrl => {
+      state.photos[name] = dataUrl;
       renderNames();
       renderInstruments();
       if (state.mode === 'formation') renderFormation();
-    };
-    img.onerror = () => alert('Kunne ikke lese bildet.');
-    img.src = e.target.result;
+    }).catch(() => alert('Kunne ikke lese bildet.'));
   };
   reader.readAsDataURL(file);
+}
+
+// ===================== AUTOMATISKE STANDARDBILDER (Slagverksliste) =====================
+// Ligger fysisk i mappen "instrument-photos/" ved siden av index.html. Legg en fil per
+// standardinstrument der, navngitt som i INSTRUMENT_PHOTO_SLUGS (f.eks. "marimba.jpg").
+// Instrumenter lagt til manuelt av brukeren er IKKE med her og må fortsatt lastes opp for hånd.
+const INSTRUMENT_PHOTO_DIR = 'instrument-photos';
+const INSTRUMENT_PHOTO_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+const INSTRUMENT_PHOTO_SLUGS = {
+  'Bongos': 'bongos',
+  'Congas': 'congas',
+  'Klokkespill': 'klokkespill',
+  'Marimba': 'marimba',
+  'Pauker': 'pauker',
+  'Skarptromme': 'skarptromme',
+  'Stikkebord': 'stikkebord',
+  'Stortromme': 'stortromme',
+  'Susp Cymbal': 'susp-cymbal',
+  'Trommesett': 'trommesett',
+  'Xylofon': 'xylofon'
+};
+
+async function loadDefaultInstrumentPhoto(name) {
+  const slug = INSTRUMENT_PHOTO_SLUGS[name];
+  if (!slug) return null;
+  for (const ext of INSTRUMENT_PHOTO_EXTS) {
+    try {
+      return await cropImageSourceToSquareDataUrl(`${INSTRUMENT_PHOTO_DIR}/${slug}.${ext}`);
+    } catch (e) { /* fil finnes ikke med denne endelsen — prøv neste */ }
+  }
+  return null;
+}
+
+// Fyller inn bilder for standardinstrumenter som mangler bilde. Overskriver aldri et
+// bilde som allerede er satt (verken tidligere auto-fylt eller manuelt lastet opp).
+async function seedDefaultInstrumentPhotos() {
+  const targets = state.instruments.filter(n => INSTRUMENT_PHOTO_SLUGS[n] && !state.photos[n]);
+  if (!targets.length) return;
+  let changed = false;
+  for (const name of targets) {
+    const dataUrl = await loadDefaultInstrumentPhoto(name);
+    if (dataUrl) { state.photos[name] = dataUrl; changed = true; }
+  }
+  if (changed) {
+    renderInstruments();
+    if (state.mode === 'formation') renderFormation();
+  }
 }
 
 // Concert, formation and room are mutually exclusive (one placement each).
@@ -1742,6 +1800,7 @@ function loadFromFile(event) {
       document.getElementById('name-input').value = state.names.join('\n');
       document.getElementById('instrument-input').value = state.instruments.join('\n');
       render();
+      seedDefaultInstrumentPhotos();
     } catch(err) { alert('Ugyldig fil.'); }
   };
   reader.readAsText(file);
