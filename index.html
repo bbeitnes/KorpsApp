@@ -260,6 +260,7 @@
         <div id="formation-scroll" class="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
           <div id="formation-canvas" style="position:relative;"></div>
         </div>
+        <div id="formation-legend" class="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500"></div>
       </div>
     </div>
 
@@ -811,6 +812,10 @@ function renderFormation() {
 
   canvas.style.height = canvasHeight + 'px';
   canvas.innerHTML = html;
+
+  document.getElementById('formation-legend').innerHTML = rows.map(row =>
+    `<span><strong class="text-slate-600">${escHtml(row.label)}:</strong> ${row.seats.length} plasser</span>`
+  ).join('');
 
   attachSeatDropHandlers('formation-canvas', 'formation');
 }
