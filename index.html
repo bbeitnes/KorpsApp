@@ -128,46 +128,8 @@
 </head>
 <body class="min-h-screen">
 
-<!-- AUTH GATE -->
-<div id="auth-gate" class="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-  <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
-    <div class="flex items-center gap-3 mb-6">
-      <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857
-               M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857
-               m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-      </div>
-      <h1 class="text-lg font-bold text-slate-800">Fordelingsverktøy</h1>
-    </div>
-
-    <button id="google-signin-btn" class="btn btn-secondary w-full justify-center">
-      <svg class="w-4 h-4" viewBox="0 0 18 18">
-        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.71-1.57 2.68-3.88 2.68-6.64z"/>
-        <path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/>
-        <path fill="#FBBC05" d="M3.97 10.7c-.18-.54-.28-1.11-.28-1.7s.1-1.16.28-1.7V4.96H.96A8.996 8.996 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.34z"/>
-        <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/>
-      </svg>
-      Logg inn med Google
-    </button>
-
-    <div class="flex items-center gap-2 my-4 text-xs text-slate-400">
-      <div class="flex-1 h-px bg-slate-200"></div> eller <div class="flex-1 h-px bg-slate-200"></div>
-    </div>
-
-    <label class="text-xs font-medium text-slate-600 mb-1 block">Delt passord</label>
-    <input type="password" id="shared-password-input" placeholder="Passord"
-      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2 focus:border-indigo-400">
-    <button id="shared-login-btn" class="btn btn-primary w-full justify-center">Logg inn</button>
-
-    <div id="auth-error" class="hidden mt-3 text-sm text-red-600"></div>
-  </div>
-</div>
-
 <!-- HEADER -->
-<header id="app-header" class="hidden bg-white border-b border-slate-200 px-3 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm flex-wrap gap-2 shrink-0">
+<header class="bg-white border-b border-slate-200 px-3 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm flex-wrap gap-2 shrink-0">
   <div class="flex items-center gap-3">
     <button id="sidebar-toggle" onclick="toggleSidebar()" class="btn btn-secondary lg:hidden" aria-label="Meny">☰</button>
     <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
@@ -195,12 +157,11 @@
       </div>
     </div>
     <button onclick="showHelp()" class="btn btn-secondary">❓</button>
-    <button onclick="appSignOut()" class="btn btn-secondary">🚪 <span class="hidden sm:inline">Logg ut</span></button>
   </div>
 </header>
 
 <!-- MAIN LAYOUT -->
-<div id="app-main-layout" class="hidden flex-1 min-h-0 flex">
+<div class="flex flex-1 min-h-0">
 
   <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden"></div>
 
@@ -358,85 +319,6 @@
 <!-- MODALS -->
 <div id="modal-container"></div>
 <div id="print-area"></div>
-
-<!-- ===================== AUTENTISERING (Firebase) ===================== -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import {
-    getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-    signInWithPopup, GoogleAuthProvider, signOut
-  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyDQA3CmYameS10cjuiqAaxAk4UpB8Lg1GI",
-    authDomain: "skiensskolemusikk-b5cbc.firebaseapp.com",
-    projectId: "skiensskolemusikk-b5cbc",
-    storageBucket: "skiensskolemusikk-b5cbc.firebasestorage.app",
-    messagingSenderId: "125188360972",
-    appId: "1:125188360972:web:4d7c61a2155353e0b79729"
-  };
-  // Fast delt konto (e-post/passord) + Google-kontoer begrenset til korpsets Workspace-domene.
-  const SHARED_LOGIN_EMAIL = 'korpsapp@skiens-skolemusikk.no';
-  const ALLOWED_GOOGLE_DOMAIN = 'skiens-skolemusikk.no';
-
-  const firebaseApp = initializeApp(firebaseConfig);
-  const auth = getAuth(firebaseApp);
-
-  const gateEl = document.getElementById('auth-gate');
-  const headerEl = document.getElementById('app-header');
-  const mainLayoutEl = document.getElementById('app-main-layout');
-  const errorEl = document.getElementById('auth-error');
-  const passwordInput = document.getElementById('shared-password-input');
-
-  function showAuthError(msg) {
-    errorEl.textContent = msg;
-    errorEl.classList.remove('hidden');
-  }
-  function clearAuthError() {
-    errorEl.classList.add('hidden');
-    errorEl.textContent = '';
-  }
-
-  onAuthStateChanged(auth, user => {
-    const signedIn = !!user;
-    gateEl.classList.toggle('hidden', signedIn);
-    headerEl.classList.toggle('hidden', !signedIn);
-    mainLayoutEl.classList.toggle('hidden', !signedIn);
-  });
-
-  document.getElementById('google-signin-btn').addEventListener('click', async () => {
-    clearAuthError();
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ hd: ALLOWED_GOOGLE_DOMAIN });
-      const result = await signInWithPopup(auth, provider);
-      const email = (result.user.email || '').toLowerCase();
-      if (!email.endsWith('@' + ALLOWED_GOOGLE_DOMAIN)) {
-        await signOut(auth);
-        showAuthError(`Denne Google-kontoen tilhører ikke ${ALLOWED_GOOGLE_DOMAIN}.`);
-      }
-    } catch (e) {
-      if (e.code !== 'auth/popup-closed-by-user') showAuthError('Innlogging med Google feilet. Prøv igjen.');
-    }
-  });
-
-  async function doSharedLogin() {
-    clearAuthError();
-    const pw = passwordInput.value;
-    if (!pw) return;
-    try {
-      await signInWithEmailAndPassword(auth, SHARED_LOGIN_EMAIL, pw);
-      passwordInput.value = '';
-    } catch (e) {
-      showAuthError('Feil passord.');
-    }
-  }
-  document.getElementById('shared-login-btn').addEventListener('click', doSharedLogin);
-  passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSharedLogin(); });
-
-  // Eksponert globalt slik at "Logg ut"-knappen (inline onclick, som resten av appen) kan nå den.
-  window.appSignOut = () => signOut(auth);
-</script>
 
 <script>
 // ===================== STATE =====================
