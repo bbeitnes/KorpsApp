@@ -195,6 +195,10 @@
       </div>
     </div>
     <button onclick="showHelp()" class="btn btn-secondary">❓</button>
+    <div id="current-user-badge" class="hidden items-center gap-2 text-sm text-slate-600 pl-1">
+      <img id="current-user-photo" class="hidden w-6 h-6 rounded-full" alt="">
+      <span id="current-user-label" class="max-w-[140px] truncate"></span>
+    </div>
     <button onclick="appSignOut()" class="btn btn-secondary">🚪 <span class="hidden sm:inline">Logg ut</span></button>
   </div>
 </header>
@@ -387,6 +391,9 @@
   const mainLayoutEl = document.getElementById('app-main-layout');
   const errorEl = document.getElementById('auth-error');
   const passwordInput = document.getElementById('shared-password-input');
+  const userBadgeEl = document.getElementById('current-user-badge');
+  const userPhotoEl = document.getElementById('current-user-photo');
+  const userLabelEl = document.getElementById('current-user-label');
 
   function showAuthError(msg) {
     errorEl.textContent = msg;
@@ -397,11 +404,36 @@
     errorEl.textContent = '';
   }
 
+  // Den delte kontoen har ingen ekte person bak seg — vis et vennlig navn
+  // i stedet for den delte e-postadressen, som ellers ville sett ut som
+  // "hvem" var innlogget uten faktisk å identifisere noen.
+  function displayNameFor(user) {
+    if (user.email === SHARED_LOGIN_EMAIL) return 'Delt konto';
+    return user.displayName || user.email || 'Innlogget';
+  }
+
   onAuthStateChanged(auth, user => {
     const signedIn = !!user;
     gateEl.classList.toggle('hidden', signedIn);
     headerEl.classList.toggle('hidden', !signedIn);
     mainLayoutEl.classList.toggle('hidden', !signedIn);
+
+    if (signedIn) {
+      userLabelEl.textContent = displayNameFor(user);
+      userLabelEl.title = user.email || '';
+      if (user.photoURL) {
+        userPhotoEl.src = user.photoURL;
+        userPhotoEl.classList.remove('hidden');
+      } else {
+        userPhotoEl.classList.add('hidden');
+        userPhotoEl.removeAttribute('src');
+      }
+      userBadgeEl.classList.remove('hidden');
+      userBadgeEl.classList.add('flex');
+    } else {
+      userBadgeEl.classList.add('hidden');
+      userBadgeEl.classList.remove('flex');
+    }
   });
 
   document.getElementById('google-signin-btn').addEventListener('click', async () => {
