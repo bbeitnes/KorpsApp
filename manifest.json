@@ -1,6 +1,6 @@
 {
-  "name": "Fordelingsverktøy",
-  "short_name": "Fordeling",
+  "name": "Korpsapp",
+  "short_name": "Korpsapp",
   "description": "Fordeling av billetter, korpsoppsett, rom og vaktlister",
   "start_url": "./index.html",
   "display": "standalone",

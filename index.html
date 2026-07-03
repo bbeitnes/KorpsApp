@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fordelingsverktøy</title>
+<title>Korpsapp</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Fordeling">
+<meta name="apple-mobile-web-app-title" content="Korpsapp">
 <meta name="theme-color" content="#4f46e5">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
@@ -133,14 +133,13 @@
   <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
     <div class="flex items-center gap-3 mb-6">
       <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857
-               M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857
-               m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"/>
+          <circle cx="6" cy="18" r="3"/>
+          <circle cx="18" cy="16" r="3"/>
         </svg>
       </div>
-      <h1 class="text-lg font-bold text-slate-800">Fordelingsverktøy</h1>
+      <h1 class="text-lg font-bold text-slate-800">Korpsapp</h1>
     </div>
 
     <button id="google-signin-btn" class="btn btn-secondary w-full justify-center">
@@ -171,17 +170,18 @@
   <div class="flex items-center gap-3">
     <button id="sidebar-toggle" onclick="toggleSidebar()" class="btn btn-secondary lg:hidden" aria-label="Meny">☰</button>
     <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857
-             M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857
-             m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18V5l12-2v13"/>
+        <circle cx="6" cy="18" r="3"/>
+        <circle cx="18" cy="16" r="3"/>
       </svg>
     </div>
-    <h1 class="text-lg font-bold text-slate-800 hidden sm:block">Fordelingsverktøy</h1>
+    <h1 class="text-lg font-bold text-slate-800 hidden sm:block">Korpsapp</h1>
+    <span id="current-project-label" class="text-sm font-medium text-indigo-600 border-l border-slate-200 pl-3 ml-1"></span>
   </div>
   <div class="flex items-center gap-2 flex-wrap">
-<button onclick="saveToFile()" class="btn btn-secondary">💾 <span class="hidden sm:inline">Lagre</span></button>
+<button onclick="showProjectPicker(true)" class="btn btn-secondary">🔁 <span class="hidden sm:inline">Bytt korps</span></button>
+    <button onclick="saveToFile()" class="btn btn-secondary">💾 <span class="hidden sm:inline">Lagre</span></button>
     <button onclick="document.getElementById('load-input').click()" class="btn btn-secondary">📂 <span class="hidden sm:inline">Last inn</span></button>
     <input type="file" id="load-input" accept=".json" class="hidden" onchange="loadFromFile(event)">
     <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoSelected(event)">
@@ -370,6 +370,10 @@
     getAuth, onAuthStateChanged, signInWithEmailAndPassword,
     signInWithPopup, GoogleAuthProvider, signOut
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+    collection, getDocs, deleteDoc
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDQA3CmYameS10cjuiqAaxAk4UpB8Lg1GI",
@@ -385,6 +389,8 @@
 
   const firebaseApp = initializeApp(firebaseConfig);
   const auth = getAuth(firebaseApp);
+  const db = getFirestore(firebaseApp);
+  const PROJECTS_COLLECTION = 'korpsapp';
 
   const gateEl = document.getElementById('auth-gate');
   const headerEl = document.getElementById('app-header');
@@ -394,6 +400,7 @@
   const userBadgeEl = document.getElementById('current-user-badge');
   const userPhotoEl = document.getElementById('current-user-photo');
   const userLabelEl = document.getElementById('current-user-label');
+  const projectLabelEl = document.getElementById('current-project-label');
 
   function showAuthError(msg) {
     errorEl.textContent = msg;
@@ -430,11 +437,253 @@
       }
       userBadgeEl.classList.remove('hidden');
       userBadgeEl.classList.add('flex');
+      if (currentProjectId) {
+        stateDocRef = doc(db, PROJECTS_COLLECTION, currentProjectId);
+        startFirestoreSync();
+      } else {
+        showProjectPicker(false);
+      }
     } else {
       userBadgeEl.classList.add('hidden');
       userBadgeEl.classList.remove('flex');
+      stopFirestoreSync();
     }
   });
+
+  // ----- Flere korps: hvert korps er sitt eget dokument i samme samling -----
+  let currentProjectId = localStorage.getItem('korpsapp-current-project') || null;
+  let currentProjectName = null;
+  let stateDocRef = null;
+
+  function updateProjectLabel() {
+    projectLabelEl.textContent = currentProjectName || currentProjectId || '';
+  }
+
+  async function listProjects() {
+    const snap = await getDocs(collection(db, PROJECTS_COLLECTION));
+    return snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
+  }
+
+  function slugifyProjectName(name) {
+    const slug = name.trim().toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9æøå-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    return slug || `korps-${Date.now()}`;
+  }
+
+  async function createProject(name) {
+    const id = slugifyProjectName(name);
+    const ref = doc(db, PROJECTS_COLLECTION, id);
+    const existing = await getDoc(ref);
+    if (existing.exists()) {
+      alert('Et korps med dette navnet finnes allerede.');
+      return null;
+    }
+    const blank = window.getBlankState ? window.getBlankState() : {};
+    await setDoc(ref, {
+      ...blank,
+      name,
+      version: 1,
+      updatedBy: currentUserLabel(),
+      updatedAt: serverTimestamp()
+    });
+    return id;
+  }
+
+  async function renameProject(id, oldName) {
+    const newName = prompt('Nytt navn på korpset:', oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return false;
+    await setDoc(doc(db, PROJECTS_COLLECTION, id), { name: newName.trim() }, { merge: true });
+    if (id === currentProjectId) {
+      currentProjectName = newName.trim();
+      updateProjectLabel();
+    }
+    return true;
+  }
+
+  async function deleteProject(id, name) {
+    if (!confirm(`Slette korpset «${name}» permanent?\n\nDette kan IKKE angres — alle navn, oppsett og bilder for dette korpset forsvinner for godt.`)) {
+      return false;
+    }
+    await deleteDoc(doc(db, PROJECTS_COLLECTION, id));
+    if (id === currentProjectId) {
+      stopFirestoreSync();
+      currentProjectId = null;
+      currentProjectName = null;
+      stateDocRef = null;
+      localStorage.removeItem('korpsapp-current-project');
+      updateProjectLabel();
+    }
+    return true;
+  }
+
+  async function setActiveProject(id, name) {
+    if (currentProjectId && auth.currentUser) await saveStateToFirestore();
+    currentProjectId = id;
+    currentProjectName = name || null;
+    localStorage.setItem('korpsapp-current-project', id);
+    stateDocRef = doc(db, PROJECTS_COLLECTION, id);
+    updateProjectLabel();
+    stopFirestoreSync();
+    startFirestoreSync();
+  }
+
+  async function showProjectPicker(closable) {
+    let projects;
+    try {
+      projects = await listProjects();
+    } catch (e) {
+      alert('Kunne ikke hente listen over korps. Sjekk nettforbindelsen og prøv igjen.');
+      return;
+    }
+    const rowsHtml = projects.length
+      ? projects.map(p => `
+          <div class="flex items-center justify-between gap-2 border border-slate-200 rounded-lg px-3 py-2">
+            <button data-select-id="${window.escAttr(p.id)}" data-select-name="${window.escAttr(p.name)}" class="flex-1 text-left text-sm font-medium hover:text-indigo-600">${window.escHtml(p.name)}</button>
+            <button data-rename-id="${window.escAttr(p.id)}" data-rename-name="${window.escAttr(p.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1" title="Endre navn">✏️</button>
+            <button data-delete-id="${window.escAttr(p.id)}" data-delete-name="${window.escAttr(p.name)}" class="text-red-400 hover:text-red-600 text-sm px-1" title="Slett korps">✕</button>
+          </div>`).join('')
+      : `<p class="text-sm text-slate-400">Ingen korps opprettet ennå.</p>`;
+
+    window.showModal(`
+      <h2 class="text-lg font-bold mb-3">Velg korps</h2>
+      <div class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
+      <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt korps</label>
+      <div class="flex gap-2">
+        <input type="text" id="new-project-name" placeholder="Navn på korps" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-400">
+        <button id="create-project-btn" class="btn btn-primary">Opprett</button>
+      </div>
+      ${closable ? '<div class="mt-4 flex justify-end"><button id="close-picker-btn" class="btn btn-secondary">Lukk</button></div>' : ''}
+    `);
+
+    document.querySelectorAll('[data-select-id]').forEach(el => {
+      el.addEventListener('click', async () => {
+        await setActiveProject(el.dataset.selectId, el.dataset.selectName);
+        window.closeModal();
+      });
+    });
+    document.querySelectorAll('[data-rename-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        const renamed = await renameProject(el.dataset.renameId, el.dataset.renameName);
+        if (renamed) showProjectPicker(closable);
+      });
+    });
+    document.querySelectorAll('[data-delete-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        const wasCurrent = el.dataset.deleteId === currentProjectId;
+        const deleted = await deleteProject(el.dataset.deleteId, el.dataset.deleteName);
+        if (deleted) showProjectPicker(closable && !wasCurrent);
+      });
+    });
+    const createBtn = document.getElementById('create-project-btn');
+    const nameInput = document.getElementById('new-project-name');
+    createBtn.addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      const id = await createProject(name);
+      if (id) {
+        await setActiveProject(id, name);
+        window.closeModal();
+      }
+    });
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') createBtn.click(); });
+    const closeBtn = document.getElementById('close-picker-btn');
+    if (closeBtn) closeBtn.addEventListener('click', () => window.closeModal());
+  }
+  window.showProjectPicker = showProjectPicker;
+
+  // ----- Delt lagring i Firestore, med konfliktvarsling -----
+  // Vi lytter kontinuerlig på det aktive korpsets dokument for å alltid vite
+  // hvilken versjon som faktisk ligger i skyen (til bruk i lagre-sjekken
+  // under), men vi overskriver ALDRI det brukeren jobber med akkurat nå
+  // automatisk — det ville kunnet slette ulagrede endringer uten varsel.
+  // Innlasting skjer kun ved bytte av korps, og ved eksplisitt valg i
+  // konfliktdialogen.
+  let firestoreInitialLoadDone = false;
+  let loadedVersion = 0;
+  let latestRemote = { version: 0, updatedBy: null };
+  let unsubscribeSnapshot = null;
+
+  function currentUserLabel() {
+    return auth.currentUser ? displayNameFor(auth.currentUser) : 'Ukjent';
+  }
+
+  function stripMeta(data) {
+    const { version, updatedBy, updatedAt, name, ...appState } = data;
+    return appState;
+  }
+
+  function startFirestoreSync() {
+    if (unsubscribeSnapshot || !stateDocRef) return;
+    unsubscribeSnapshot = onSnapshot(stateDocRef, snap => {
+      if (!snap.exists()) {
+        // Korpset ble slettet (av oss selv eller noen andre) mens vi så på det.
+        firestoreInitialLoadDone = true;
+        stopFirestoreSync();
+        currentProjectId = null;
+        currentProjectName = null;
+        localStorage.removeItem('korpsapp-current-project');
+        updateProjectLabel();
+        showProjectPicker(false);
+        return;
+      }
+      const data = snap.data();
+      currentProjectName = data.name || currentProjectName;
+      updateProjectLabel();
+      latestRemote = { version: data.version || 0, updatedBy: data.updatedBy || null };
+      if (!firestoreInitialLoadDone) {
+        firestoreInitialLoadDone = true;
+        loadedVersion = latestRemote.version;
+        window.replaceState?.(stripMeta(data));
+      }
+    }, err => {
+      console.error('Firestore-synk feilet:', err);
+    });
+  }
+
+  function stopFirestoreSync() {
+    if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+    firestoreInitialLoadDone = false;
+    loadedVersion = 0;
+    latestRemote = { version: 0, updatedBy: null };
+  }
+
+  async function saveStateToFirestore() {
+    if (!auth.currentUser || !stateDocRef) return;
+    if (latestRemote.version > loadedVersion) {
+      const reload = confirm(
+        `${latestRemote.updatedBy || 'Noen andre'} har lagret endringer siden du sist hentet inn dette korpset.\n\n` +
+        `Trykk OK for å hente inn deres versjon (dine ulagrede endringer forsvinner), ` +
+        `eller Avbryt for å lagre dine endringer over deres.`
+      );
+      if (reload) {
+        const snap = await getDoc(stateDocRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          loadedVersion = data.version || 0;
+          latestRemote = { version: loadedVersion, updatedBy: data.updatedBy || null };
+          window.replaceState?.(stripMeta(data));
+        }
+        return;
+      }
+    }
+    const newVersion = (latestRemote.version || 0) + 1;
+    const appState = window.getState ? window.getState() : {};
+    await setDoc(stateDocRef, {
+      ...appState,
+      name: currentProjectName || currentProjectId,
+      version: newVersion,
+      updatedBy: currentUserLabel(),
+      updatedAt: serverTimestamp()
+    });
+    loadedVersion = newVersion;
+    latestRemote = { version: newVersion, updatedBy: currentUserLabel() };
+  }
+  window.saveStateToFirestore = saveStateToFirestore;
 
   document.getElementById('google-signin-btn').addEventListener('click', async () => {
     clearAuthError();
@@ -502,22 +751,39 @@ window.onload = () => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {/* server may not support SW */});
   }
-
-  const saved = localStorage.getItem('fordeling-autosave');
-  if (saved) {
-    try {
-      const s = JSON.parse(saved);
-      if (confirm('Fant et automatisk lagret prosjekt. Vil du gjenoppta?')) {
-        state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {} }, s);
-        document.getElementById('name-input').value = state.names.join('\n');
-      }
-    } catch(e) {}
-  }
   // Fresh project (or a save with no percussion list yet) starts from the default instruments
   document.getElementById('instrument-input').value = state.instruments.join('\n');
   render();
   seedDefaultInstrumentPhotos();
 };
+
+// ===================== DELT LAGRING (Firestore) =====================
+// Erstatter hele state-objektet — brukt både ved manuell fil-import og når
+// appen henter inn korpsets delte prosjekt fra Firestore.
+function replaceState(loaded) {
+  state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {} }, loaded);
+  document.getElementById('name-input').value = state.names.join('\n');
+  document.getElementById('instrument-input').value = state.instruments.join('\n');
+  render();
+  seedDefaultInstrumentPhotos();
+}
+function getState() {
+  return state;
+}
+// Tomt utgangspunkt for et helt nytt korps (uavhengig av hva som måtte
+// være lastet inn for det korpset man står på nå).
+function getBlankState() {
+  return {
+    mode: 'concert',
+    names: [],
+    concert: { rows: [] },
+    formation: { rows: [], title: '' },
+    rooms: [],
+    shifts: [],
+    instruments: DEFAULT_INSTRUMENTS.slice(),
+    photos: {}
+  };
+}
 
 let resizeTimer = null;
 window.addEventListener('resize', () => {
@@ -533,6 +799,7 @@ setInterval(() => {
   if (json === lastAutosavedJson) return;
   lastAutosavedJson = json;
   localStorage.setItem('fordeling-autosave', json);
+  window.saveStateToFirestore?.();
 }, 30000);
 
 document.addEventListener('click', e => {
@@ -1959,11 +2226,7 @@ function loadFromFile(event) {
   reader.onload = e => {
     try {
       const loaded = JSON.parse(e.target.result);
-      state = Object.assign({ formation: { rows: [] }, shifts: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {} }, loaded);
-      document.getElementById('name-input').value = state.names.join('\n');
-      document.getElementById('instrument-input').value = state.instruments.join('\n');
-      render();
-      seedDefaultInstrumentPhotos();
+      replaceState(loaded);
     } catch(err) { alert('Ugyldig fil.'); }
   };
   reader.readAsText(file);
