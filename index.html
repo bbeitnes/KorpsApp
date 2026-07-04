@@ -496,7 +496,7 @@
   }
 
   function getBlankArrangementData() {
-    return { concert: { rows: [] }, rooms: [], shifts: [] };
+    return { concert: { rows: [] }, rooms: [], shifts: [], formationAssignments: {} };
   }
 
   async function createProject(name) {
@@ -592,7 +592,7 @@
 
     window.showModal(`
       <h2 class="text-lg font-bold mb-3">Velg korps</h2>
-      <p class="text-xs text-slate-500 mb-3">Et korps er navnelisten, korpsoppsettet og instrumentlisten — felles for alt korpset gjør. Bruk «Bytt arrangement» for enkeltkonserter, turer eller seminarer innenfor korpset.</p>
+      <p class="text-xs text-slate-500 mb-3">Et korps er navnelisten, korpsoppsettets rader/instrumenter og instrumentlisten — felles for alt korpset gjør. Hvem som sitter i hvilket sete i korpsoppsettet velges per arrangement. Bruk «Bytt arrangement» for enkeltkonserter, turer eller seminarer innenfor korpset.</p>
       <div class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
       <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt korps</label>
       <div class="flex gap-2">
@@ -688,7 +688,7 @@
   }
 
   async function deleteArrangement(id, name) {
-    if (!confirm(`Slette arrangementet «${name}» permanent?\n\nDette kan IKKE angres — billettfordeling, romfordeling og vaktliste for dette arrangementet forsvinner for godt. Navneliste og korpsoppsett påvirkes ikke.`)) {
+    if (!confirm(`Slette arrangementet «${name}» permanent?\n\nDette kan IKKE angres — billettfordeling, romfordeling, vaktliste og hvem som satt hvor i korpsoppsettet for dette arrangementet forsvinner for godt. Navneliste og korpsoppsettets rader/instrumenter påvirkes ikke.`)) {
       return false;
     }
     await deleteDoc(doc(arrangementsCollectionRef(), id));
@@ -717,8 +717,9 @@
   // Kalles etter at et korps er blitt aktivt. Sørger for at et arrangement
   // alltid er valgt: gjenbruker sist brukte, faller tilbake til det første
   // som finnes, eller oppretter et nytt («Standard») — og migrerer i så fall
-  // inn gammel billettfordeling/romfordeling/vaktliste som lå direkte på
-  // korpsdokumentet før arrangement-modellen fantes, slik at ingenting går tapt.
+  // inn gammel billettfordeling/romfordeling/vaktliste (og hvem som satt hvor
+  // i korpsoppsettet) som lå direkte på korpsdokumentet før arrangement-
+  // modellen fantes, slik at ingenting går tapt.
   async function ensureArrangementSelected() {
     let list;
     try {
@@ -733,10 +734,17 @@
         const korpsSnap = await getDoc(korpsDocRef);
         if (korpsSnap.exists()) legacy = korpsSnap.data();
       } catch (e) { /* ignorer, start blankt */ }
+      const legacyFormationAssignments = {};
+      (legacy.formation?.rows || []).forEach(row => {
+        (row.seats || []).forEach(seat => {
+          if (seat.name) legacyFormationAssignments[`${row.label}::${seat.id}`] = seat.name;
+        });
+      });
       const seed = {
         concert: legacy.concert || { rows: [] },
         rooms: legacy.rooms || [],
-        shifts: legacy.shifts || []
+        shifts: legacy.shifts || [],
+        formationAssignments: legacyFormationAssignments
       };
       const id = await createArrangement('Standard', seed);
       if (id) await setActiveArrangement(id, 'Standard');
@@ -767,7 +775,7 @@
 
     window.showModal(`
       <h2 class="text-lg font-bold mb-3">Velg arrangement</h2>
-      <p class="text-xs text-slate-500 mb-3">Billettfordeling, romfordeling og vaktliste hører til arrangementet du velger her. Navneliste og korpsoppsett er felles for hele korpset og følger ikke med.</p>
+      <p class="text-xs text-slate-500 mb-3">Billettfordeling, romfordeling, vaktliste og hvem som sitter i hvilket sete i korpsoppsettet hører til arrangementet du velger her. Navneliste og korpsoppsettets rader/instrumenter er felles for hele korpset og følger ikke med.</p>
       <div class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
       <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt arrangement</label>
       <div class="flex gap-2">
@@ -1073,14 +1081,41 @@ function replaceState(loaded) {
   render();
   seedDefaultInstrumentPhotos();
 }
-// Korps-nivået: navneliste, korpsoppsett, instrumentliste og bilder. Felles
-// for alle arrangementer i korpset, så et nytt arrangement kan aldri slette
-// eller overskrive dette.
+// Korpsoppsettets RADER (rader/instrumenter/justering) er felles for korpset
+// og lever på korps-nivå. Men HVEM som sitter i hvert sete er spesifikt for
+// arrangementet du står i akkurat nå — samme rader kan bemannes ulikt fra
+// arrangement til arrangement (f.eks. en mindre besetning på ett av dem).
+// state.formation (brukt av all rendering/interaksjon) er alltid det
+// sammenslåtte resultatet av disse to; de holdes i to små mellomlagre og
+// slås sammen på nytt hver gang enten korpset eller arrangementet oppdaterer
+// seg, slik at det alltid speiler riktig kombinasjon.
+let formationStructureCache = { rows: [], title: '' };
+let formationAssignmentsCache = {};
+
+function formationSeatKey(rowLabel, seatId) { return rowLabel + '::' + seatId; }
+
+function remergeFormation() {
+  state.formation = {
+    title: formationStructureCache.title || '',
+    rows: formationStructureCache.rows.map(row => ({
+      ...row,
+      seats: row.seats.map(seat => ({
+        id: seat.id,
+        name: formationAssignmentsCache[formationSeatKey(row.label, seat.id)] || null
+      }))
+    }))
+  };
+}
+
+// Korps-nivået: navneliste, korpsoppsett-rader, instrumentliste og bilder.
+// Felles for alle arrangementer i korpset, så et nytt arrangement kan aldri
+// slette eller overskrive dette.
 function applyKorpsData(data) {
   state.names = data.names || [];
-  state.formation = data.formation || { rows: [], title: '' };
+  formationStructureCache = data.formation || { rows: [], title: '' };
   state.instruments = data.instruments || DEFAULT_INSTRUMENTS.slice();
   state.photos = data.photos || {};
+  remergeFormation();
   document.getElementById('name-input').value = state.names.join('\n');
   document.getElementById('instrument-input').value = state.instruments.join('\n');
   render();
@@ -1091,28 +1126,45 @@ window.applyKorpsData = applyKorpsData;
 function getKorpsData() {
   return {
     names: state.names,
-    formation: state.formation,
+    // Rene rader uten navn — hvem som sitter hvor hører til arrangementet, ikke korpset.
+    formation: {
+      title: state.formation.title || '',
+      rows: state.formation.rows.map(row => ({
+        ...row,
+        seats: row.seats.map(seat => ({ id: seat.id }))
+      }))
+    },
     instruments: state.instruments,
     photos: state.photos
   };
 }
 window.getKorpsData = getKorpsData;
 
-// Arrangement-nivået: billettfordeling, romfordeling og vaktliste for én
-// konkret hendelse (konsert, tur, seminar) innenfor korpset.
+// Arrangement-nivået: billettfordeling, romfordeling, vaktliste, og HVEM som
+// er tildelt hvert sete i Korpsoppsettet — for én konkret hendelse (konsert,
+// tur, seminar) innenfor korpset.
 function applyArrangementData(data) {
   state.concert = data.concert || { rows: [] };
   state.rooms = data.rooms || [];
   state.shifts = data.shifts || [];
+  formationAssignmentsCache = data.formationAssignments || {};
+  remergeFormation();
   render();
 }
 window.applyArrangementData = applyArrangementData;
 
 function getArrangementData() {
+  const formationAssignments = {};
+  state.formation.rows.forEach(row => {
+    row.seats.forEach(seat => {
+      if (seat.name) formationAssignments[formationSeatKey(row.label, seat.id)] = seat.name;
+    });
+  });
   return {
     concert: state.concert,
     rooms: state.rooms,
-    shifts: state.shifts
+    shifts: state.shifts,
+    formationAssignments
   };
 }
 window.getArrangementData = getArrangementData;
