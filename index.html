@@ -178,9 +178,11 @@
     </div>
     <h1 class="text-lg font-bold text-slate-800 hidden sm:block">Korpsapp</h1>
     <span id="current-project-label" class="text-sm font-medium text-indigo-600 border-l border-slate-200 pl-3 ml-1"></span>
+    <span id="current-arrangement-label" class="text-sm font-medium text-slate-500 border-l border-slate-200 pl-3 ml-1"></span>
   </div>
   <div class="flex items-center gap-2 flex-wrap">
 <button onclick="showProjectPicker(true)" class="btn btn-secondary">🔁 <span class="hidden sm:inline">Bytt korps</span></button>
+    <button onclick="showArrangementPicker(true)" class="btn btn-secondary">📅 <span class="hidden sm:inline">Bytt arrangement</span></button>
     <button onclick="saveToFile()" class="btn btn-secondary">💾 <span class="hidden sm:inline">Lagre</span></button>
     <button onclick="document.getElementById('load-input').click()" class="btn btn-secondary">📂 <span class="hidden sm:inline">Last inn</span></button>
     <input type="file" id="load-input" accept=".json" class="hidden" onchange="loadFromFile(event)">
@@ -390,7 +392,15 @@
   const firebaseApp = initializeApp(firebaseConfig);
   const auth = getAuth(firebaseApp);
   const db = getFirestore(firebaseApp);
+  // Korps (bandet) og arrangement (den enkelte konsert/tur/seminar) lagres som
+  // to nivåer: hvert korps er et dokument i PROJECTS_COLLECTION og eier
+  // navneliste + korpsoppsett (delt av alt korpset gjør), mens hvert
+  // arrangement er et eget dokument i en undersamling av korpset og eier
+  // kun det arrangement-spesifikke (billettfordeling/romfordeling/vaktliste).
+  // Dette gjør at Korpsoppsett aldri forsvinner eller må settes opp på nytt
+  // bare fordi man oppretter et nytt arrangement.
   const PROJECTS_COLLECTION = 'korpsapp';
+  const ARRANGEMENTS_SUBCOLLECTION = 'arrangementer';
 
   const gateEl = document.getElementById('auth-gate');
   const headerEl = document.getElementById('app-header');
@@ -401,6 +411,7 @@
   const userPhotoEl = document.getElementById('current-user-photo');
   const userLabelEl = document.getElementById('current-user-label');
   const projectLabelEl = document.getElementById('current-project-label');
+  const arrangementLabelEl = document.getElementById('current-arrangement-label');
 
   function showAuthError(msg) {
     errorEl.textContent = msg;
@@ -438,22 +449,24 @@
       userBadgeEl.classList.remove('hidden');
       userBadgeEl.classList.add('flex');
       if (currentProjectId) {
-        stateDocRef = doc(db, PROJECTS_COLLECTION, currentProjectId);
-        startFirestoreSync();
+        korpsDocRef = doc(db, PROJECTS_COLLECTION, currentProjectId);
+        startKorpsSync();
+        ensureArrangementSelected();
       } else {
         showProjectPicker(false);
       }
     } else {
       userBadgeEl.classList.add('hidden');
       userBadgeEl.classList.remove('flex');
-      stopFirestoreSync();
+      stopKorpsSync();
+      stopArrangementSync();
     }
   });
 
   // ----- Flere korps: hvert korps er sitt eget dokument i samme samling -----
   let currentProjectId = localStorage.getItem('korpsapp-current-project') || null;
   let currentProjectName = null;
-  let stateDocRef = null;
+  let korpsDocRef = null;
 
   function updateProjectLabel() {
     projectLabelEl.textContent = currentProjectName || currentProjectId || '';
@@ -464,26 +477,38 @@
     return snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
   }
 
-  function slugifyProjectName(name) {
+  function slugify(name, fallbackPrefix) {
     const slug = name.trim().toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9æøå-]/g, '')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
-    return slug || `korps-${Date.now()}`;
+    return slug || `${fallbackPrefix || 'element'}-${Date.now()}`;
+  }
+
+  function getBlankKorpsData() {
+    return {
+      names: [],
+      formation: { rows: [], title: '' },
+      instruments: DEFAULT_INSTRUMENTS.slice(),
+      photos: {}
+    };
+  }
+
+  function getBlankArrangementData() {
+    return { concert: { rows: [] }, rooms: [], shifts: [] };
   }
 
   async function createProject(name) {
-    const id = slugifyProjectName(name);
+    const id = slugify(name, 'korps');
     const ref = doc(db, PROJECTS_COLLECTION, id);
     const existing = await getDoc(ref);
     if (existing.exists()) {
       alert('Et korps med dette navnet finnes allerede.');
       return null;
     }
-    const blank = window.getBlankState ? window.getBlankState() : {};
     await setDoc(ref, {
-      ...blank,
+      ...getBlankKorpsData(),
       name,
       version: 1,
       updatedBy: currentUserLabel(),
@@ -504,30 +529,48 @@
   }
 
   async function deleteProject(id, name) {
-    if (!confirm(`Slette korpset «${name}» permanent?\n\nDette kan IKKE angres — alle navn, oppsett og bilder for dette korpset forsvinner for godt.`)) {
+    if (!confirm(`Slette korpset «${name}» permanent?\n\nDette kan IKKE angres — alle navn, oppsett, arrangementer og bilder for dette korpset forsvinner for godt.`)) {
       return false;
     }
+    // Firestore sletter ikke underdokumenter automatisk når foreldredokumentet
+    // slettes, så vi må tømme arrangement-samlingen eksplisitt først.
+    const arrSnap = await getDocs(collection(db, PROJECTS_COLLECTION, id, ARRANGEMENTS_SUBCOLLECTION));
+    await Promise.all(arrSnap.docs.map(d => deleteDoc(d.ref)));
     await deleteDoc(doc(db, PROJECTS_COLLECTION, id));
     if (id === currentProjectId) {
-      stopFirestoreSync();
+      stopKorpsSync();
+      stopArrangementSync();
       currentProjectId = null;
       currentProjectName = null;
-      stateDocRef = null;
+      korpsDocRef = null;
+      currentArrangementId = null;
+      currentArrangementName = null;
+      arrangementDocRef = null;
       localStorage.removeItem('korpsapp-current-project');
       updateProjectLabel();
+      updateArrangementLabel();
     }
     return true;
   }
 
   async function setActiveProject(id, name) {
-    if (currentProjectId && auth.currentUser) await saveStateToFirestore();
+    if (currentProjectId && auth.currentUser) {
+      await saveKorpsToFirestore();
+      await saveArrangementToFirestore();
+    }
+    currentArrangementId = null;
+    currentArrangementName = null;
+    arrangementDocRef = null;
+    stopArrangementSync();
+
     currentProjectId = id;
     currentProjectName = name || null;
     localStorage.setItem('korpsapp-current-project', id);
-    stateDocRef = doc(db, PROJECTS_COLLECTION, id);
+    korpsDocRef = doc(db, PROJECTS_COLLECTION, id);
     updateProjectLabel();
-    stopFirestoreSync();
-    startFirestoreSync();
+    stopKorpsSync();
+    startKorpsSync();
+    await ensureArrangementSelected();
   }
 
   async function showProjectPicker(closable) {
@@ -549,6 +592,7 @@
 
     window.showModal(`
       <h2 class="text-lg font-bold mb-3">Velg korps</h2>
+      <p class="text-xs text-slate-500 mb-3">Et korps er navnelisten, korpsoppsettet og instrumentlisten — felles for alt korpset gjør. Bruk «Bytt arrangement» for enkeltkonserter, turer eller seminarer innenfor korpset.</p>
       <div class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
       <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt korps</label>
       <div class="flex gap-2">
@@ -596,94 +640,356 @@
   }
   window.showProjectPicker = showProjectPicker;
 
+  // ----- Arrangementer: billettfordeling/romfordeling/vaktliste for én konkret hendelse -----
+  let currentArrangementId = localStorage.getItem(`korpsapp-current-arrangement-${currentProjectId}`) || null;
+  let currentArrangementName = null;
+  let arrangementDocRef = null;
+
+  function updateArrangementLabel() {
+    arrangementLabelEl.textContent = currentArrangementName || currentArrangementId || '';
+  }
+
+  function arrangementsCollectionRef() {
+    return collection(db, PROJECTS_COLLECTION, currentProjectId, ARRANGEMENTS_SUBCOLLECTION);
+  }
+
+  async function listArrangements() {
+    const snap = await getDocs(arrangementsCollectionRef());
+    return snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
+  }
+
+  async function createArrangement(name, seed) {
+    const id = slugify(name, 'arrangement');
+    const ref = doc(arrangementsCollectionRef(), id);
+    const existing = await getDoc(ref);
+    if (existing.exists()) {
+      alert('Et arrangement med dette navnet finnes allerede i dette korpset.');
+      return null;
+    }
+    await setDoc(ref, {
+      ...(seed || getBlankArrangementData()),
+      name,
+      version: 1,
+      updatedBy: currentUserLabel(),
+      updatedAt: serverTimestamp()
+    });
+    return id;
+  }
+
+  async function renameArrangement(id, oldName) {
+    const newName = prompt('Nytt navn på arrangementet:', oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return false;
+    await setDoc(doc(arrangementsCollectionRef(), id), { name: newName.trim() }, { merge: true });
+    if (id === currentArrangementId) {
+      currentArrangementName = newName.trim();
+      updateArrangementLabel();
+    }
+    return true;
+  }
+
+  async function deleteArrangement(id, name) {
+    if (!confirm(`Slette arrangementet «${name}» permanent?\n\nDette kan IKKE angres — billettfordeling, romfordeling og vaktliste for dette arrangementet forsvinner for godt. Navneliste og korpsoppsett påvirkes ikke.`)) {
+      return false;
+    }
+    await deleteDoc(doc(arrangementsCollectionRef(), id));
+    if (id === currentArrangementId) {
+      stopArrangementSync();
+      currentArrangementId = null;
+      currentArrangementName = null;
+      arrangementDocRef = null;
+      localStorage.removeItem(`korpsapp-current-arrangement-${currentProjectId}`);
+      updateArrangementLabel();
+    }
+    return true;
+  }
+
+  async function setActiveArrangement(id, name) {
+    if (currentArrangementId && auth.currentUser) await saveArrangementToFirestore();
+    currentArrangementId = id;
+    currentArrangementName = name || null;
+    localStorage.setItem(`korpsapp-current-arrangement-${currentProjectId}`, id);
+    arrangementDocRef = doc(arrangementsCollectionRef(), id);
+    updateArrangementLabel();
+    stopArrangementSync();
+    startArrangementSync();
+  }
+
+  // Kalles etter at et korps er blitt aktivt. Sørger for at et arrangement
+  // alltid er valgt: gjenbruker sist brukte, faller tilbake til det første
+  // som finnes, eller oppretter et nytt («Standard») — og migrerer i så fall
+  // inn gammel billettfordeling/romfordeling/vaktliste som lå direkte på
+  // korpsdokumentet før arrangement-modellen fantes, slik at ingenting går tapt.
+  async function ensureArrangementSelected() {
+    let list;
+    try {
+      list = await listArrangements();
+    } catch (e) {
+      console.error('Kunne ikke hente arrangementer:', e);
+      return;
+    }
+    if (list.length === 0) {
+      let legacy = {};
+      try {
+        const korpsSnap = await getDoc(korpsDocRef);
+        if (korpsSnap.exists()) legacy = korpsSnap.data();
+      } catch (e) { /* ignorer, start blankt */ }
+      const seed = {
+        concert: legacy.concert || { rows: [] },
+        rooms: legacy.rooms || [],
+        shifts: legacy.shifts || []
+      };
+      const id = await createArrangement('Standard', seed);
+      if (id) await setActiveArrangement(id, 'Standard');
+      return;
+    }
+    const remembered = localStorage.getItem(`korpsapp-current-arrangement-${currentProjectId}`);
+    const match = list.find(a => a.id === remembered) || list[0];
+    await setActiveArrangement(match.id, match.name);
+  }
+
+  async function showArrangementPicker(closable) {
+    if (!currentProjectId) { alert('Velg et korps først.'); return; }
+    let arrangements;
+    try {
+      arrangements = await listArrangements();
+    } catch (e) {
+      alert('Kunne ikke hente listen over arrangementer. Sjekk nettforbindelsen og prøv igjen.');
+      return;
+    }
+    const rowsHtml = arrangements.length
+      ? arrangements.map(a => `
+          <div class="flex items-center justify-between gap-2 border border-slate-200 rounded-lg px-3 py-2">
+            <button data-select-id="${window.escAttr(a.id)}" data-select-name="${window.escAttr(a.name)}" class="flex-1 text-left text-sm font-medium hover:text-indigo-600">${window.escHtml(a.name)}</button>
+            <button data-rename-id="${window.escAttr(a.id)}" data-rename-name="${window.escAttr(a.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1" title="Endre navn">✏️</button>
+            <button data-delete-id="${window.escAttr(a.id)}" data-delete-name="${window.escAttr(a.name)}" class="text-red-400 hover:text-red-600 text-sm px-1" title="Slett arrangement">✕</button>
+          </div>`).join('')
+      : `<p class="text-sm text-slate-400">Ingen arrangementer opprettet ennå.</p>`;
+
+    window.showModal(`
+      <h2 class="text-lg font-bold mb-3">Velg arrangement</h2>
+      <p class="text-xs text-slate-500 mb-3">Billettfordeling, romfordeling og vaktliste hører til arrangementet du velger her. Navneliste og korpsoppsett er felles for hele korpset og følger ikke med.</p>
+      <div class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
+      <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt arrangement</label>
+      <div class="flex gap-2">
+        <input type="text" id="new-arrangement-name" placeholder="F.eks. Høstkonsert 2026" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-400">
+        <button id="create-arrangement-btn" class="btn btn-primary">Opprett</button>
+      </div>
+      ${closable ? '<div class="mt-4 flex justify-end"><button id="close-picker-btn" class="btn btn-secondary">Lukk</button></div>' : ''}
+    `);
+
+    document.querySelectorAll('[data-select-id]').forEach(el => {
+      el.addEventListener('click', async () => {
+        await setActiveArrangement(el.dataset.selectId, el.dataset.selectName);
+        window.closeModal();
+      });
+    });
+    document.querySelectorAll('[data-rename-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        const renamed = await renameArrangement(el.dataset.renameId, el.dataset.renameName);
+        if (renamed) showArrangementPicker(closable);
+      });
+    });
+    document.querySelectorAll('[data-delete-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        const wasCurrent = el.dataset.deleteId === currentArrangementId;
+        const deleted = await deleteArrangement(el.dataset.deleteId, el.dataset.deleteName);
+        if (deleted) {
+          if (wasCurrent) await ensureArrangementSelected();
+          showArrangementPicker(closable);
+        }
+      });
+    });
+    const createBtn = document.getElementById('create-arrangement-btn');
+    const nameInput = document.getElementById('new-arrangement-name');
+    createBtn.addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      const id = await createArrangement(name);
+      if (id) {
+        await setActiveArrangement(id, name);
+        window.closeModal();
+      }
+    });
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') createBtn.click(); });
+    const closeBtn = document.getElementById('close-picker-btn');
+    if (closeBtn) closeBtn.addEventListener('click', () => window.closeModal());
+  }
+  window.showArrangementPicker = showArrangementPicker;
+
   // ----- Delt lagring i Firestore, med konfliktvarsling -----
-  // Vi lytter kontinuerlig på det aktive korpsets dokument for å alltid vite
-  // hvilken versjon som faktisk ligger i skyen (til bruk i lagre-sjekken
-  // under), men vi overskriver ALDRI det brukeren jobber med akkurat nå
-  // automatisk — det ville kunnet slette ulagrede endringer uten varsel.
-  // Innlasting skjer kun ved bytte av korps, og ved eksplisitt valg i
-  // konfliktdialogen.
-  let firestoreInitialLoadDone = false;
-  let loadedVersion = 0;
-  let latestRemote = { version: 0, updatedBy: null };
-  let unsubscribeSnapshot = null;
+  // Vi lytter kontinuerlig på både korpsets og arrangementets dokument for å
+  // alltid vite hvilken versjon som faktisk ligger i skyen (til bruk i
+  // lagre-sjekken under), men vi overskriver ALDRI det brukeren jobber med
+  // akkurat nå automatisk — det ville kunnet slette ulagrede endringer uten
+  // varsel. Innlasting skjer kun ved bytte av korps/arrangement, og ved
+  // eksplisitt valg i konfliktdialogen. De to nivåene har hver sin
+  // versjonsteller, slik at f.eks. en endring i romfordelingen ikke trigger
+  // en falsk konflikt mot navneliste/korpsoppsett og omvendt.
+  let korpsInitialLoadDone = false;
+  let loadedKorpsVersion = 0;
+  let latestRemoteKorps = { version: 0, updatedBy: null };
+  let unsubscribeKorpsSnapshot = null;
+
+  let arrangementInitialLoadDone = false;
+  let loadedArrangementVersion = 0;
+  let latestRemoteArrangement = { version: 0, updatedBy: null };
+  let unsubscribeArrangementSnapshot = null;
 
   function currentUserLabel() {
     return auth.currentUser ? displayNameFor(auth.currentUser) : 'Ukjent';
   }
 
   function stripMeta(data) {
-    const { version, updatedBy, updatedAt, name, ...appState } = data;
-    return appState;
+    const { version, updatedBy, updatedAt, name, ...rest } = data;
+    return rest;
   }
 
-  function startFirestoreSync() {
-    if (unsubscribeSnapshot || !stateDocRef) return;
-    unsubscribeSnapshot = onSnapshot(stateDocRef, snap => {
+  function startKorpsSync() {
+    if (unsubscribeKorpsSnapshot || !korpsDocRef) return;
+    unsubscribeKorpsSnapshot = onSnapshot(korpsDocRef, snap => {
       if (!snap.exists()) {
         // Korpset ble slettet (av oss selv eller noen andre) mens vi så på det.
-        firestoreInitialLoadDone = true;
-        stopFirestoreSync();
+        korpsInitialLoadDone = true;
+        stopKorpsSync();
+        stopArrangementSync();
         currentProjectId = null;
         currentProjectName = null;
+        currentArrangementId = null;
+        currentArrangementName = null;
         localStorage.removeItem('korpsapp-current-project');
         updateProjectLabel();
+        updateArrangementLabel();
         showProjectPicker(false);
         return;
       }
       const data = snap.data();
       currentProjectName = data.name || currentProjectName;
       updateProjectLabel();
-      latestRemote = { version: data.version || 0, updatedBy: data.updatedBy || null };
-      if (!firestoreInitialLoadDone) {
-        firestoreInitialLoadDone = true;
-        loadedVersion = latestRemote.version;
-        window.replaceState?.(stripMeta(data));
+      latestRemoteKorps = { version: data.version || 0, updatedBy: data.updatedBy || null };
+      if (!korpsInitialLoadDone) {
+        korpsInitialLoadDone = true;
+        loadedKorpsVersion = latestRemoteKorps.version;
+        window.applyKorpsData?.(stripMeta(data));
       }
     }, err => {
-      console.error('Firestore-synk feilet:', err);
+      console.error('Firestore-synk (korps) feilet:', err);
     });
   }
 
-  function stopFirestoreSync() {
-    if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-    firestoreInitialLoadDone = false;
-    loadedVersion = 0;
-    latestRemote = { version: 0, updatedBy: null };
+  function stopKorpsSync() {
+    if (unsubscribeKorpsSnapshot) { unsubscribeKorpsSnapshot(); unsubscribeKorpsSnapshot = null; }
+    korpsInitialLoadDone = false;
+    loadedKorpsVersion = 0;
+    latestRemoteKorps = { version: 0, updatedBy: null };
   }
 
-  async function saveStateToFirestore() {
-    if (!auth.currentUser || !stateDocRef) return;
-    if (latestRemote.version > loadedVersion) {
+  function startArrangementSync() {
+    if (unsubscribeArrangementSnapshot || !arrangementDocRef) return;
+    unsubscribeArrangementSnapshot = onSnapshot(arrangementDocRef, snap => {
+      if (!snap.exists()) {
+        arrangementInitialLoadDone = true;
+        stopArrangementSync();
+        currentArrangementId = null;
+        currentArrangementName = null;
+        localStorage.removeItem(`korpsapp-current-arrangement-${currentProjectId}`);
+        updateArrangementLabel();
+        ensureArrangementSelected();
+        return;
+      }
+      const data = snap.data();
+      currentArrangementName = data.name || currentArrangementName;
+      updateArrangementLabel();
+      latestRemoteArrangement = { version: data.version || 0, updatedBy: data.updatedBy || null };
+      if (!arrangementInitialLoadDone) {
+        arrangementInitialLoadDone = true;
+        loadedArrangementVersion = latestRemoteArrangement.version;
+        window.applyArrangementData?.(stripMeta(data));
+      }
+    }, err => {
+      console.error('Firestore-synk (arrangement) feilet:', err);
+    });
+  }
+
+  function stopArrangementSync() {
+    if (unsubscribeArrangementSnapshot) { unsubscribeArrangementSnapshot(); unsubscribeArrangementSnapshot = null; }
+    arrangementInitialLoadDone = false;
+    loadedArrangementVersion = 0;
+    latestRemoteArrangement = { version: 0, updatedBy: null };
+  }
+
+  async function saveKorpsToFirestore() {
+    if (!auth.currentUser || !korpsDocRef) return;
+    if (latestRemoteKorps.version > loadedKorpsVersion) {
       const reload = confirm(
-        `${latestRemote.updatedBy || 'Noen andre'} har lagret endringer siden du sist hentet inn dette korpset.\n\n` +
+        `${latestRemoteKorps.updatedBy || 'Noen andre'} har lagret endringer i navneliste/korpsoppsett siden du sist hentet inn dette korpset.\n\n` +
         `Trykk OK for å hente inn deres versjon (dine ulagrede endringer forsvinner), ` +
         `eller Avbryt for å lagre dine endringer over deres.`
       );
       if (reload) {
-        const snap = await getDoc(stateDocRef);
+        const snap = await getDoc(korpsDocRef);
         if (snap.exists()) {
           const data = snap.data();
-          loadedVersion = data.version || 0;
-          latestRemote = { version: loadedVersion, updatedBy: data.updatedBy || null };
-          window.replaceState?.(stripMeta(data));
+          loadedKorpsVersion = data.version || 0;
+          latestRemoteKorps = { version: loadedKorpsVersion, updatedBy: data.updatedBy || null };
+          window.applyKorpsData?.(stripMeta(data));
         }
         return;
       }
     }
-    const newVersion = (latestRemote.version || 0) + 1;
-    const appState = window.getState ? window.getState() : {};
-    await setDoc(stateDocRef, {
-      ...appState,
+    const newVersion = (latestRemoteKorps.version || 0) + 1;
+    const korpsData = window.getKorpsData ? window.getKorpsData() : {};
+    await setDoc(korpsDocRef, {
+      ...korpsData,
       name: currentProjectName || currentProjectId,
       version: newVersion,
       updatedBy: currentUserLabel(),
       updatedAt: serverTimestamp()
     });
-    loadedVersion = newVersion;
-    latestRemote = { version: newVersion, updatedBy: currentUserLabel() };
+    loadedKorpsVersion = newVersion;
+    latestRemoteKorps = { version: newVersion, updatedBy: currentUserLabel() };
   }
-  window.saveStateToFirestore = saveStateToFirestore;
+
+  async function saveArrangementToFirestore() {
+    if (!auth.currentUser || !arrangementDocRef) return;
+    if (latestRemoteArrangement.version > loadedArrangementVersion) {
+      const reload = confirm(
+        `${latestRemoteArrangement.updatedBy || 'Noen andre'} har lagret endringer i dette arrangementet siden du sist hentet det inn.\n\n` +
+        `Trykk OK for å hente inn deres versjon (dine ulagrede endringer forsvinner), ` +
+        `eller Avbryt for å lagre dine endringer over deres.`
+      );
+      if (reload) {
+        const snap = await getDoc(arrangementDocRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          loadedArrangementVersion = data.version || 0;
+          latestRemoteArrangement = { version: loadedArrangementVersion, updatedBy: data.updatedBy || null };
+          window.applyArrangementData?.(stripMeta(data));
+        }
+        return;
+      }
+    }
+    const newVersion = (latestRemoteArrangement.version || 0) + 1;
+    const arrangementData = window.getArrangementData ? window.getArrangementData() : {};
+    await setDoc(arrangementDocRef, {
+      ...arrangementData,
+      name: currentArrangementName || currentArrangementId,
+      version: newVersion,
+      updatedBy: currentUserLabel(),
+      updatedAt: serverTimestamp()
+    });
+    loadedArrangementVersion = newVersion;
+    latestRemoteArrangement = { version: newVersion, updatedBy: currentUserLabel() };
+  }
+
+  // Beholdt som ett samlet navn slik at den eksisterende autolagrings-timeren
+  // (som kaller window.saveStateToFirestore?.()) ikke trenger å vite at det
+  // nå er to uavhengige dokumenter under panseret.
+  window.saveStateToFirestore = async () => {
+    await saveKorpsToFirestore();
+    await saveArrangementToFirestore();
+  };
 
   document.getElementById('google-signin-btn').addEventListener('click', async () => {
     clearAuthError();
@@ -767,23 +1073,49 @@ function replaceState(loaded) {
   render();
   seedDefaultInstrumentPhotos();
 }
-function getState() {
-  return state;
+// Korps-nivået: navneliste, korpsoppsett, instrumentliste og bilder. Felles
+// for alle arrangementer i korpset, så et nytt arrangement kan aldri slette
+// eller overskrive dette.
+function applyKorpsData(data) {
+  state.names = data.names || [];
+  state.formation = data.formation || { rows: [], title: '' };
+  state.instruments = data.instruments || DEFAULT_INSTRUMENTS.slice();
+  state.photos = data.photos || {};
+  document.getElementById('name-input').value = state.names.join('\n');
+  document.getElementById('instrument-input').value = state.instruments.join('\n');
+  render();
+  seedDefaultInstrumentPhotos();
 }
-// Tomt utgangspunkt for et helt nytt korps (uavhengig av hva som måtte
-// være lastet inn for det korpset man står på nå).
-function getBlankState() {
+window.applyKorpsData = applyKorpsData;
+
+function getKorpsData() {
   return {
-    mode: 'concert',
-    names: [],
-    concert: { rows: [] },
-    formation: { rows: [], title: '' },
-    rooms: [],
-    shifts: [],
-    instruments: DEFAULT_INSTRUMENTS.slice(),
-    photos: {}
+    names: state.names,
+    formation: state.formation,
+    instruments: state.instruments,
+    photos: state.photos
   };
 }
+window.getKorpsData = getKorpsData;
+
+// Arrangement-nivået: billettfordeling, romfordeling og vaktliste for én
+// konkret hendelse (konsert, tur, seminar) innenfor korpset.
+function applyArrangementData(data) {
+  state.concert = data.concert || { rows: [] };
+  state.rooms = data.rooms || [];
+  state.shifts = data.shifts || [];
+  render();
+}
+window.applyArrangementData = applyArrangementData;
+
+function getArrangementData() {
+  return {
+    concert: state.concert,
+    rooms: state.rooms,
+    shifts: state.shifts
+  };
+}
+window.getArrangementData = getArrangementData;
 
 let resizeTimer = null;
 window.addEventListener('resize', () => {
