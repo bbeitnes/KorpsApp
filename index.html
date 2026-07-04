@@ -1424,27 +1424,44 @@ async function seedDefaultInstrumentPhotos() {
   }
 }
 
-// Concert, formation and room are mutually exclusive (one placement each).
-// Shifts are independent — a person can hold any number of shifts in
-// addition to a concert seat / formation spot / room.
-function getExclusiveAssignedNames() {
+// Korpsoppsett (formation) is korps-level and shared across every arrangement,
+// while concert and room belong to the currently selected arrangement — so
+// they are two separate exclusivity scopes, not one. A name occupies at most
+// one formation seat, independent of any arrangement; and, within the current
+// arrangement, at most one concert seat or room bed. That way, someone who
+// already has a formation chair can still be placed in a brand new
+// arrangement's seating/rooms instead of showing up as permanently "taken".
+// Shifts are independent of both scopes — a person can hold any number of
+// shifts in addition to a formation spot / concert seat / room.
+function getExclusiveAssignedNames(kind = state.mode) {
   const set = new Set();
-  state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
-  state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
-  state.rooms.forEach(r => r.occupants.forEach(n => set.add(n)));
+  if (kind === 'formation') {
+    state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  } else {
+    state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+    state.rooms.forEach(r => r.occupants.forEach(n => set.add(n)));
+  }
   return set;
 }
 
+// Broad "assigned to something, anywhere" set — used for overall stats/export,
+// not for gating what's selectable in an assignment dialog.
 function getAssignedNames() {
-  const set = getExclusiveAssignedNames();
+  const set = new Set();
+  state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  state.rooms.forEach(r => r.occupants.forEach(n => set.add(n)));
   state.shifts.forEach(r => r.occupants.forEach(n => set.add(n)));
   return set;
 }
 
-function unassignExclusive(name) {
-  state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
-  state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
-  state.rooms.forEach(r => { r.occupants = r.occupants.filter(n=>n!==name); });
+function unassignExclusive(name, kind = state.mode) {
+  if (kind === 'formation') {
+    state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
+  } else {
+    state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
+    state.rooms.forEach(r => { r.occupants = r.occupants.filter(n=>n!==name); });
+  }
 }
 
 // ===================== ROW-BASED (concert + formation) =====================
@@ -1580,7 +1597,7 @@ function attachSeatDropHandlers(containerId, kind) {
       // Instruments dragged from the Slagverksliste are never exclusive —
       // the same instrument can occupy any number of seats at once.
       const isInstrument = e.dataTransfer.getData('application/x-slagverk') === '1';
-      if (!isInstrument) unassignExclusive(name);
+      if (!isInstrument) unassignExclusive(name, kind);
       const rows = rowsFor(kind);
       const row = rows.find(r=>r.label===el.dataset.row);
       const seat = row?.seats.find(s=>s.id===el.dataset.seat);
@@ -1920,7 +1937,7 @@ function seatClick(kind, rowLabel, seatId) {
     selectedInstrument = null;
     renderRows(kind); renderInstruments(); updateStats();
   } else if (selectedName) {
-    unassignExclusive(selectedName);
+    unassignExclusive(selectedName, kind);
     seat.name = selectedName;
     selectedName = null;
     renderRows(kind); renderNames(); updateStats();
@@ -1950,7 +1967,7 @@ function removeSeatAssignment(kind, rowLabel, seatId) {
 }
 
 function showAssignDialog(kind, rowLabel, seatId) {
-  const unassigned = state.names.filter(n => !getExclusiveAssignedNames().has(n));
+  const unassigned = state.names.filter(n => !getExclusiveAssignedNames(kind).has(n));
   const namesHtml = unassigned.map(n =>
     `<div class="name-item" data-name="${escAttr(n)}" data-kind="name">${escHtml(n)}</div>`
   ).join('');
@@ -2000,7 +2017,7 @@ function doAssignSeat(kind, rowLabel, seatId, name, isInstrument) {
   if (!seat) return;
   // Instruments are never exclusive, so unlike names, assigning one here must not
   // clear it off any other seat that already shows the same instrument.
-  if (!isInstrument) unassignExclusive(name);
+  if (!isInstrument) unassignExclusive(name, kind);
   seat.name = name;
   closeModal();
   renderRows(kind); renderNames(); renderInstruments(); updateStats();
@@ -2139,7 +2156,7 @@ function renderGroups(kind) {
       if (el.dataset.kind === 'shift') {
         // Shifts are non-exclusive: keep any other assignments this person already has
       } else {
-        unassignExclusive(name);
+        unassignExclusive(name, el.dataset.kind);
       }
       g.occupants.push(name);
       selectedName = null;
@@ -2201,7 +2218,7 @@ function groupSlotClick(kind, groupIdx, slotIdx) {
 
   if (selectedName) {
     if (g.occupants.includes(selectedName)) { selectedName = null; renderNames(); return; }
-    if (kind !== 'shift') unassignExclusive(selectedName);
+    if (kind !== 'shift') unassignExclusive(selectedName, kind);
     g.occupants.push(selectedName);
     selectedName = null;
     renderGroups(kind); renderNames(); updateStats();
@@ -2222,11 +2239,11 @@ function showGroupAssignDialog(kind, groupIdx) {
   const L = GROUP_LABELS[kind];
   const g = groupsFor(kind)[groupIdx];
   if (!g) return;
-  // Shifts only need to avoid double-booking the SAME shift; everything else
-  // (concert/formation/room) stays mutually exclusive as before.
+  // Shifts only need to avoid double-booking the SAME shift; rooms stay
+  // mutually exclusive with concert seating in the current arrangement.
   const unassigned = kind === 'shift'
     ? state.names.filter(n => !g.occupants.includes(n))
-    : state.names.filter(n => !getExclusiveAssignedNames().has(n));
+    : state.names.filter(n => !getExclusiveAssignedNames(kind).has(n));
   const listHtml = unassigned.map(n =>
     `<div class="name-item" data-name="${escAttr(n)}">${escHtml(n)}</div>`
   ).join('');
@@ -2268,7 +2285,7 @@ function doAssignGroup(kind, groupIdx, name) {
     alert('Fullt!');
     return;
   }
-  if (kind !== 'shift') unassignExclusive(name);
+  if (kind !== 'shift') unassignExclusive(name, kind);
   g.occupants.push(name);
   closeModal();
   renderGroups(kind); renderNames(); updateStats();
