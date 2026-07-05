@@ -27,6 +27,21 @@
     #sidebar-backdrop, #sidebar-toggle { display: none; }
     #sidebar-close { display: none; }
   }
+  #header-more-btn { display: none; }
+  @media (max-width: 1023px) {
+    #header-more-btn { display: inline-flex; }
+    #header-actions {
+      display: none;
+      position: absolute; top: calc(100% + 6px); right: 0;
+      background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(15,23,42,.2);
+      padding: 10px; flex-direction: column !important; align-items: stretch !important;
+      min-width: 230px; max-height: 75vh; overflow-y: auto; z-index: 60;
+    }
+    #header-actions.open { display: flex; }
+    #header-actions .btn { width: 100%; justify-content: flex-start; }
+    #header-actions span.hidden { display: inline !important; }
+  }
   .seat {
     width: 40px; height: 40px; border-radius: 7px; font-size: 9px;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -182,28 +197,31 @@
     <span id="cloud-save-status" class="text-xs text-slate-400 border-l border-slate-200 pl-3 ml-1"></span>
   </div>
   <div class="flex items-center gap-2 flex-wrap">
-<button onclick="showProjectPicker(true)" class="btn btn-secondary">🔁 <span class="hidden sm:inline">Bytt korps</span></button>
+    <button onclick="showProjectPicker(true)" class="btn btn-secondary">🔁 <span class="hidden sm:inline">Bytt korps</span></button>
     <button onclick="showArrangementPicker(true)" class="btn btn-secondary">📅 <span class="hidden sm:inline">Bytt arrangement</span></button>
     <button id="cloud-save-btn" onclick="manualSaveToFirestore()" class="btn btn-primary">☁️ <span class="hidden sm:inline">Lagre</span></button>
-    <button onclick="saveToFile()" class="btn btn-secondary">📄 <span class="hidden sm:inline">Last ned fil</span></button>
-    <button onclick="document.getElementById('load-input').click()" class="btn btn-secondary">📂 <span class="hidden sm:inline">Last inn fil</span></button>
-    <input type="file" id="load-input" accept=".json" class="hidden" onchange="loadFromFile(event)">
-    <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoSelected(event)">
-    <div class="relative">
-      <button id="export-btn" onclick="toggleExportMenu()" class="btn btn-secondary">📤 <span class="hidden sm:inline">Eksporter ▾</span></button>
-      <div id="export-menu" class="hidden absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 min-w-44">
-        <button onclick="showPDFPreview(); toggleExportMenu()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-t-lg">📄 PDF (forhåndsvisning)</button>
-        <button id="export-diagram-btn" onclick="showFormationDiagramPreview(); toggleExportMenu()" class="hidden w-full text-left px-4 py-2 text-sm hover:bg-slate-50">🎺 Oppstilling (tegning)</button>
-        <button onclick="exportCSV(); toggleExportMenu()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50">📊 CSV</button>
-        <button onclick="showGSheetsExport(); toggleExportMenu()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-b-lg">📗 Google Sheets</button>
+    <button id="header-more-btn" onclick="toggleHeaderActions()" class="btn btn-secondary" aria-label="Mer">⋮ <span class="lg:hidden">Mer</span></button>
+    <div id="header-actions" class="flex items-center gap-2 flex-wrap">
+      <button onclick="saveToFile(); closeHeaderActions()" class="btn btn-secondary">📄 <span class="hidden sm:inline">Last ned fil</span></button>
+      <button onclick="document.getElementById('load-input').click(); closeHeaderActions()" class="btn btn-secondary">📂 <span class="hidden sm:inline">Last inn fil</span></button>
+      <input type="file" id="load-input" accept=".json" class="hidden" onchange="loadFromFile(event)">
+      <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoSelected(event)">
+      <div class="relative">
+        <button id="export-btn" onclick="toggleExportMenu()" class="btn btn-secondary">📤 <span class="hidden sm:inline">Eksporter ▾</span></button>
+        <div id="export-menu" class="hidden absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 min-w-44">
+          <button onclick="showPDFPreview(); toggleExportMenu(); closeHeaderActions()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-t-lg">📄 PDF (forhåndsvisning)</button>
+          <button id="export-diagram-btn" onclick="showFormationDiagramPreview(); toggleExportMenu(); closeHeaderActions()" class="hidden w-full text-left px-4 py-2 text-sm hover:bg-slate-50">🎺 Oppstilling (tegning)</button>
+          <button onclick="exportCSV(); toggleExportMenu(); closeHeaderActions()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50">📊 CSV</button>
+          <button onclick="showGSheetsExport(); toggleExportMenu(); closeHeaderActions()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-b-lg">📗 Google Sheets</button>
+        </div>
       </div>
+      <button onclick="showHelp(); closeHeaderActions()" class="btn btn-secondary">❓ <span class="hidden sm:inline">Hjelp</span></button>
+      <div id="current-user-badge" class="hidden items-center gap-2 text-sm text-slate-600 pl-1">
+        <img id="current-user-photo" class="hidden w-6 h-6 rounded-full" alt="">
+        <span id="current-user-label" class="max-w-[140px] truncate"></span>
+      </div>
+      <button onclick="appSignOut()" class="btn btn-secondary">🚪 <span class="hidden sm:inline">Logg ut</span></button>
     </div>
-    <button onclick="showHelp()" class="btn btn-secondary">❓</button>
-    <div id="current-user-badge" class="hidden items-center gap-2 text-sm text-slate-600 pl-1">
-      <img id="current-user-photo" class="hidden w-6 h-6 rounded-full" alt="">
-      <span id="current-user-label" class="max-w-[140px] truncate"></span>
-    </div>
-    <button onclick="appSignOut()" class="btn btn-secondary">🚪 <span class="hidden sm:inline">Logg ut</span></button>
   </div>
 </header>
 
@@ -1238,7 +1256,21 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#export-menu') && !e.target.closest('#export-btn')) {
     document.getElementById('export-menu')?.classList.add('hidden');
   }
+  if (!e.target.closest('#header-actions') && !e.target.closest('#header-more-btn')) {
+    closeHeaderActions();
+  }
 });
+
+// Secondary header actions (bytt korps/arrangement, fil-import/eksport, hjelp,
+// logg ut) collapse into a single dropdown below "⋮ Mer" on smale skjermer
+// (styrt av CSS-en for #header-actions) for å holde toppmenyen kompakt på
+// mobil. Uendret, alltid synlig rad på store skjermer (se CSS).
+function toggleHeaderActions() {
+  document.getElementById('header-actions').classList.toggle('open');
+}
+function closeHeaderActions() {
+  document.getElementById('header-actions').classList.remove('open');
+}
 
 // ===================== MODE =====================
 function setMode(mode) {
