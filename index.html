@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fordelingsverktøy</title>
+<title>Korpsapp</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Fordeling">
+<meta name="apple-mobile-web-app-title" content="Korpsapp">
 <meta name="theme-color" content="#4f46e5">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
@@ -128,23 +128,65 @@
 </head>
 <body class="min-h-screen">
 
+<!-- AUTH GATE -->
+<div id="auth-gate" class="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+  <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"/>
+          <circle cx="6" cy="18" r="3"/>
+          <circle cx="18" cy="16" r="3"/>
+        </svg>
+      </div>
+      <h1 class="text-lg font-bold text-slate-800">Korpsapp</h1>
+    </div>
+
+    <button id="google-signin-btn" class="btn btn-secondary w-full justify-center">
+      <svg class="w-4 h-4" viewBox="0 0 18 18">
+        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.71-1.57 2.68-3.88 2.68-6.64z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/>
+        <path fill="#FBBC05" d="M3.97 10.7c-.18-.54-.28-1.11-.28-1.7s.1-1.16.28-1.7V4.96H.96A8.996 8.996 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.34z"/>
+        <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/>
+      </svg>
+      Logg inn med Google
+    </button>
+
+    <div class="flex items-center gap-2 my-4 text-xs text-slate-400">
+      <div class="flex-1 h-px bg-slate-200"></div> eller <div class="flex-1 h-px bg-slate-200"></div>
+    </div>
+
+    <label class="text-xs font-medium text-slate-600 mb-1 block">Delt passord</label>
+    <input type="password" id="shared-password-input" placeholder="Passord"
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2 focus:border-indigo-400">
+    <button id="shared-login-btn" class="btn btn-primary w-full justify-center">Logg inn</button>
+
+    <div id="auth-error" class="hidden mt-3 text-sm text-red-600"></div>
+  </div>
+</div>
+
 <!-- HEADER -->
-<header class="bg-white border-b border-slate-200 px-3 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm flex-wrap gap-2 shrink-0">
+<header id="app-header" class="hidden bg-white border-b border-slate-200 px-3 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm flex-wrap gap-2 shrink-0">
   <div class="flex items-center gap-3">
     <button id="sidebar-toggle" onclick="toggleSidebar()" class="btn btn-secondary lg:hidden" aria-label="Meny">☰</button>
     <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857
-             M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857
-             m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18V5l12-2v13"/>
+        <circle cx="6" cy="18" r="3"/>
+        <circle cx="18" cy="16" r="3"/>
       </svg>
     </div>
-    <h1 class="text-lg font-bold text-slate-800 hidden sm:block">Fordelingsverktøy</h1>
+    <h1 class="text-lg font-bold text-slate-800 hidden sm:block">Korpsapp</h1>
+    <span id="current-project-label" class="text-sm font-medium text-indigo-600 border-l border-slate-200 pl-3 ml-1"></span>
+    <span id="current-arrangement-label" class="text-sm font-medium text-slate-500 border-l border-slate-200 pl-3 ml-1"></span>
+    <span id="cloud-save-status" class="text-xs text-slate-400 border-l border-slate-200 pl-3 ml-1"></span>
   </div>
   <div class="flex items-center gap-2 flex-wrap">
-<button onclick="saveToFile()" class="btn btn-secondary">💾 <span class="hidden sm:inline">Lagre</span></button>
-    <button onclick="document.getElementById('load-input').click()" class="btn btn-secondary">📂 <span class="hidden sm:inline">Last inn</span></button>
+<button onclick="showProjectPicker(true)" class="btn btn-secondary">🔁 <span class="hidden sm:inline">Bytt korps</span></button>
+    <button onclick="showArrangementPicker(true)" class="btn btn-secondary">📅 <span class="hidden sm:inline">Bytt arrangement</span></button>
+    <button id="cloud-save-btn" onclick="manualSaveToFirestore()" class="btn btn-primary">☁️ <span class="hidden sm:inline">Lagre</span></button>
+    <button onclick="saveToFile()" class="btn btn-secondary">📄 <span class="hidden sm:inline">Last ned fil</span></button>
+    <button onclick="document.getElementById('load-input').click()" class="btn btn-secondary">📂 <span class="hidden sm:inline">Last inn fil</span></button>
     <input type="file" id="load-input" accept=".json" class="hidden" onchange="loadFromFile(event)">
     <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoSelected(event)">
     <div class="relative">
@@ -157,11 +199,16 @@
       </div>
     </div>
     <button onclick="showHelp()" class="btn btn-secondary">❓</button>
+    <div id="current-user-badge" class="hidden items-center gap-2 text-sm text-slate-600 pl-1">
+      <img id="current-user-photo" class="hidden w-6 h-6 rounded-full" alt="">
+      <span id="current-user-label" class="max-w-[140px] truncate"></span>
+    </div>
+    <button onclick="appSignOut()" class="btn btn-secondary">🚪 <span class="hidden sm:inline">Logg ut</span></button>
   </div>
 </header>
 
 <!-- MAIN LAYOUT -->
-<div class="flex flex-1 min-h-0">
+<div id="app-main-layout" class="hidden flex-1 min-h-0 flex">
 
   <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden"></div>
 
@@ -176,30 +223,19 @@
     </div>
 
     <div class="p-3 border-b border-slate-100">
-      <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center justify-between">
         <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Navneliste</span>
-        <div class="flex gap-1">
-          <button onclick="showImportNames()" class="text-xs text-indigo-600 hover:underline">Importer</button>
-          <span class="text-slate-300">|</span>
-          <button onclick="clearAssignments()" class="text-xs text-red-500 hover:underline">Nullstill</button>
-        </div>
+        <button onclick="openNameListModal()" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;">✏️ Rediger</button>
       </div>
-      <textarea id="name-input" placeholder="Skriv ett navn per linje..."
-        class="w-full h-28 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
-        oninput="parseNames()"></textarea>
       <div class="mt-1 text-xs text-slate-400" id="name-count">0 navn</div>
     </div>
 
     <div id="percussion-section" class="p-3 border-b border-slate-100 hidden">
-      <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center justify-between">
         <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Slagverksliste</span>
-        <button onclick="resetInstrumentsToDefault()" class="text-xs text-indigo-600 hover:underline">Standardliste</button>
+        <button onclick="openInstrumentListModal()" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;">✏️ Rediger</button>
       </div>
-      <textarea id="instrument-input" placeholder="Skriv ett instrument per linje..."
-        class="w-full h-24 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
-        oninput="parseInstruments()"></textarea>
       <div class="mt-1 text-xs text-slate-400" id="instrument-count">0 instrumenter</div>
-      <div class="mt-1 text-xs text-slate-400">Et instrument kan velges og plasseres flere ganger.</div>
     </div>
 
     <div class="flex-1 overflow-y-auto p-3">
@@ -320,6 +356,772 @@
 <div id="modal-container"></div>
 <div id="print-area"></div>
 
+<!-- NAME LIST MODAL -->
+<div id="name-list-modal" class="modal-bg hidden" onclick="if(event.target.id==='name-list-modal') closeNameListModal()">
+  <div class="modal">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-bold">Navneliste</h2>
+      <button onclick="closeNameListModal()" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1" aria-label="Lukk">✕</button>
+    </div>
+    <div class="flex gap-1 mb-2">
+      <button onclick="showImportNames()" class="text-xs text-indigo-600 hover:underline">Importer</button>
+      <span class="text-slate-300">|</span>
+      <button onclick="clearAssignments()" class="text-xs text-red-500 hover:underline">Nullstill</button>
+    </div>
+    <textarea id="name-input" placeholder="Skriv ett navn per linje..."
+      class="w-full h-64 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
+      oninput="parseNames()"></textarea>
+    <div class="mt-3 flex justify-end">
+      <button onclick="closeNameListModal()" class="btn btn-primary">Ferdig</button>
+    </div>
+  </div>
+</div>
+
+<!-- INSTRUMENT LIST MODAL -->
+<div id="instrument-list-modal" class="modal-bg hidden" onclick="if(event.target.id==='instrument-list-modal') closeInstrumentListModal()">
+  <div class="modal">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-bold">Slagverksliste</h2>
+      <button onclick="closeInstrumentListModal()" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1" aria-label="Lukk">✕</button>
+    </div>
+    <div class="mb-2">
+      <button onclick="resetInstrumentsToDefault()" class="text-xs text-indigo-600 hover:underline">Standardliste</button>
+    </div>
+    <textarea id="instrument-input" placeholder="Skriv ett instrument per linje..."
+      class="w-full h-56 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
+      oninput="parseInstruments()"></textarea>
+    <div class="mt-1 text-xs text-slate-400">Et instrument kan velges og plasseres flere ganger.</div>
+    <div class="mt-3 flex justify-end">
+      <button onclick="closeInstrumentListModal()" class="btn btn-primary">Ferdig</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== AUTENTISERING (Firebase) ===================== -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+    signInWithPopup, GoogleAuthProvider, signOut
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+    collection, getDocs, deleteDoc
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDQA3CmYameS10cjuiqAaxAk4UpB8Lg1GI",
+    authDomain: "skiensskolemusikk-b5cbc.firebaseapp.com",
+    projectId: "skiensskolemusikk-b5cbc",
+    storageBucket: "skiensskolemusikk-b5cbc.firebasestorage.app",
+    messagingSenderId: "125188360972",
+    appId: "1:125188360972:web:4d7c61a2155353e0b79729"
+  };
+  // Fast delt konto (e-post/passord) + Google-kontoer begrenset til korpsets Workspace-domene.
+  const SHARED_LOGIN_EMAIL = 'korpsapp@skiens-skolemusikk.no';
+  const ALLOWED_GOOGLE_DOMAIN = 'skiens-skolemusikk.no';
+
+  const firebaseApp = initializeApp(firebaseConfig);
+  const auth = getAuth(firebaseApp);
+  const db = getFirestore(firebaseApp);
+  // Korps (bandet) og arrangement (den enkelte konsert/tur/seminar) lagres som
+  // to nivåer: hvert korps er et dokument i PROJECTS_COLLECTION og eier
+  // navneliste + instrumentliste (delt av alt korpset gjør), mens hvert
+  // arrangement er et eget dokument i en undersamling av korpset og eier alt
+  // det arrangement-spesifikke (korpsoppsett/billettfordeling/romfordeling/
+  // vaktliste). Dette gjør at et nytt arrangement kan settes opp helt
+  // uavhengig av forrige — praktisk siden f.eks. antall musikanter kan
+  // variere fra gang til gang — uten at navnelisten forsvinner eller må
+  // skrives inn på nytt.
+  const PROJECTS_COLLECTION = 'korpsapp';
+  const ARRANGEMENTS_SUBCOLLECTION = 'arrangementer';
+
+  const gateEl = document.getElementById('auth-gate');
+  const headerEl = document.getElementById('app-header');
+  const mainLayoutEl = document.getElementById('app-main-layout');
+  const errorEl = document.getElementById('auth-error');
+  const passwordInput = document.getElementById('shared-password-input');
+  const userBadgeEl = document.getElementById('current-user-badge');
+  const userPhotoEl = document.getElementById('current-user-photo');
+  const userLabelEl = document.getElementById('current-user-label');
+  const projectLabelEl = document.getElementById('current-project-label');
+  const arrangementLabelEl = document.getElementById('current-arrangement-label');
+
+  function showAuthError(msg) {
+    errorEl.textContent = msg;
+    errorEl.classList.remove('hidden');
+  }
+  function clearAuthError() {
+    errorEl.classList.add('hidden');
+    errorEl.textContent = '';
+  }
+
+  // Den delte kontoen har ingen ekte person bak seg — vis et vennlig navn
+  // i stedet for den delte e-postadressen, som ellers ville sett ut som
+  // "hvem" var innlogget uten faktisk å identifisere noen.
+  function displayNameFor(user) {
+    if (user.email === SHARED_LOGIN_EMAIL) return 'Delt konto';
+    return user.displayName || user.email || 'Innlogget';
+  }
+
+  onAuthStateChanged(auth, user => {
+    const signedIn = !!user;
+    gateEl.classList.toggle('hidden', signedIn);
+    headerEl.classList.toggle('hidden', !signedIn);
+    mainLayoutEl.classList.toggle('hidden', !signedIn);
+
+    if (signedIn) {
+      userLabelEl.textContent = displayNameFor(user);
+      userLabelEl.title = user.email || '';
+      if (user.photoURL) {
+        userPhotoEl.src = user.photoURL;
+        userPhotoEl.classList.remove('hidden');
+      } else {
+        userPhotoEl.classList.add('hidden');
+        userPhotoEl.removeAttribute('src');
+      }
+      userBadgeEl.classList.remove('hidden');
+      userBadgeEl.classList.add('flex');
+      if (currentProjectId) {
+        korpsDocRef = doc(db, PROJECTS_COLLECTION, currentProjectId);
+        startKorpsSync();
+        ensureArrangementSelected();
+      } else {
+        showProjectPicker(false);
+      }
+    } else {
+      userBadgeEl.classList.add('hidden');
+      userBadgeEl.classList.remove('flex');
+      stopKorpsSync();
+      stopArrangementSync();
+    }
+  });
+
+  // ----- Flere korps: hvert korps er sitt eget dokument i samme samling -----
+  let currentProjectId = localStorage.getItem('korpsapp-current-project') || null;
+  let currentProjectName = null;
+  let korpsDocRef = null;
+
+  function updateProjectLabel() {
+    projectLabelEl.textContent = currentProjectName || currentProjectId || '';
+  }
+
+  async function listProjects() {
+    const snap = await getDocs(collection(db, PROJECTS_COLLECTION));
+    return snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
+  }
+
+  function slugify(name, fallbackPrefix) {
+    const slug = name.trim().toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9æøå-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    return slug || `${fallbackPrefix || 'element'}-${Date.now()}`;
+  }
+
+  function getBlankKorpsData() {
+    return {
+      names: [],
+      instruments: DEFAULT_INSTRUMENTS.slice(),
+      photos: {}
+    };
+  }
+
+  function getBlankArrangementData() {
+    return { concert: { rows: [] }, formation: { rows: [], title: '' }, rooms: [], shifts: [] };
+  }
+
+  async function createProject(name) {
+    const id = slugify(name, 'korps');
+    const ref = doc(db, PROJECTS_COLLECTION, id);
+    const existing = await getDoc(ref);
+    if (existing.exists()) {
+      alert('Et korps med dette navnet finnes allerede.');
+      return null;
+    }
+    await setDoc(ref, {
+      ...getBlankKorpsData(),
+      name,
+      version: 1,
+      updatedBy: currentUserLabel(),
+      updatedAt: serverTimestamp()
+    });
+    return id;
+  }
+
+  async function renameProject(id, oldName) {
+    const newName = prompt('Nytt navn på korpset:', oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return false;
+    await setDoc(doc(db, PROJECTS_COLLECTION, id), { name: newName.trim() }, { merge: true });
+    if (id === currentProjectId) {
+      currentProjectName = newName.trim();
+      updateProjectLabel();
+    }
+    return true;
+  }
+
+  async function deleteProject(id, name) {
+    if (!confirm(`Slette korpset «${name}» permanent?\n\nDette kan IKKE angres — alle navn, oppsett, arrangementer og bilder for dette korpset forsvinner for godt.`)) {
+      return false;
+    }
+    // Firestore sletter ikke underdokumenter automatisk når foreldredokumentet
+    // slettes, så vi må tømme arrangement-samlingen eksplisitt først.
+    const arrSnap = await getDocs(collection(db, PROJECTS_COLLECTION, id, ARRANGEMENTS_SUBCOLLECTION));
+    await Promise.all(arrSnap.docs.map(d => deleteDoc(d.ref)));
+    await deleteDoc(doc(db, PROJECTS_COLLECTION, id));
+    if (id === currentProjectId) {
+      stopKorpsSync();
+      stopArrangementSync();
+      currentProjectId = null;
+      currentProjectName = null;
+      korpsDocRef = null;
+      currentArrangementId = null;
+      currentArrangementName = null;
+      arrangementDocRef = null;
+      localStorage.removeItem('korpsapp-current-project');
+      updateProjectLabel();
+      updateArrangementLabel();
+    }
+    return true;
+  }
+
+  async function setActiveProject(id, name) {
+    if (currentProjectId && auth.currentUser) {
+      await saveKorpsToFirestore();
+      await saveArrangementToFirestore();
+    }
+    currentArrangementId = null;
+    currentArrangementName = null;
+    arrangementDocRef = null;
+    stopArrangementSync();
+
+    currentProjectId = id;
+    currentProjectName = name || null;
+    localStorage.setItem('korpsapp-current-project', id);
+    korpsDocRef = doc(db, PROJECTS_COLLECTION, id);
+    updateProjectLabel();
+    stopKorpsSync();
+    startKorpsSync();
+    await ensureArrangementSelected();
+  }
+
+  async function showProjectPicker(closable) {
+    let projects;
+    try {
+      projects = await listProjects();
+    } catch (e) {
+      alert('Kunne ikke hente listen over korps. Sjekk nettforbindelsen og prøv igjen.');
+      return;
+    }
+    const rowsHtml = projects.length
+      ? projects.map(p => `
+          <div class="flex items-center justify-between gap-2 border border-slate-200 rounded-lg px-3 py-2">
+            <button data-select-id="${window.escAttr(p.id)}" data-select-name="${window.escAttr(p.name)}" class="flex-1 text-left text-sm font-medium hover:text-indigo-600">${window.escHtml(p.name)}</button>
+            <button data-rename-id="${window.escAttr(p.id)}" data-rename-name="${window.escAttr(p.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1" title="Endre navn">✏️</button>
+            <button data-delete-id="${window.escAttr(p.id)}" data-delete-name="${window.escAttr(p.name)}" class="text-red-400 hover:text-red-600 text-sm px-1" title="Slett korps">✕</button>
+          </div>`).join('')
+      : `<p class="text-sm text-slate-400">Ingen korps opprettet ennå.</p>`;
+
+    window.showModal(`
+      <h2 class="text-lg font-bold mb-3">Velg korps</h2>
+      <p class="text-xs text-slate-500 mb-3">Et korps er navnelisten og instrumentlisten — felles for alt korpset gjør. Korpsoppsett, billettfordeling, romfordeling og vaktliste hører til det enkelte arrangement, og settes opp på nytt for hvert arrangement siden f.eks. antall musikanter kan variere. Bruk «Bytt arrangement» for enkeltkonserter, turer eller seminarer innenfor korpset.</p>
+      <div class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
+      <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt korps</label>
+      <div class="flex gap-2">
+        <input type="text" id="new-project-name" placeholder="Navn på korps" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-400">
+        <button id="create-project-btn" class="btn btn-primary">Opprett</button>
+      </div>
+      ${closable ? '<div class="mt-4 flex justify-end"><button id="close-picker-btn" class="btn btn-secondary">Lukk</button></div>' : ''}
+    `);
+
+    document.querySelectorAll('[data-select-id]').forEach(el => {
+      el.addEventListener('click', async () => {
+        await setActiveProject(el.dataset.selectId, el.dataset.selectName);
+        window.closeModal();
+      });
+    });
+    document.querySelectorAll('[data-rename-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        const renamed = await renameProject(el.dataset.renameId, el.dataset.renameName);
+        if (renamed) showProjectPicker(closable);
+      });
+    });
+    document.querySelectorAll('[data-delete-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        const wasCurrent = el.dataset.deleteId === currentProjectId;
+        const deleted = await deleteProject(el.dataset.deleteId, el.dataset.deleteName);
+        if (deleted) showProjectPicker(closable && !wasCurrent);
+      });
+    });
+    const createBtn = document.getElementById('create-project-btn');
+    const nameInput = document.getElementById('new-project-name');
+    createBtn.addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      const id = await createProject(name);
+      if (id) {
+        await setActiveProject(id, name);
+        window.closeModal();
+      }
+    });
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') createBtn.click(); });
+    const closeBtn = document.getElementById('close-picker-btn');
+    if (closeBtn) closeBtn.addEventListener('click', () => window.closeModal());
+  }
+  window.showProjectPicker = showProjectPicker;
+
+  // ----- Arrangementer: billettfordeling/romfordeling/vaktliste for én konkret hendelse -----
+  let currentArrangementId = localStorage.getItem(`korpsapp-current-arrangement-${currentProjectId}`) || null;
+  let currentArrangementName = null;
+  let arrangementDocRef = null;
+
+  function updateArrangementLabel() {
+    arrangementLabelEl.textContent = currentArrangementName || currentArrangementId || '';
+  }
+
+  function arrangementsCollectionRef() {
+    return collection(db, PROJECTS_COLLECTION, currentProjectId, ARRANGEMENTS_SUBCOLLECTION);
+  }
+
+  async function listArrangements() {
+    const snap = await getDocs(arrangementsCollectionRef());
+    return snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
+  }
+
+  async function createArrangement(name, seed) {
+    const id = slugify(name, 'arrangement');
+    const ref = doc(arrangementsCollectionRef(), id);
+    const existing = await getDoc(ref);
+    if (existing.exists()) {
+      alert('Et arrangement med dette navnet finnes allerede i dette korpset.');
+      return null;
+    }
+    await setDoc(ref, {
+      ...(seed || getBlankArrangementData()),
+      name,
+      version: 1,
+      updatedBy: currentUserLabel(),
+      updatedAt: serverTimestamp()
+    });
+    return id;
+  }
+
+  async function renameArrangement(id, oldName) {
+    const newName = prompt('Nytt navn på arrangementet:', oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return false;
+    await setDoc(doc(arrangementsCollectionRef(), id), { name: newName.trim() }, { merge: true });
+    if (id === currentArrangementId) {
+      currentArrangementName = newName.trim();
+      updateArrangementLabel();
+    }
+    return true;
+  }
+
+  async function deleteArrangement(id, name) {
+    if (!confirm(`Slette arrangementet «${name}» permanent?\n\nDette kan IKKE angres — korpsoppsett, billettfordeling, romfordeling og vaktliste for dette arrangementet forsvinner for godt. Navneliste og instrumentliste påvirkes ikke.`)) {
+      return false;
+    }
+    await deleteDoc(doc(arrangementsCollectionRef(), id));
+    if (id === currentArrangementId) {
+      stopArrangementSync();
+      currentArrangementId = null;
+      currentArrangementName = null;
+      arrangementDocRef = null;
+      localStorage.removeItem(`korpsapp-current-arrangement-${currentProjectId}`);
+      updateArrangementLabel();
+    }
+    return true;
+  }
+
+  async function setActiveArrangement(id, name) {
+    if (currentArrangementId && auth.currentUser) await saveArrangementToFirestore();
+    currentArrangementId = id;
+    currentArrangementName = name || null;
+    localStorage.setItem(`korpsapp-current-arrangement-${currentProjectId}`, id);
+    arrangementDocRef = doc(arrangementsCollectionRef(), id);
+    updateArrangementLabel();
+    stopArrangementSync();
+    startArrangementSync();
+  }
+
+  // Kalles etter at et korps er blitt aktivt. Sørger for at et arrangement
+  // alltid er valgt: gjenbruker sist brukte, faller tilbake til det første
+  // som finnes, eller oppretter et nytt («Standard») — og migrerer i så fall
+  // inn gammel billettfordeling/korpsoppsett/romfordeling/vaktliste som lå
+  // direkte på korpsdokumentet før arrangement-modellen fantes, slik at
+  // ingenting går tapt.
+  async function ensureArrangementSelected() {
+    let list;
+    try {
+      list = await listArrangements();
+    } catch (e) {
+      console.error('Kunne ikke hente arrangementer:', e);
+      return;
+    }
+    if (list.length === 0) {
+      let legacy = {};
+      try {
+        const korpsSnap = await getDoc(korpsDocRef);
+        if (korpsSnap.exists()) legacy = korpsSnap.data();
+      } catch (e) { /* ignorer, start blankt */ }
+      const seed = {
+        concert: legacy.concert || { rows: [] },
+        formation: legacy.formation || { rows: [], title: '' },
+        rooms: legacy.rooms || [],
+        shifts: legacy.shifts || []
+      };
+      const id = await createArrangement('Standard', seed);
+      if (id) await setActiveArrangement(id, 'Standard');
+      return;
+    }
+    const remembered = localStorage.getItem(`korpsapp-current-arrangement-${currentProjectId}`);
+    const match = list.find(a => a.id === remembered) || list[0];
+    await setActiveArrangement(match.id, match.name);
+  }
+
+  async function showArrangementPicker(closable) {
+    if (!currentProjectId) { alert('Velg et korps først.'); return; }
+    let arrangements;
+    try {
+      arrangements = await listArrangements();
+    } catch (e) {
+      alert('Kunne ikke hente listen over arrangementer. Sjekk nettforbindelsen og prøv igjen.');
+      return;
+    }
+    const rowsHtml = arrangements.length
+      ? arrangements.map(a => `
+          <div class="flex items-center justify-between gap-2 border border-slate-200 rounded-lg px-3 py-2">
+            <button data-select-id="${window.escAttr(a.id)}" data-select-name="${window.escAttr(a.name)}" class="flex-1 text-left text-sm font-medium hover:text-indigo-600">${window.escHtml(a.name)}</button>
+            <button data-rename-id="${window.escAttr(a.id)}" data-rename-name="${window.escAttr(a.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1" title="Endre navn">✏️</button>
+            <button data-delete-id="${window.escAttr(a.id)}" data-delete-name="${window.escAttr(a.name)}" class="text-red-400 hover:text-red-600 text-sm px-1" title="Slett arrangement">✕</button>
+          </div>`).join('')
+      : `<p class="text-sm text-slate-400">Ingen arrangementer opprettet ennå.</p>`;
+
+    window.showModal(`
+      <h2 class="text-lg font-bold mb-3">Velg arrangement</h2>
+      <p class="text-xs text-slate-500 mb-3">Korpsoppsett, billettfordeling, romfordeling og vaktliste hører til arrangementet du velger her, og settes opp helt uavhengig for hvert arrangement — praktisk siden f.eks. antall musikanter kan variere fra gang til gang. Navneliste og instrumentliste er felles for hele korpset og følger ikke med.</p>
+      <div class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
+      <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt arrangement</label>
+      <div class="flex gap-2">
+        <input type="text" id="new-arrangement-name" placeholder="F.eks. Høstkonsert 2026" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-400">
+        <button id="create-arrangement-btn" class="btn btn-primary">Opprett</button>
+      </div>
+      ${closable ? '<div class="mt-4 flex justify-end"><button id="close-picker-btn" class="btn btn-secondary">Lukk</button></div>' : ''}
+    `);
+
+    document.querySelectorAll('[data-select-id]').forEach(el => {
+      el.addEventListener('click', async () => {
+        await setActiveArrangement(el.dataset.selectId, el.dataset.selectName);
+        window.closeModal();
+      });
+    });
+    document.querySelectorAll('[data-rename-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        const renamed = await renameArrangement(el.dataset.renameId, el.dataset.renameName);
+        if (renamed) showArrangementPicker(closable);
+      });
+    });
+    document.querySelectorAll('[data-delete-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        const wasCurrent = el.dataset.deleteId === currentArrangementId;
+        const deleted = await deleteArrangement(el.dataset.deleteId, el.dataset.deleteName);
+        if (deleted) {
+          if (wasCurrent) await ensureArrangementSelected();
+          showArrangementPicker(closable);
+        }
+      });
+    });
+    const createBtn = document.getElementById('create-arrangement-btn');
+    const nameInput = document.getElementById('new-arrangement-name');
+    createBtn.addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      const id = await createArrangement(name);
+      if (id) {
+        await setActiveArrangement(id, name);
+        window.closeModal();
+      }
+    });
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') createBtn.click(); });
+    const closeBtn = document.getElementById('close-picker-btn');
+    if (closeBtn) closeBtn.addEventListener('click', () => window.closeModal());
+  }
+  window.showArrangementPicker = showArrangementPicker;
+
+  // ----- Delt lagring i Firestore, med konfliktvarsling -----
+  // Vi lytter kontinuerlig på både korpsets og arrangementets dokument for å
+  // alltid vite hvilken versjon som faktisk ligger i skyen (til bruk i
+  // lagre-sjekken under), men vi overskriver ALDRI det brukeren jobber med
+  // akkurat nå automatisk — det ville kunnet slette ulagrede endringer uten
+  // varsel. Innlasting skjer kun ved bytte av korps/arrangement, og ved
+  // eksplisitt valg i konfliktdialogen. De to nivåene har hver sin
+  // versjonsteller, slik at f.eks. en endring i romfordelingen ikke trigger
+  // en falsk konflikt mot navneliste/instrumentliste og omvendt.
+  let korpsInitialLoadDone = false;
+  let loadedKorpsVersion = 0;
+  let latestRemoteKorps = { version: 0, updatedBy: null };
+  let unsubscribeKorpsSnapshot = null;
+
+  let arrangementInitialLoadDone = false;
+  let loadedArrangementVersion = 0;
+  let latestRemoteArrangement = { version: 0, updatedBy: null };
+  let unsubscribeArrangementSnapshot = null;
+
+  function currentUserLabel() {
+    return auth.currentUser ? displayNameFor(auth.currentUser) : 'Ukjent';
+  }
+
+  function stripMeta(data) {
+    const { version, updatedBy, updatedAt, name, ...rest } = data;
+    return rest;
+  }
+
+  // Arrangement-dokumenter skrevet av den forrige modellen (der korpsoppsettets
+  // rader lå på korps-nivå og arrangementet kun husket hvem som satt hvor)
+  // mangler en egen formation-struktur. Bygg den én gang ved å låne radene som
+  // fortsatt ligger på korpsdokumentet fra den gang, slik at ingen mister
+  // oppsettet sitt idet korpsoppsett blir fullt ut per-arrangement.
+  async function withLegacyFormation(data) {
+    if (data.formation || !data.formationAssignments) return data;
+    let legacyStructure = { rows: [], title: '' };
+    try {
+      const korpsSnap = await getDoc(korpsDocRef);
+      if (korpsSnap.exists()) legacyStructure = korpsSnap.data().formation || legacyStructure;
+    } catch (e) { /* fall tilbake til tomt oppsett */ }
+    const { formationAssignments, ...rest } = data;
+    return {
+      ...rest,
+      formation: {
+        title: legacyStructure.title || '',
+        rows: (legacyStructure.rows || []).map(row => ({
+          ...row,
+          seats: (row.seats || []).map(seat => ({
+            id: seat.id,
+            name: formationAssignments[`${row.label}::${seat.id}`] || null
+          }))
+        }))
+      }
+    };
+  }
+
+  function startKorpsSync() {
+    if (unsubscribeKorpsSnapshot || !korpsDocRef) return;
+    unsubscribeKorpsSnapshot = onSnapshot(korpsDocRef, snap => {
+      if (!snap.exists()) {
+        // Korpset ble slettet (av oss selv eller noen andre) mens vi så på det.
+        korpsInitialLoadDone = true;
+        stopKorpsSync();
+        stopArrangementSync();
+        currentProjectId = null;
+        currentProjectName = null;
+        currentArrangementId = null;
+        currentArrangementName = null;
+        localStorage.removeItem('korpsapp-current-project');
+        updateProjectLabel();
+        updateArrangementLabel();
+        showProjectPicker(false);
+        return;
+      }
+      const data = snap.data();
+      currentProjectName = data.name || currentProjectName;
+      updateProjectLabel();
+      latestRemoteKorps = { version: data.version || 0, updatedBy: data.updatedBy || null };
+      if (!korpsInitialLoadDone) {
+        korpsInitialLoadDone = true;
+        loadedKorpsVersion = latestRemoteKorps.version;
+        window.applyKorpsData?.(stripMeta(data));
+      }
+    }, err => {
+      console.error('Firestore-synk (korps) feilet:', err);
+    });
+  }
+
+  function stopKorpsSync() {
+    if (unsubscribeKorpsSnapshot) { unsubscribeKorpsSnapshot(); unsubscribeKorpsSnapshot = null; }
+    korpsInitialLoadDone = false;
+    loadedKorpsVersion = 0;
+    latestRemoteKorps = { version: 0, updatedBy: null };
+  }
+
+  function startArrangementSync() {
+    if (unsubscribeArrangementSnapshot || !arrangementDocRef) return;
+    unsubscribeArrangementSnapshot = onSnapshot(arrangementDocRef, async snap => {
+      if (!snap.exists()) {
+        arrangementInitialLoadDone = true;
+        stopArrangementSync();
+        currentArrangementId = null;
+        currentArrangementName = null;
+        localStorage.removeItem(`korpsapp-current-arrangement-${currentProjectId}`);
+        updateArrangementLabel();
+        ensureArrangementSelected();
+        return;
+      }
+      const data = snap.data();
+      currentArrangementName = data.name || currentArrangementName;
+      updateArrangementLabel();
+      latestRemoteArrangement = { version: data.version || 0, updatedBy: data.updatedBy || null };
+      if (!arrangementInitialLoadDone) {
+        arrangementInitialLoadDone = true;
+        loadedArrangementVersion = latestRemoteArrangement.version;
+        window.applyArrangementData?.(await withLegacyFormation(stripMeta(data)));
+      }
+    }, err => {
+      console.error('Firestore-synk (arrangement) feilet:', err);
+    });
+  }
+
+  function stopArrangementSync() {
+    if (unsubscribeArrangementSnapshot) { unsubscribeArrangementSnapshot(); unsubscribeArrangementSnapshot = null; }
+    arrangementInitialLoadDone = false;
+    loadedArrangementVersion = 0;
+    latestRemoteArrangement = { version: 0, updatedBy: null };
+  }
+
+  async function saveKorpsToFirestore() {
+    if (!auth.currentUser || !korpsDocRef) return;
+    if (latestRemoteKorps.version > loadedKorpsVersion) {
+      const reload = confirm(
+        `${latestRemoteKorps.updatedBy || 'Noen andre'} har lagret endringer i navneliste/instrumentliste siden du sist hentet inn dette korpset.\n\n` +
+        `Trykk OK for å hente inn deres versjon (dine ulagrede endringer forsvinner), ` +
+        `eller Avbryt for å lagre dine endringer over deres.`
+      );
+      if (reload) {
+        const snap = await getDoc(korpsDocRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          loadedKorpsVersion = data.version || 0;
+          latestRemoteKorps = { version: loadedKorpsVersion, updatedBy: data.updatedBy || null };
+          window.applyKorpsData?.(stripMeta(data));
+        }
+        return;
+      }
+    }
+    const newVersion = (latestRemoteKorps.version || 0) + 1;
+    const korpsData = window.getKorpsData ? window.getKorpsData() : {};
+    await setDoc(korpsDocRef, {
+      ...korpsData,
+      name: currentProjectName || currentProjectId,
+      version: newVersion,
+      updatedBy: currentUserLabel(),
+      updatedAt: serverTimestamp()
+    });
+    loadedKorpsVersion = newVersion;
+    latestRemoteKorps = { version: newVersion, updatedBy: currentUserLabel() };
+  }
+
+  async function saveArrangementToFirestore() {
+    if (!auth.currentUser || !arrangementDocRef) return;
+    if (latestRemoteArrangement.version > loadedArrangementVersion) {
+      const reload = confirm(
+        `${latestRemoteArrangement.updatedBy || 'Noen andre'} har lagret endringer i dette arrangementet siden du sist hentet det inn.\n\n` +
+        `Trykk OK for å hente inn deres versjon (dine ulagrede endringer forsvinner), ` +
+        `eller Avbryt for å lagre dine endringer over deres.`
+      );
+      if (reload) {
+        const snap = await getDoc(arrangementDocRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          loadedArrangementVersion = data.version || 0;
+          latestRemoteArrangement = { version: loadedArrangementVersion, updatedBy: data.updatedBy || null };
+          window.applyArrangementData?.(await withLegacyFormation(stripMeta(data)));
+        }
+        return;
+      }
+    }
+    const newVersion = (latestRemoteArrangement.version || 0) + 1;
+    const arrangementData = window.getArrangementData ? window.getArrangementData() : {};
+    await setDoc(arrangementDocRef, {
+      ...arrangementData,
+      name: currentArrangementName || currentArrangementId,
+      version: newVersion,
+      updatedBy: currentUserLabel(),
+      updatedAt: serverTimestamp()
+    });
+    loadedArrangementVersion = newVersion;
+    latestRemoteArrangement = { version: newVersion, updatedBy: currentUserLabel() };
+  }
+
+  // Felles lagre-logikk for både den stille 30-sekunders autolagringen og
+  // den nye «Lagre»-knappen i toppmenyen. Knappen trenger synlig
+  // tilbakemelding (så brukeren faktisk vet at det er lagret i Firebase),
+  // mens autolagringen skal skje i det stille uten å forstyrre.
+  const cloudSaveBtn = document.getElementById('cloud-save-btn');
+  const cloudSaveStatusEl = document.getElementById('cloud-save-status');
+
+  function setCloudSaveStatus(text, tone) {
+    if (!cloudSaveStatusEl) return;
+    cloudSaveStatusEl.textContent = text;
+    cloudSaveStatusEl.classList.remove('text-slate-400', 'text-emerald-600', 'text-red-500');
+    cloudSaveStatusEl.classList.add(tone || 'text-slate-400');
+  }
+
+  async function performFirestoreSave(manual) {
+    if (!auth.currentUser) {
+      if (manual) alert('Du må være logget inn for å lagre.');
+      return;
+    }
+    if (manual && cloudSaveBtn) {
+      cloudSaveBtn.disabled = true;
+      cloudSaveBtn.dataset.origHtml = cloudSaveBtn.innerHTML;
+      cloudSaveBtn.innerHTML = '⏳ <span class="hidden sm:inline">Lagrer…</span>';
+    }
+    try {
+      await saveKorpsToFirestore();
+      await saveArrangementToFirestore();
+      setCloudSaveStatus(`✓ Lagret kl ${new Date().toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })}`, 'text-emerald-600');
+    } catch (e) {
+      console.error('Lagring til Firebase feilet:', e);
+      setCloudSaveStatus('⚠️ Lagring feilet', 'text-red-500');
+      if (manual) alert('Klarte ikke å lagre til Firebase. Sjekk nettforbindelsen og prøv igjen.');
+    } finally {
+      if (manual && cloudSaveBtn) {
+        cloudSaveBtn.disabled = false;
+        cloudSaveBtn.innerHTML = cloudSaveBtn.dataset.origHtml;
+      }
+    }
+  }
+  window.saveStateToFirestore = () => performFirestoreSave(false);
+  window.manualSaveToFirestore = () => performFirestoreSave(true);
+
+  document.getElementById('google-signin-btn').addEventListener('click', async () => {
+    clearAuthError();
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ hd: ALLOWED_GOOGLE_DOMAIN });
+      const result = await signInWithPopup(auth, provider);
+      const email = (result.user.email || '').toLowerCase();
+      if (!email.endsWith('@' + ALLOWED_GOOGLE_DOMAIN)) {
+        await signOut(auth);
+        showAuthError(`Denne Google-kontoen tilhører ikke ${ALLOWED_GOOGLE_DOMAIN}.`);
+      }
+    } catch (e) {
+      if (e.code !== 'auth/popup-closed-by-user') showAuthError('Innlogging med Google feilet. Prøv igjen.');
+    }
+  });
+
+  async function doSharedLogin() {
+    clearAuthError();
+    const pw = passwordInput.value;
+    if (!pw) return;
+    try {
+      await signInWithEmailAndPassword(auth, SHARED_LOGIN_EMAIL, pw);
+      passwordInput.value = '';
+    } catch (e) {
+      showAuthError('Feil passord.');
+    }
+  }
+  document.getElementById('shared-login-btn').addEventListener('click', doSharedLogin);
+  passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSharedLogin(); });
+
+  // Eksponert globalt slik at "Logg ut"-knappen (inline onclick, som resten av appen) kan nå den.
+  window.appSignOut = () => signOut(auth);
+</script>
+
 <script>
 // ===================== STATE =====================
 const DEFAULT_INSTRUMENTS = [
@@ -352,22 +1154,68 @@ window.onload = () => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {/* server may not support SW */});
   }
-
-  const saved = localStorage.getItem('fordeling-autosave');
-  if (saved) {
-    try {
-      const s = JSON.parse(saved);
-      if (confirm('Fant et automatisk lagret prosjekt. Vil du gjenoppta?')) {
-        state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {} }, s);
-        document.getElementById('name-input').value = state.names.join('\n');
-      }
-    } catch(e) {}
-  }
   // Fresh project (or a save with no percussion list yet) starts from the default instruments
   document.getElementById('instrument-input').value = state.instruments.join('\n');
   render();
   seedDefaultInstrumentPhotos();
 };
+
+// ===================== DELT LAGRING (Firestore) =====================
+// Erstatter hele state-objektet — brukt både ved manuell fil-import og når
+// appen henter inn korpsets delte prosjekt fra Firestore.
+function replaceState(loaded) {
+  state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {} }, loaded);
+  document.getElementById('name-input').value = state.names.join('\n');
+  document.getElementById('instrument-input').value = state.instruments.join('\n');
+  render();
+  seedDefaultInstrumentPhotos();
+}
+// Korps-nivået: navneliste, instrumentliste og bilder. Felles for alle
+// arrangementer i korpset, så et nytt arrangement kan aldri slette eller
+// overskrive dette.
+function applyKorpsData(data) {
+  state.names = data.names || [];
+  state.instruments = data.instruments || DEFAULT_INSTRUMENTS.slice();
+  state.photos = data.photos || {};
+  document.getElementById('name-input').value = state.names.join('\n');
+  document.getElementById('instrument-input').value = state.instruments.join('\n');
+  render();
+  seedDefaultInstrumentPhotos();
+}
+window.applyKorpsData = applyKorpsData;
+
+function getKorpsData() {
+  return {
+    names: state.names,
+    instruments: state.instruments,
+    photos: state.photos
+  };
+}
+window.getKorpsData = getKorpsData;
+
+// Arrangement-nivået: korpsoppsett, billettfordeling, romfordeling og
+// vaktliste — for én konkret hendelse (konsert, tur, seminar) innenfor
+// korpset. Alt her settes opp helt uavhengig fra arrangement til arrangement,
+// siden f.eks. antall musikanter (og dermed rader/plasser i korpsoppsettet)
+// kan variere fra gang til gang.
+function applyArrangementData(data) {
+  state.concert = data.concert || { rows: [] };
+  state.formation = data.formation || { rows: [], title: '' };
+  state.rooms = data.rooms || [];
+  state.shifts = data.shifts || [];
+  render();
+}
+window.applyArrangementData = applyArrangementData;
+
+function getArrangementData() {
+  return {
+    concert: state.concert,
+    formation: state.formation,
+    rooms: state.rooms,
+    shifts: state.shifts
+  };
+}
+window.getArrangementData = getArrangementData;
 
 let resizeTimer = null;
 window.addEventListener('resize', () => {
@@ -383,6 +1231,7 @@ setInterval(() => {
   if (json === lastAutosavedJson) return;
   lastAutosavedJson = json;
   localStorage.setItem('fordeling-autosave', json);
+  window.saveStateToFirestore?.();
 }, 30000);
 
 document.addEventListener('click', e => {
@@ -424,6 +1273,14 @@ function closeSidebar() {
 }
 
 // ===================== NAMES =====================
+function openNameListModal() {
+  document.getElementById('name-list-modal').classList.remove('hidden');
+  document.getElementById('name-input').focus();
+}
+function closeNameListModal() {
+  document.getElementById('name-list-modal').classList.add('hidden');
+}
+
 function parseNames() {
   const raw = document.getElementById('name-input').value;
   state.names = raw.split('\n').map(n=>n.trim()).filter(Boolean);
@@ -508,6 +1365,14 @@ function selectName(name) {
 // ===================== SLAGVERKSLISTE (percussion instruments) =====================
 // Like the name list, but instruments are never "used up": the same instrument
 // can be placed on any number of formation seats, so nothing is ever marked assigned.
+function openInstrumentListModal() {
+  document.getElementById('instrument-list-modal').classList.remove('hidden');
+  document.getElementById('instrument-input').focus();
+}
+function closeInstrumentListModal() {
+  document.getElementById('instrument-list-modal').classList.add('hidden');
+}
+
 function parseInstruments() {
   const raw = document.getElementById('instrument-input').value;
   state.instruments = raw.split('\n').map(n=>n.trim()).filter(Boolean);
@@ -675,27 +1540,43 @@ async function seedDefaultInstrumentPhotos() {
   }
 }
 
-// Concert, formation and room are mutually exclusive (one placement each).
-// Shifts are independent — a person can hold any number of shifts in
-// addition to a concert seat / formation spot / room.
-function getExclusiveAssignedNames() {
+// Formation and concert/room are kept as two separate exclusivity scopes, not
+// one, even though both live on the same arrangement now: a marching spot and
+// an audience seat/room bed are different physical roles, so a name occupies
+// at most one formation seat AND, independently, at most one concert seat or
+// room bed within the same arrangement — someone with a formation chair isn't
+// blocked from also getting a concert seat or room bed, and vice versa.
+// Shifts are independent of both scopes — a person can hold any number of
+// shifts in addition to a formation spot / concert seat / room.
+function getExclusiveAssignedNames(kind = state.mode) {
   const set = new Set();
-  state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
-  state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
-  state.rooms.forEach(r => r.occupants.forEach(n => set.add(n)));
+  if (kind === 'formation') {
+    state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  } else {
+    state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+    state.rooms.forEach(r => r.occupants.forEach(n => set.add(n)));
+  }
   return set;
 }
 
+// Broad "assigned to something, anywhere" set — used for overall stats/export,
+// not for gating what's selectable in an assignment dialog.
 function getAssignedNames() {
-  const set = getExclusiveAssignedNames();
+  const set = new Set();
+  state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  state.rooms.forEach(r => r.occupants.forEach(n => set.add(n)));
   state.shifts.forEach(r => r.occupants.forEach(n => set.add(n)));
   return set;
 }
 
-function unassignExclusive(name) {
-  state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
-  state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
-  state.rooms.forEach(r => { r.occupants = r.occupants.filter(n=>n!==name); });
+function unassignExclusive(name, kind = state.mode) {
+  if (kind === 'formation') {
+    state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
+  } else {
+    state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
+    state.rooms.forEach(r => { r.occupants = r.occupants.filter(n=>n!==name); });
+  }
 }
 
 // ===================== ROW-BASED (concert + formation) =====================
@@ -831,7 +1712,7 @@ function attachSeatDropHandlers(containerId, kind) {
       // Instruments dragged from the Slagverksliste are never exclusive —
       // the same instrument can occupy any number of seats at once.
       const isInstrument = e.dataTransfer.getData('application/x-slagverk') === '1';
-      if (!isInstrument) unassignExclusive(name);
+      if (!isInstrument) unassignExclusive(name, kind);
       const rows = rowsFor(kind);
       const row = rows.find(r=>r.label===el.dataset.row);
       const seat = row?.seats.find(s=>s.id===el.dataset.seat);
@@ -1171,7 +2052,7 @@ function seatClick(kind, rowLabel, seatId) {
     selectedInstrument = null;
     renderRows(kind); renderInstruments(); updateStats();
   } else if (selectedName) {
-    unassignExclusive(selectedName);
+    unassignExclusive(selectedName, kind);
     seat.name = selectedName;
     selectedName = null;
     renderRows(kind); renderNames(); updateStats();
@@ -1201,7 +2082,7 @@ function removeSeatAssignment(kind, rowLabel, seatId) {
 }
 
 function showAssignDialog(kind, rowLabel, seatId) {
-  const unassigned = state.names.filter(n => !getExclusiveAssignedNames().has(n));
+  const unassigned = state.names.filter(n => !getExclusiveAssignedNames(kind).has(n));
   const namesHtml = unassigned.map(n =>
     `<div class="name-item" data-name="${escAttr(n)}" data-kind="name">${escHtml(n)}</div>`
   ).join('');
@@ -1251,7 +2132,7 @@ function doAssignSeat(kind, rowLabel, seatId, name, isInstrument) {
   if (!seat) return;
   // Instruments are never exclusive, so unlike names, assigning one here must not
   // clear it off any other seat that already shows the same instrument.
-  if (!isInstrument) unassignExclusive(name);
+  if (!isInstrument) unassignExclusive(name, kind);
   seat.name = name;
   closeModal();
   renderRows(kind); renderNames(); renderInstruments(); updateStats();
@@ -1390,7 +2271,7 @@ function renderGroups(kind) {
       if (el.dataset.kind === 'shift') {
         // Shifts are non-exclusive: keep any other assignments this person already has
       } else {
-        unassignExclusive(name);
+        unassignExclusive(name, el.dataset.kind);
       }
       g.occupants.push(name);
       selectedName = null;
@@ -1452,7 +2333,7 @@ function groupSlotClick(kind, groupIdx, slotIdx) {
 
   if (selectedName) {
     if (g.occupants.includes(selectedName)) { selectedName = null; renderNames(); return; }
-    if (kind !== 'shift') unassignExclusive(selectedName);
+    if (kind !== 'shift') unassignExclusive(selectedName, kind);
     g.occupants.push(selectedName);
     selectedName = null;
     renderGroups(kind); renderNames(); updateStats();
@@ -1473,11 +2354,11 @@ function showGroupAssignDialog(kind, groupIdx) {
   const L = GROUP_LABELS[kind];
   const g = groupsFor(kind)[groupIdx];
   if (!g) return;
-  // Shifts only need to avoid double-booking the SAME shift; everything else
-  // (concert/formation/room) stays mutually exclusive as before.
+  // Shifts only need to avoid double-booking the SAME shift; rooms stay
+  // mutually exclusive with concert seating in the current arrangement.
   const unassigned = kind === 'shift'
     ? state.names.filter(n => !g.occupants.includes(n))
-    : state.names.filter(n => !getExclusiveAssignedNames().has(n));
+    : state.names.filter(n => !getExclusiveAssignedNames(kind).has(n));
   const listHtml = unassigned.map(n =>
     `<div class="name-item" data-name="${escAttr(n)}">${escHtml(n)}</div>`
   ).join('');
@@ -1519,7 +2400,7 @@ function doAssignGroup(kind, groupIdx, name) {
     alert('Fullt!');
     return;
   }
-  if (kind !== 'shift') unassignExclusive(name);
+  if (kind !== 'shift') unassignExclusive(name, kind);
   g.occupants.push(name);
   closeModal();
   renderGroups(kind); renderNames(); updateStats();
@@ -1809,11 +2690,7 @@ function loadFromFile(event) {
   reader.onload = e => {
     try {
       const loaded = JSON.parse(e.target.result);
-      state = Object.assign({ formation: { rows: [] }, shifts: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {} }, loaded);
-      document.getElementById('name-input').value = state.names.join('\n');
-      document.getElementById('instrument-input').value = state.instruments.join('\n');
-      render();
-      seedDefaultInstrumentPhotos();
+      replaceState(loaded);
     } catch(err) { alert('Ugyldig fil.'); }
   };
   reader.readAsText(file);
@@ -2045,7 +2922,8 @@ function showHelp() {
       <div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt.</div>
       <div><strong>🖱️ Tildeling:</strong> Klikk et navn og deretter en plass, eller dra navnet direkte til plassen. Etter Enter i søk kan du trykke Tab for å hoppe til neste ledige plass.</div>
       <div><strong>📷 Bilder:</strong> Klikk den lille runde sirkelen ved et navn i navnelisten for å laste opp et portrettbilde. Bildet vises i stedet for initialer i Korpsoppsett, både på skjerm og i utskrift.</div>
-      <div><strong>💾 Lagring:</strong> «Lagre» laster ned en .json-fil. «Last inn» gjenopptar. Automatisk lagring i nettleseren skjer hvert 30. sek.</div>
+      <div><strong>☁️ Lagre:</strong> Lagrer navneliste/instrumentliste og arrangementet du står i (korpsoppsett, billettfordeling, romfordeling, vaktliste) til Firebase med en gang – knappen viser «Lagrer…» og deretter «✓ Lagret kl HH:MM» øverst når det er gjort. Skjer også automatisk hvert 30. sek. og når du bytter korps/arrangement, men bruk knappen når du vil være sikker før du bytter eller lukker appen.</div>
+      <div><strong>📄 Last ned fil:</strong> Laster ned en .json-fil som lokal sikkerhetskopi. «Last inn fil» gjenoppretter fra en slik fil.</div>
       <div><strong>📗 Google Sheets:</strong> Publiser arket offentlig: Fil → Del → Publiser på nettet → CSV. Du velger selv hvilke kolonner som skal brukes ved import.</div>
       <div><strong>📄 PDF:</strong> Eksporter → PDF gir forhåndsvisning gruppert per rad/rom/vakt med liste over ikke-tildelte.</div>
     </div>
