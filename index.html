@@ -85,6 +85,9 @@
     background: white; border-radius: 50%; width: 13px; height: 13px;
     display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px #e2e8f0;
   }
+  .avatar.static { cursor: default; }
+  .avatar.static:hover { transform: none; box-shadow: none; border-color: #c7d2fe; }
+  .avatar.static::after { content: none; }
   .avatar-remove {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(15,23,42,.65); color: white; font-size: 10px; cursor: pointer;
@@ -242,12 +245,21 @@
       <button id="tab-shift" class="tab-btn" onclick="setMode('shift')">🕐 Vaktlister</button>
     </div>
 
-    <div class="p-3 border-b border-slate-100">
+    <div id="name-section" class="p-3 border-b border-slate-100">
       <div class="flex items-center justify-between">
         <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Navneliste</span>
         <button onclick="openNameListModal()" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;">✏️ Rediger</button>
       </div>
       <div class="mt-1 text-xs text-slate-400" id="name-count">0 navn</div>
+    </div>
+
+    <!-- Vaktlister involverer foreldre, ikke musikantene selv (typisk skolekorps-scenario) -->
+    <div id="parent-section" class="p-3 border-b border-slate-100 hidden">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Foreldreliste</span>
+        <button onclick="openParentListModal()" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;">✏️ Rediger</button>
+      </div>
+      <div class="mt-1 text-xs text-slate-400" id="parent-count">0 foreldre</div>
     </div>
 
     <div id="percussion-section" class="p-3 border-b border-slate-100 hidden">
@@ -384,7 +396,7 @@
       <button onclick="closeNameListModal()" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1" aria-label="Lukk">✕</button>
     </div>
     <div class="flex gap-1 mb-2">
-      <button onclick="showImportNames()" class="text-xs text-indigo-600 hover:underline">Importer</button>
+      <button onclick="showImportRoster('name-input','parseNames','navn')" class="text-xs text-indigo-600 hover:underline">Importer</button>
       <span class="text-slate-300">|</span>
       <button onclick="clearAssignments()" class="text-xs text-red-500 hover:underline">Nullstill</button>
     </div>
@@ -393,6 +405,26 @@
       oninput="parseNames()"></textarea>
     <div class="mt-3 flex justify-end">
       <button onclick="closeNameListModal()" class="btn btn-primary">Ferdig</button>
+    </div>
+  </div>
+</div>
+
+<!-- PARENT LIST MODAL -->
+<div id="parent-list-modal" class="modal-bg hidden" onclick="if(event.target.id==='parent-list-modal') closeParentListModal()">
+  <div class="modal">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-bold">Foreldreliste</h2>
+      <button onclick="closeParentListModal()" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1" aria-label="Lukk">✕</button>
+    </div>
+    <p class="text-xs text-slate-500 mb-2">Brukes kun i Vaktlister — foreldre tar vaktene, ikke musikantene.</p>
+    <div class="flex gap-1 mb-2">
+      <button onclick="showImportRoster('parent-input','parseParents','foreldre')" class="text-xs text-indigo-600 hover:underline">Importer</button>
+    </div>
+    <textarea id="parent-input" placeholder="Skriv ett foreldrenavn per linje..."
+      class="w-full h-64 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
+      oninput="parseParents()"></textarea>
+    <div class="mt-3 flex justify-end">
+      <button onclick="closeParentListModal()" class="btn btn-primary">Ferdig</button>
     </div>
   </div>
 </div>
@@ -561,6 +593,7 @@
   function getBlankKorpsData() {
     return {
       names: [],
+      parents: [],
       instruments: DEFAULT_INSTRUMENTS.slice(),
       photos: {}
     };
@@ -1181,6 +1214,7 @@ const DEFAULT_INSTRUMENTS = [
 let state = {
   mode: 'concert',
   names: [],
+  parents: [], // egen liste brukt i vaktliste-modus, siden det er foreldrene og ikke musikantene som tar vakter
   concert: { rows: [] },
   formation: { rows: [], title: '' },
   rooms: [],
@@ -1213,9 +1247,10 @@ window.onload = () => {
 // Erstatter hele state-objektet — brukt både ved manuell fil-import og når
 // appen henter inn korpsets delte prosjekt fra Firestore.
 function replaceState(loaded) {
-  state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {} }, loaded);
+  state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {}, parents: [] }, loaded);
   document.getElementById('name-input').value = state.names.join('\n');
   document.getElementById('instrument-input').value = state.instruments.join('\n');
+  document.getElementById('parent-input').value = state.parents.join('\n');
   render();
   seedDefaultInstrumentPhotos();
 }
@@ -1224,9 +1259,11 @@ function replaceState(loaded) {
 // overskrive dette.
 function applyKorpsData(data) {
   state.names = data.names || [];
+  state.parents = data.parents || [];
   state.instruments = data.instruments || DEFAULT_INSTRUMENTS.slice();
   state.photos = data.photos || {};
   document.getElementById('name-input').value = state.names.join('\n');
+  document.getElementById('parent-input').value = state.parents.join('\n');
   document.getElementById('instrument-input').value = state.instruments.join('\n');
   render();
   seedDefaultInstrumentPhotos();
@@ -1236,6 +1273,7 @@ window.applyKorpsData = applyKorpsData;
 function getKorpsData() {
   return {
     names: state.names,
+    parents: state.parents,
     instruments: state.instruments,
     photos: state.photos
   };
@@ -1312,6 +1350,9 @@ function setMode(mode) {
   });
   selectedName = null;
   selectedInstrument = null;
+  document.getElementById('name-section').classList.toggle('hidden', mode === 'shift');
+  document.getElementById('parent-section').classList.toggle('hidden', mode !== 'shift');
+  document.getElementById('name-search').placeholder = mode === 'shift' ? 'Søk foreldre...' : 'Søk navn...';
   renderNames();
   updateStats();
   document.getElementById('percussion-section').classList.toggle('hidden', mode !== 'formation');
@@ -1352,13 +1393,39 @@ function parseNames() {
   updateStats();
 }
 
+// ===================== FORELDRELISTE (vaktlister) =====================
+// Egen liste brukt kun i vaktliste-modus: i et skolekorps er det foreldrene
+// som tar vaktene, ikke musikantene, så navnelisten kan ikke gjenbrukes der.
+function openParentListModal() {
+  document.getElementById('parent-list-modal').classList.remove('hidden');
+  document.getElementById('parent-input').focus();
+}
+function closeParentListModal() {
+  document.getElementById('parent-list-modal').classList.add('hidden');
+}
+
+function parseParents() {
+  const raw = document.getElementById('parent-input').value;
+  state.parents = raw.split('\n').map(n=>n.trim()).filter(Boolean);
+  document.getElementById('parent-count').textContent = `${state.parents.length} foreldre`;
+  renderNames();
+  updateStats();
+}
+
+// Musikanter i konsert/korpsoppsett/rom, foreldre i vaktlister.
+function rosterFor(mode = state.mode) {
+  return mode === 'shift' ? state.parents : state.names;
+}
+
 function renderNames() {
   const search = document.getElementById('name-search').value.toLowerCase();
   const filter = document.getElementById('name-filter').value;
   // Shifts are non-exclusive: nobody is "taken" from the sidebar's perspective in shift mode
-  const assignedSet = state.mode === 'shift' ? new Set() : getExclusiveAssignedNames();
+  const isShift = state.mode === 'shift';
+  const roster = rosterFor(state.mode);
+  const assignedSet = isShift ? new Set() : getExclusiveAssignedNames();
 
-  let filtered = state.names.filter(n => {
+  let filtered = roster.filter(n => {
     if (search && !n.toLowerCase().includes(search)) return false;
     if (filter === 'assigned' && !assignedSet.has(n)) return false;
     if (filter === 'unassigned' && assignedSet.has(n)) return false;
@@ -1376,7 +1443,8 @@ function renderNames() {
   el.innerHTML = filtered.map(n => {
     const isAssigned = assignedSet.has(n);
     const isSelected = selectedName === n;
-    const photo = state.photos[n];
+    // Foreldre har ingen bilde-opplasting — bare initialer, enklere enn musikant-avataren.
+    const photo = isShift ? null : state.photos[n];
     const avatarInner = photo
       ? `<img src="${photo}" alt="">`
       : `<span>${initials(n)}</span>`;
@@ -1385,7 +1453,7 @@ function renderNames() {
                  data-name="${escAttr(n)}"
                  ${isAssigned ? '' : `draggable="true" onclick="selectName('${escJs(n)}')" style="cursor:grab"`}>
       <span class="flex items-center gap-2 min-w-0">
-        <span class="avatar" data-avatar-name="${escAttr(n)}" title="${photo?'Bytt eller fjern bilde':'Last opp bilde'}">${avatarInner}${removeBtn}</span>
+        <span class="avatar ${isShift ? 'static' : ''}" data-avatar-name="${escAttr(n)}" title="${isShift ? '' : (photo?'Bytt eller fjern bilde':'Last opp bilde')}">${avatarInner}${removeBtn}</span>
         <span class="name-text truncate">${escHtml(n)}</span>
       </span>
       ${isAssigned ? '<span class="assigned-badge text-xs shrink-0">✓ plassert</span>' : ''}
@@ -1401,21 +1469,23 @@ function renderNames() {
     el.addEventListener('dragend', () => { el.style.opacity = ''; });
   });
 
-  document.querySelectorAll('#name-list .avatar').forEach(el => {
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      if (e.target.closest('.avatar-remove')) return;
-      openPhotoPicker(el.dataset.avatarName);
+  if (!isShift) {
+    document.querySelectorAll('#name-list .avatar').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        if (e.target.closest('.avatar-remove')) return;
+        openPhotoPicker(el.dataset.avatarName);
+      });
     });
-  });
-  document.querySelectorAll('#name-list .avatar-remove').forEach(el => {
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      delete state.photos[el.dataset.removePhoto];
-      renderNames();
-      if (state.mode === 'formation') renderFormation();
+    document.querySelectorAll('#name-list .avatar-remove').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        delete state.photos[el.dataset.removePhoto];
+        renderNames();
+        if (state.mode === 'formation') renderFormation();
+      });
     });
-  });
+  }
 }
 
 function selectName(name) {
@@ -2420,8 +2490,8 @@ function showGroupAssignDialog(kind, groupIdx) {
   // Shifts only need to avoid double-booking the SAME shift; rooms stay
   // mutually exclusive with concert seating in the current arrangement.
   const unassigned = kind === 'shift'
-    ? state.names.filter(n => !g.occupants.includes(n))
-    : state.names.filter(n => !getExclusiveAssignedNames(kind).has(n));
+    ? rosterFor(kind).filter(n => !g.occupants.includes(n))
+    : rosterFor(kind).filter(n => !getExclusiveAssignedNames(kind).has(n));
   const listHtml = unassigned.map(n =>
     `<div class="name-item" data-name="${escAttr(n)}">${escHtml(n)}</div>`
   ).join('');
@@ -2472,9 +2542,10 @@ function doAssignGroup(kind, groupIdx, name) {
 // ===================== STATS =====================
 function updateStats() {
   const el = document.getElementById('stats');
-  const nameSet = new Set(state.names);
-  const assigned = [...getAssignedNames()].filter(n => nameSet.has(n)).length;
-  const total = state.names.length;
+  const roster = rosterFor(state.mode);
+  const rosterSet = new Set(roster);
+  const assigned = [...getAssignedNames()].filter(n => rosterSet.has(n)).length;
+  const total = roster.length;
   let extra;
   if (state.mode === 'concert' || state.mode === 'formation') {
     const rows = rowsFor(state.mode);
@@ -2487,7 +2558,8 @@ function updateStats() {
     const occupied = groups.reduce((s,g)=>s+g.occupants.length,0);
     extra = `Plasser: <b>${occupied}/${totalCap}</b>`;
   }
-  el.innerHTML = `Navn: <b>${assigned}/${total}</b> plassert &nbsp;·&nbsp; ${extra}`;
+  const label = state.mode === 'shift' ? 'Foreldre' : 'Navn';
+  el.innerHTML = `${label}: <b>${assigned}/${total}</b> plassert &nbsp;·&nbsp; ${extra}`;
 }
 
 // ===================== CLEAR =====================
@@ -2504,6 +2576,7 @@ function clearAssignments() {
 // ===================== RENDER =====================
 function render() {
   parseNames();
+  parseParents();
   parseInstruments();
   renderConcert();
   renderFormation();
@@ -2513,16 +2586,20 @@ function render() {
   updateStats();
 }
 
-// ===================== IMPORT NAMES =====================
-function showImportNames() {
+// ===================== IMPORT ROSTER (navn eller foreldre) =====================
+// Delt av Navneliste og Foreldreliste — targetInputId/parseFnName sier hvilken
+// tekstliste importen skal skrives inn i og hvilken parse-funksjon som skal
+// kjøres etterpå (parseFnName slås opp globalt, siden alle parse-funksjonene
+// er vanlige toppnivå-funksjoner).
+function showImportRoster(targetInputId, parseFnName, itemLabel) {
   showModal(`
-    <h2 class="text-xl font-bold mb-4">Importer navn</h2>
+    <h2 class="text-xl font-bold mb-4">Importer ${escHtml(itemLabel)}</h2>
     <div class="flex flex-col gap-3">
       <div>
         <label class="text-sm font-medium text-slate-700 mb-1 block">Lim inn fra Excel/regneark</label>
-        <textarea id="paste-names" class="w-full h-32 border border-slate-200 rounded-lg p-2 text-sm"
+        <textarea id="paste-roster" class="w-full h-32 border border-slate-200 rounded-lg p-2 text-sm"
           placeholder="Lim inn én kolonne med navn her..."></textarea>
-        <button onclick="applyPastedNames()" class="btn btn-primary mt-2 text-sm">Bruk innlimte navn</button>
+        <button onclick="applyPastedRoster('${targetInputId}','${parseFnName}')" class="btn btn-primary mt-2 text-sm">Bruk innlimte navn</button>
       </div>
       <hr class="border-slate-200">
       <div>
@@ -2534,23 +2611,24 @@ function showImportNames() {
           Kolonne: <input type="text" id="gsheet-col" value="A" class="w-12 border border-slate-200 rounded px-1">
           Rad start: <input type="number" id="gsheet-row" value="1" class="w-14 border border-slate-200 rounded px-1">
         </div>
-        <button onclick="importNamesFromGSheets()" class="btn btn-primary mt-2 text-sm">📗 Hent navn</button>
+        <button onclick="importRosterFromGSheets('${targetInputId}','${parseFnName}')" class="btn btn-primary mt-2 text-sm">📗 Hent navn</button>
       </div>
     </div>
     <div class="mt-4 flex justify-end"><button onclick="closeModal()" class="btn btn-secondary">Lukk</button></div>
   `);
 }
 
-function applyPastedNames() {
-  const text = document.getElementById('paste-names').value;
+function applyPastedRoster(targetInputId, parseFnName) {
+  const text = document.getElementById('paste-roster').value;
   const names = text.split(/[\n\t]/).map(n=>n.trim()).filter(Boolean);
-  const existing = document.getElementById('name-input').value.trim();
-  document.getElementById('name-input').value = existing ? existing+'\n'+names.join('\n') : names.join('\n');
-  parseNames();
+  const inputEl = document.getElementById(targetInputId);
+  const existing = inputEl.value.trim();
+  inputEl.value = existing ? existing+'\n'+names.join('\n') : names.join('\n');
+  window[parseFnName]();
   closeModal();
 }
 
-async function importNamesFromGSheets() {
+async function importRosterFromGSheets(targetInputId, parseFnName) {
   const url = document.getElementById('gsheet-url').value.trim();
   const col = document.getElementById('gsheet-col').value || 'A';
   const startRow = parseInt(document.getElementById('gsheet-row').value) || 1;
@@ -2562,9 +2640,10 @@ async function importNamesFromGSheets() {
     const rows = parseCsvRows(text);
     const colIdx = colToIdx(col);
     const names = rows.slice(startRow-1).map(r=>(r[colIdx]||'').trim()).filter(Boolean);
-    const existing = document.getElementById('name-input').value.trim();
-    document.getElementById('name-input').value = existing ? existing+'\n'+names.join('\n') : names.join('\n');
-    parseNames();
+    const inputEl = document.getElementById(targetInputId);
+    const existing = inputEl.value.trim();
+    inputEl.value = existing ? existing+'\n'+names.join('\n') : names.join('\n');
+    window[parseFnName]();
     closeModal();
   } catch(e) {
     alert('Kunne ikke hente data. Kontroller at arket er publisert.');
@@ -2765,7 +2844,7 @@ function buildPdfHtml() {
   const date = new Date().toLocaleDateString('no-NO', {day:'2-digit',month:'long',year:'numeric'});
   let body = '';
   const assignedSet = getAssignedNames();
-  const unassigned = state.names.filter(n=>!assignedSet.has(n));
+  const unassigned = rosterFor(state.mode).filter(n=>!assignedSet.has(n));
 
   if (state.mode === 'concert' || state.mode === 'formation') {
     const rows = rowsFor(state.mode);
@@ -2982,7 +3061,7 @@ function showHelp() {
       <div><strong>🎺 Korpsmodus:</strong> Rader vises som en halvsirkel rundt dirigentpunktet. Sett opp rader med antall plasser og justering (venstre/senter/høyre) – øverste linje i oppsettet er fremste rad.</div>
       <div><strong>🥁 Slagverksliste:</strong> Vises i sidebaren kun i korpsmodus, under navnelisten. I motsetning til navn kan et instrument velges og plasseres i flere seter samtidig – f.eks. flere "Congas"-seter. Klikk et instrument og deretter et sete, eller dra det direkte til setet.</div>
       <div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass.</div>
-      <div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt.</div>
+      <div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt. Bruker en egen Foreldreliste i stedet for navnelisten, siden det er foreldrene og ikke musikantene som tar vaktene.</div>
       <div><strong>🖱️ Tildeling:</strong> Klikk et navn og deretter en plass, eller dra navnet direkte til plassen. Etter Enter i søk kan du trykke Tab for å hoppe til neste ledige plass.</div>
       <div><strong>📷 Bilder:</strong> Klikk den lille runde sirkelen ved et navn i navnelisten for å laste opp et portrettbilde. Bildet vises i stedet for initialer i Korpsoppsett, både på skjerm og i utskrift.</div>
       <div><strong>☁️ Lagre:</strong> Lagrer navneliste/instrumentliste og arrangementet du står i (korpsoppsett, billettfordeling, romfordeling, vaktliste) til Firebase med en gang – knappen viser «Lagrer…» og deretter «✓ Lagret kl HH:MM» øverst når det er gjort. Skjer også automatisk hvert 30. sek. og når du bytter korps/arrangement, men bruk knappen når du vil være sikker før du bytter eller lukker appen.</div>
