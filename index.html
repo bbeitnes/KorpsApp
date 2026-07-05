@@ -42,6 +42,8 @@
     #header-actions .btn { width: 100%; justify-content: flex-start; }
     #header-actions span.hidden { display: inline !important; }
   }
+  .reorder-handle { cursor: grab; touch-action: none; font-size: 15px; }
+  [data-reorder-item].reorder-dragging { opacity: .5; background: #eef2ff; border-color: #4f46e5 !important; cursor: grabbing; }
   .seat {
     width: 40px; height: 40px; border-radius: 7px; font-size: 9px;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -424,7 +426,7 @@
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
-    collection, getDocs, deleteDoc
+    collection, getDocs, deleteDoc, writeBatch
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -526,7 +528,25 @@
 
   async function listProjects() {
     const snap = await getDocs(collection(db, PROJECTS_COLLECTION));
-    return snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
+    const projects = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id, order: d.data().order }));
+    // Korps uten lagret rekkefølge (opprettet før dra-og-slipp-sortering fantes)
+    // sorteres alfabetisk seg imellom og havner foran ethvert korps som har fått
+    // en eksplisitt order-verdi (enten ved sortering eller ved å bli opprettet
+    // etterpå, se createProject), slik at rekkefølgen ikke hopper rundt av seg selv.
+    return projects.sort((a, b) => {
+      const orderA = a.order ?? -1;
+      const orderB = b.order ?? -1;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name, 'no');
+    });
+  }
+
+  async function persistProjectOrder(orderedIds) {
+    const batch = writeBatch(db);
+    orderedIds.forEach((id, i) => {
+      batch.set(doc(db, PROJECTS_COLLECTION, id), { order: i }, { merge: true });
+    });
+    await batch.commit();
   }
 
   function slugify(name, fallbackPrefix) {
@@ -561,6 +581,10 @@
     await setDoc(ref, {
       ...getBlankKorpsData(),
       name,
+      // Stort tall (nå-tidspunkt) holder nye korps sist i listen, uten å måtte
+      // slå opp høyeste eksisterende order — persistProjectOrder skriver uansett
+      // om til rene 0,1,2… neste gang noen sorterer listen på nytt.
+      order: Date.now(),
       version: 1,
       updatedBy: currentUserLabel(),
       updatedAt: serverTimestamp()
@@ -634,17 +658,18 @@
     }
     const rowsHtml = projects.length
       ? projects.map(p => `
-          <div class="flex items-center justify-between gap-2 border border-slate-200 rounded-lg px-3 py-2">
-            <button data-select-id="${window.escAttr(p.id)}" data-select-name="${window.escAttr(p.name)}" class="flex-1 text-left text-sm font-medium hover:text-indigo-600">${window.escHtml(p.name)}</button>
-            <button data-rename-id="${window.escAttr(p.id)}" data-rename-name="${window.escAttr(p.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1" title="Endre navn">✏️</button>
-            <button data-delete-id="${window.escAttr(p.id)}" data-delete-name="${window.escAttr(p.name)}" class="text-red-400 hover:text-red-600 text-sm px-1" title="Slett korps">✕</button>
+          <div class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white" data-reorder-item="${window.escAttr(p.id)}">
+            <span class="reorder-handle text-slate-300 hover:text-slate-500 px-1 shrink-0" title="Dra for å endre rekkefølge">⠿</span>
+            <button data-select-id="${window.escAttr(p.id)}" data-select-name="${window.escAttr(p.name)}" class="flex-1 text-left text-sm font-medium hover:text-indigo-600 min-w-0 truncate">${window.escHtml(p.name)}</button>
+            <button data-rename-id="${window.escAttr(p.id)}" data-rename-name="${window.escAttr(p.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1 shrink-0" title="Endre navn">✏️</button>
+            <button data-delete-id="${window.escAttr(p.id)}" data-delete-name="${window.escAttr(p.name)}" class="text-red-400 hover:text-red-600 text-sm px-1 shrink-0" title="Slett korps">✕</button>
           </div>`).join('')
       : `<p class="text-sm text-slate-400">Ingen korps opprettet ennå.</p>`;
 
     window.showModal(`
       <h2 class="text-lg font-bold mb-3">Velg korps</h2>
-      <p class="text-xs text-slate-500 mb-3">Et korps er navnelisten og instrumentlisten — felles for alt korpset gjør. Korpsoppsett, billettfordeling, romfordeling og vaktliste hører til det enkelte arrangement, og settes opp på nytt for hvert arrangement siden f.eks. antall musikanter kan variere. Bruk «Bytt arrangement» for enkeltkonserter, turer eller seminarer innenfor korpset.</p>
-      <div class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
+      <p class="text-xs text-slate-500 mb-3">Et korps er navnelisten og instrumentlisten — felles for alt korpset gjør. Korpsoppsett, billettfordeling, romfordeling og vaktliste hører til det enkelte arrangement, og settes opp på nytt for hvert arrangement siden f.eks. antall musikanter kan variere. Bruk «Bytt arrangement» for enkeltkonserter, turer eller seminarer innenfor korpset. Dra i ⠿ for å endre rekkefølgen.</p>
+      <div id="korps-picker-list" class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
       <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt korps</label>
       <div class="flex gap-2">
         <input type="text" id="new-project-name" placeholder="Navn på korps" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-400">
@@ -652,6 +677,12 @@
       </div>
       ${closable ? '<div class="mt-4 flex justify-end"><button id="close-picker-btn" class="btn btn-secondary">Lukk</button></div>' : ''}
     `);
+
+    if (projects.length > 1) {
+      window.makeReorderable(document.getElementById('korps-picker-list'), orderedIds => {
+        persistProjectOrder(orderedIds).catch(() => alert('Klarte ikke å lagre den nye rekkefølgen. Sjekk nettforbindelsen og prøv igjen.'));
+      });
+    }
 
     document.querySelectorAll('[data-select-id]').forEach(el => {
       el.addEventListener('click', async () => {
@@ -2986,6 +3017,52 @@ function toggleExportMenu() {
 }
 
 // ===================== UTILS =====================
+// Generisk klikk-og-dra omsortering av en liste med rader, via Pointer Events
+// (ikke HTML5 drag-and-drop-API-et) slik at det fungerer likt med mus, touch
+// og penn. containerEl må inneholde direkte barn med data-reorder-item, hver
+// med et barn/etterkommer med klassen "reorder-handle" som starter draget.
+// onReorder(orderedIds) kalles med den nye rekkefølgen (array av id-verdiene
+// fra data-reorder-item) når brukeren slipper.
+function makeReorderable(containerEl, onReorder) {
+  let dragEl = null;
+  containerEl.querySelectorAll('.reorder-handle').forEach(handle => {
+    handle.addEventListener('pointerdown', e => {
+      dragEl = handle.closest('[data-reorder-item]');
+      if (!dragEl) return;
+      e.preventDefault();
+      try { handle.setPointerCapture(e.pointerId); } catch (err) { /* ignorer, drar uansett videre */ }
+      dragEl.classList.add('reorder-dragging');
+
+      const onMove = ev => {
+        if (!dragEl) return;
+        dragEl.style.pointerEvents = 'none';
+        const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-reorder-item]');
+        dragEl.style.pointerEvents = '';
+        if (target && target !== dragEl && target.parentElement === containerEl) {
+          const rect = target.getBoundingClientRect();
+          const before = ev.clientY < rect.top + rect.height / 2;
+          containerEl.insertBefore(dragEl, before ? target : target.nextSibling);
+        }
+      };
+      // Fjerner alltid listenerne FØRST, uansett hva som skjer under —
+      // ellers kan et unntak fra releasePointerCapture (f.eks. hvis capture
+      // aldri ble etablert) la disse henge igjen på document for alltid.
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        try { handle.releasePointerCapture(e.pointerId); } catch (err) { /* ignorer */ }
+        dragEl.classList.remove('reorder-dragging');
+        const orderedIds = Array.from(containerEl.querySelectorAll('[data-reorder-item]')).map(el => el.dataset.reorderItem);
+        dragEl = null;
+        onReorder(orderedIds);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  });
+}
+window.makeReorderable = makeReorderable;
+
 function escHtml(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
