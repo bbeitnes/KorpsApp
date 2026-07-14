@@ -803,7 +803,10 @@
       ? projects.map(p => `
           <div class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white" data-reorder-item="${window.escAttr(p.id)}">
             <span class="reorder-handle text-slate-300 hover:text-slate-500 px-1 shrink-0" title="Dra for å endre rekkefølge">⠿</span>
-            <button data-select-id="${window.escAttr(p.id)}" data-select-name="${window.escAttr(p.name)}" class="flex-1 text-left text-sm font-medium hover:text-indigo-600 min-w-0 truncate">${window.escHtml(p.name)}</button>
+            <button data-select-id="${window.escAttr(p.id)}" data-select-name="${window.escAttr(p.name)}" class="flex-1 flex items-center gap-2 text-left text-sm font-medium hover:text-indigo-600 min-w-0">
+              <span class="truncate">${window.escHtml(p.name)}</span>
+              ${p.accessMode==='restricted' ? '<span class="text-xs font-semibold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5 shrink-0">🔒 Tilgangsstyrt</span>' : ''}
+            </button>
             <button data-access-id="${window.escAttr(p.id)}" data-access-name="${window.escAttr(p.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1 shrink-0" title="${p.accessMode==='restricted' ? 'Låst — administrer tilgang' : 'Åpent — administrer tilgang'}">${p.accessMode==='restricted' ? '🔒' : '🔓'}</button>
             <button data-rename-id="${window.escAttr(p.id)}" data-rename-name="${window.escAttr(p.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1 shrink-0" title="Endre navn">✏️</button>
             <button data-delete-id="${window.escAttr(p.id)}" data-delete-name="${window.escAttr(p.name)}" class="text-red-400 hover:text-red-600 text-sm px-1 shrink-0" title="Slett korps">✕</button>
@@ -1139,12 +1142,14 @@
       }
     }, err => {
       console.error('Firestore-synk (korps) feilet:', err);
-      // Korpset ble låst (eller vi ble fjernet fra tillatelseslisten) mens vi
-      // så på det, eller det sto igjen som "sist brukt korps" fra før det ble
-      // låst — behandles helt stille som om korpset ikke fantes for denne
-      // brukeren, uten noen feilmelding, og sender bare tilbake til
-      // korpsvelgeren (som uansett ikke vil vise det låste korpset).
       if (err.code === 'permission-denied') {
+        // korpsInitialLoadDone er ennå false hvis dette er første forsøk på å
+        // synke dette korpset (dvs. et bevisst klikk i korpsvelgeren som
+        // feilet) — da vil brukeren vite hvorfor. Var korpset derimot allerede
+        // lastet inn og i bruk, og tilgangen forsvant underveis (f.eks. fordi
+        // noen låste det mens vi så på det), holder vi oss stille — det er
+        // ikke noe brukeren aktivt gjorde galt akkurat nå.
+        const wasNeverLoaded = !korpsInitialLoadDone;
         korpsInitialLoadDone = true;
         stopKorpsSync();
         stopArrangementSync();
@@ -1155,6 +1160,7 @@
         localStorage.removeItem('korpsapp-current-project');
         updateProjectLabel();
         updateArrangementLabel();
+        if (wasNeverLoaded) alert('Du har ikke tilgang til dette korpset.');
         showProjectPicker(false);
       }
     });
