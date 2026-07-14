@@ -562,6 +562,11 @@
   // ----- Flere korps: hvert korps er sitt eget dokument i samme samling -----
   let currentProjectId = localStorage.getItem('korpsapp-current-project') || null;
   let currentProjectName = null;
+  // Tilgangsstyring er metadata om korps-DOKUMENTET (som "name"), ikke en del
+  // av selve korps-innholdet (navneliste/instrumenter/bilder) — holdes derfor
+  // utenfor state, akkurat som currentProjectName.
+  let currentProjectAccessMode = 'open';
+  let currentProjectAllowedEmails = [];
   let korpsDocRef = null;
 
   function updateProjectLabel() {
@@ -570,7 +575,7 @@
 
   async function listProjects() {
     const snap = await getDocs(collection(db, PROJECTS_COLLECTION));
-    const projects = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id, order: d.data().order }));
+    const projects = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id, order: d.data().order, accessMode: d.data().accessMode === 'restricted' ? 'restricted' : 'open' }));
     // Korps uten lagret rekkefølge (opprettet før dra-og-slipp-sortering fantes)
     // sorteres alfabetisk seg imellom og havner foran ethvert korps som har fått
     // en eksplisitt order-verdi (enten ved sortering eller ved å bli opprettet
@@ -628,6 +633,8 @@
       // slå opp høyeste eksisterende order — persistProjectOrder skriver uansett
       // om til rene 0,1,2… neste gang noen sorterer listen på nytt.
       order: Date.now(),
+      accessMode: 'open',
+      allowedEmails: [],
       version: 1,
       updatedBy: currentUserLabel(),
       updatedAt: serverTimestamp()
@@ -645,6 +652,88 @@
     }
     return true;
   }
+
+  async function updateProjectAccess(id, accessMode, allowedEmails) {
+    await setDoc(doc(db, PROJECTS_COLLECTION, id), { accessMode, allowedEmails }, { merge: true });
+    if (id === currentProjectId) {
+      currentProjectAccessMode = accessMode;
+      currentProjectAllowedEmails = allowedEmails;
+    }
+  }
+
+  // Tilgangsstyring per korps: standarden er åpen for alle innloggede, men et
+  // korps kan låses til en liste med Google-e-postadresser. Kun reell
+  // beskyttelse dersom Firestore-reglene også håndhever det samme (se
+  // sikkerhetsregel-teksten gitt til produkteier) — dette UI-et alene stopper
+  // ingen som går rett i Firestore.
+  async function showProjectAccessModal(id, name) {
+    let data;
+    try {
+      const snap = await getDoc(doc(db, PROJECTS_COLLECTION, id));
+      data = snap.exists() ? snap.data() : {};
+    } catch (e) {
+      alert('Kunne ikke hente tilgangsinnstillinger. Sjekk nettforbindelsen og prøv igjen.');
+      return;
+    }
+    const accessMode = data.accessMode === 'restricted' ? 'restricted' : 'open';
+    const allowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : [];
+
+    window.showModal(`
+      <h2 class="text-lg font-bold mb-3">Tilgang til «${window.escHtml(name)}»</h2>
+      <div class="flex flex-col gap-2 mb-3">
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="access-mode" value="open" ${accessMode==='open'?'checked':''}> Åpent for alle innloggede
+        </label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="access-mode" value="restricted" ${accessMode==='restricted'?'checked':''}> Kun for valgte personer
+        </label>
+      </div>
+      <div id="access-emails-wrap" class="${accessMode==='restricted'?'':'hidden'}">
+        <label class="text-xs font-medium text-slate-600 mb-1 block">Google-e-postadresser med tilgang (én per linje)</label>
+        <textarea id="access-emails-input" class="w-full h-28 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
+          placeholder="navn@skiens-skolemusikk.no">${window.escHtml(allowedEmails.join('\n'))}</textarea>
+        <p class="text-xs text-slate-400 mt-1">Gjelder kun innlogging med personlig Google-konto — «Delt konto» mister tilgangen til dette korpset når det låses.</p>
+      </div>
+      <div class="mt-4 flex justify-end gap-2">
+        <button onclick="window.closeModal()" class="btn btn-secondary">Avbryt</button>
+        <button id="save-access-btn" class="btn btn-primary">Lagre</button>
+      </div>
+    `);
+
+    document.querySelectorAll('input[name="access-mode"]').forEach(el => {
+      el.addEventListener('change', () => {
+        const mode = document.querySelector('input[name="access-mode"]:checked').value;
+        document.getElementById('access-emails-wrap').classList.toggle('hidden', mode !== 'restricted');
+      });
+    });
+
+    document.getElementById('save-access-btn').addEventListener('click', async () => {
+      const mode = document.querySelector('input[name="access-mode"]:checked').value;
+      const emails = document.getElementById('access-emails-input').value
+        .split('\n').map(e => e.trim().toLowerCase()).filter(Boolean);
+
+      if (mode === 'restricted') {
+        if (auth.currentUser?.email === SHARED_LOGIN_EMAIL) {
+          alert('Du er innlogget med Delt konto, som mister tilgangen når et korps låses. Logg inn med din egen Google-konto for å låse dette korpset.');
+          return;
+        }
+        const myEmail = (auth.currentUser?.email || '').toLowerCase();
+        if (myEmail && !emails.includes(myEmail)) {
+          const proceed = confirm(`Din egen e-post (${auth.currentUser.email}) står ikke på listen — du vil miste tilgangen til dette korpset selv med det samme. Fortsette likevel?`);
+          if (!proceed) return;
+        }
+      }
+
+      try {
+        await updateProjectAccess(id, mode, emails);
+        window.closeModal();
+        showProjectPicker(true);
+      } catch (e) {
+        alert('Klarte ikke å lagre tilgangsinnstillinger. Sjekk nettforbindelsen og prøv igjen.');
+      }
+    });
+  }
+  window.showProjectAccessModal = showProjectAccessModal;
 
   async function deleteProject(id, name) {
     if (!confirm(`Slette korpset «${name}» permanent?\n\nDette kan IKKE angres — alle navn, oppsett, arrangementer og bilder for dette korpset forsvinner for godt.`)) {
@@ -704,6 +793,7 @@
           <div class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white" data-reorder-item="${window.escAttr(p.id)}">
             <span class="reorder-handle text-slate-300 hover:text-slate-500 px-1 shrink-0" title="Dra for å endre rekkefølge">⠿</span>
             <button data-select-id="${window.escAttr(p.id)}" data-select-name="${window.escAttr(p.name)}" class="flex-1 text-left text-sm font-medium hover:text-indigo-600 min-w-0 truncate">${window.escHtml(p.name)}</button>
+            <button data-access-id="${window.escAttr(p.id)}" data-access-name="${window.escAttr(p.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1 shrink-0" title="${p.accessMode==='restricted' ? 'Låst — administrer tilgang' : 'Åpent — administrer tilgang'}">${p.accessMode==='restricted' ? '🔒' : '🔓'}</button>
             <button data-rename-id="${window.escAttr(p.id)}" data-rename-name="${window.escAttr(p.name)}" class="text-slate-400 hover:text-indigo-600 text-sm px-1 shrink-0" title="Endre navn">✏️</button>
             <button data-delete-id="${window.escAttr(p.id)}" data-delete-name="${window.escAttr(p.name)}" class="text-red-400 hover:text-red-600 text-sm px-1 shrink-0" title="Slett korps">✕</button>
           </div>`).join('')
@@ -711,7 +801,7 @@
 
     window.showModal(`
       <h2 class="text-lg font-bold mb-3">Velg korps</h2>
-      <p class="text-xs text-slate-500 mb-3">Et korps er navnelisten og instrumentlisten — felles for alt korpset gjør. Korpsoppsett, billettfordeling, romfordeling og vaktliste hører til det enkelte arrangement, og settes opp på nytt for hvert arrangement siden f.eks. antall musikanter kan variere. Bruk «Bytt arrangement» for enkeltkonserter, turer eller seminarer innenfor korpset. Dra i ⠿ for å endre rekkefølgen.</p>
+      <p class="text-xs text-slate-500 mb-3">Et korps er navnelisten og instrumentlisten — felles for alt korpset gjør. Korpsoppsett, billettfordeling, romfordeling og vaktliste hører til det enkelte arrangement, og settes opp på nytt for hvert arrangement siden f.eks. antall musikanter kan variere. Bruk «Bytt arrangement» for enkeltkonserter, turer eller seminarer innenfor korpset. Dra i ⠿ for å endre rekkefølgen. Klikk 🔓/🔒 for å administrere hvem som har tilgang til et korps.</p>
       <div id="korps-picker-list" class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">${rowsHtml}</div>
       <label class="text-xs font-medium text-slate-600 mb-1 block">Opprett nytt korps</label>
       <div class="flex gap-2">
@@ -731,6 +821,12 @@
       el.addEventListener('click', async () => {
         await setActiveProject(el.dataset.selectId, el.dataset.selectName);
         window.closeModal();
+      });
+    });
+    document.querySelectorAll('[data-access-id]').forEach(el => {
+      el.addEventListener('click', async e => {
+        e.stopPropagation();
+        await showProjectAccessModal(el.dataset.accessId, el.dataset.accessName);
       });
     });
     document.querySelectorAll('[data-rename-id]').forEach(el => {
@@ -969,7 +1065,7 @@
   }
 
   function stripMeta(data) {
-    const { version, updatedBy, updatedAt, name, ...rest } = data;
+    const { version, updatedBy, updatedAt, name, accessMode, allowedEmails, ...rest } = data;
     return rest;
   }
 
@@ -1021,6 +1117,8 @@
       }
       const data = snap.data();
       currentProjectName = data.name || currentProjectName;
+      currentProjectAccessMode = data.accessMode === 'restricted' ? 'restricted' : 'open';
+      currentProjectAllowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : [];
       updateProjectLabel();
       latestRemoteKorps = { version: data.version || 0, updatedBy: data.updatedBy || null };
       if (!korpsInitialLoadDone) {
@@ -1030,6 +1128,23 @@
       }
     }, err => {
       console.error('Firestore-synk (korps) feilet:', err);
+      // Korpset ble låst (eller vi ble fjernet fra tillatelseslisten) mens vi
+      // så på det — gi en forståelig beskjed i stedet for å bare henge fast
+      // uten data, og send brukeren tilbake til korpsvelgeren.
+      if (err.code === 'permission-denied') {
+        korpsInitialLoadDone = true;
+        stopKorpsSync();
+        stopArrangementSync();
+        currentProjectId = null;
+        currentProjectName = null;
+        currentArrangementId = null;
+        currentArrangementName = null;
+        localStorage.removeItem('korpsapp-current-project');
+        updateProjectLabel();
+        updateArrangementLabel();
+        alert('Du har ikke lenger tilgang til dette korpset — det kan ha blitt låst av noen andre.');
+        showProjectPicker(false);
+      }
     });
   }
 
@@ -1088,6 +1203,8 @@
           const data = snap.data();
           loadedKorpsVersion = data.version || 0;
           latestRemoteKorps = { version: loadedKorpsVersion, updatedBy: data.updatedBy || null };
+          currentProjectAccessMode = data.accessMode === 'restricted' ? 'restricted' : 'open';
+          currentProjectAllowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : [];
           window.applyKorpsData?.(stripMeta(data));
         }
         return;
@@ -1098,6 +1215,8 @@
     await setDoc(korpsDocRef, {
       ...korpsData,
       name: currentProjectName || currentProjectId,
+      accessMode: currentProjectAccessMode,
+      allowedEmails: currentProjectAllowedEmails,
       version: newVersion,
       updatedBy: currentUserLabel(),
       updatedAt: serverTimestamp()
@@ -3149,6 +3268,7 @@ function showHelp() {
       <div><strong>🖱️ Tildeling:</strong> Klikk et navn og deretter en plass, eller dra navnet direkte til plassen. Etter Enter i søk kan du trykke Tab for å hoppe til neste ledige plass.</div>
       <div><strong>🔎 Finn tildelt plass:</strong> Søk opp en person som allerede er plassert (de ligger nederst i listen, merket «✓ plassert») og klikk på dem — appen scroller til og blinker plassen deres i konsert, korpsoppsett, rom og vaktliste.</div>
       <div><strong>🔒 Bekreft rom/vakt:</strong> Klikk «🔓 Bekreft» øverst i et rom- eller vaktkort for å låse hele oppsettet når det er avtalt ferdig — låste kort kan ikke lenger endres (verken tildeling, fjerning eller dra-og-slipp) før du låser opp igjen.</div>
+      <div><strong>🔒 Tilgang til korps:</strong> Klikk 🔓/🔒 ved et korps i «Bytt korps» for å velge om det skal være åpent for alle innloggede (standard) eller låst til bestemte personers Google-e-post. «Delt konto» mister tilgangen til et låst korps, så låsing krever at du er innlogget med din egen Google-konto.</div>
       <div><strong>📷 Bilder:</strong> Klikk den lille runde sirkelen ved et navn i navnelisten for å laste opp et portrettbilde. Bildet vises i stedet for initialer i Korpsoppsett, både på skjerm og i utskrift.</div>
       <div><strong>☁️ Lagre:</strong> Lagrer navneliste/instrumentliste og arrangementet du står i (korpsoppsett, billettfordeling, romfordeling, vaktliste) til Firebase med en gang – knappen viser «Lagrer…» og deretter «✓ Lagret kl HH:MM» øverst når det er gjort. Skjer også automatisk hvert 30. sek. og når du bytter korps/arrangement, men bruk knappen når du vil være sikker før du bytter eller lukker appen.</div>
       <div><strong>📄 Last ned fil:</strong> Laster ned en .json-fil som lokal sikkerhetskopi. «Last inn fil» gjenoppretter fra en slik fil.</div>
