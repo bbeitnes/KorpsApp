@@ -1871,20 +1871,20 @@ async function seedDefaultInstrumentPhotos() {
   }
 }
 
-// Formation and concert/room are kept as two separate exclusivity scopes, not
-// one, even though both live on the same arrangement now: a marching spot and
-// an audience seat/room bed are different physical roles, so a name occupies
-// at most one formation seat AND, independently, at most one concert seat or
-// room bed within the same arrangement — someone with a formation chair isn't
-// blocked from also getting a concert seat or room bed, and vice versa.
-// Shifts are independent of both scopes — a person can hold any number of
-// shifts in addition to a formation spot / concert seat / room.
+// Korpsoppsett, konsert og rom er hver sin uavhengige eksklusivitets-sfære,
+// selv om alle tre lever på samme arrangement: et sete i korpsoppsettet, et
+// konsertsete og en sengeplass er tre ulike fysiske roller, så en person kan
+// ha maks én av hver samtidig — f.eks. skal en musiker fortsatt ha sitt eget
+// konsertsete selv om arrangementet krever overnatting og de også er tildelt
+// en sengeplass. Vaktlister er uavhengig av alle tre — en person kan ha et
+// vilkårlig antall vakter i tillegg til korpsoppsett-plass/konsertsete/rom.
 function getExclusiveAssignedNames(kind = state.mode) {
   const set = new Set();
   if (kind === 'formation') {
     state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
-  } else {
+  } else if (kind === 'concert') {
     state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name) set.add(s.name); }));
+  } else if (kind === 'room') {
     state.rooms.forEach(r => r.occupants.forEach(n => set.add(n)));
   }
   return set;
@@ -1904,8 +1904,9 @@ function getAssignedNames() {
 function unassignExclusive(name, kind = state.mode) {
   if (kind === 'formation') {
     state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
-  } else {
+  } else if (kind === 'concert') {
     state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
+  } else if (kind === 'room') {
     state.rooms.forEach(r => { r.occupants = r.occupants.filter(n=>n!==name); });
   }
 }
