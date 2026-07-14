@@ -208,6 +208,7 @@
     </div>
     <h1 class="text-lg font-bold text-slate-800 hidden sm:block">Korpsapp</h1>
     <span id="current-project-label" class="text-sm font-medium text-indigo-600 border-l border-slate-200 pl-3 ml-1"></span>
+    <span id="current-project-lock-badge" class="hidden text-xs font-semibold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5 ml-1 cursor-pointer" title="Dette korpset er låst til bestemte personer — klikk for å administrere tilgang" onclick="manageCurrentProjectAccess()">🔒 Låst</span>
     <span id="current-arrangement-label" class="text-sm font-medium text-slate-500 border-l border-slate-200 pl-3 ml-1"></span>
     <span id="cloud-save-status" class="text-xs text-slate-400 border-l border-slate-200 pl-3 ml-1"></span>
   </div>
@@ -507,6 +508,7 @@
   const userPhotoEl = document.getElementById('current-user-photo');
   const userLabelEl = document.getElementById('current-user-label');
   const projectLabelEl = document.getElementById('current-project-label');
+  const projectLockBadgeEl = document.getElementById('current-project-lock-badge');
   const arrangementLabelEl = document.getElementById('current-arrangement-label');
 
   function showAuthError(msg) {
@@ -571,7 +573,12 @@
 
   function updateProjectLabel() {
     projectLabelEl.textContent = currentProjectName || currentProjectId || '';
+    projectLockBadgeEl.classList.toggle('hidden', !currentProjectId || currentProjectAccessMode !== 'restricted');
   }
+
+  window.manageCurrentProjectAccess = () => {
+    if (currentProjectId) showProjectAccessModal(currentProjectId, currentProjectName);
+  };
 
   async function listProjects() {
     const snap = await getDocs(collection(db, PROJECTS_COLLECTION));
@@ -772,6 +779,10 @@
 
     currentProjectId = id;
     currentProjectName = name || null;
+    // Nullstilles til "åpent" i påvente av fersk snapshot fra startKorpsSync,
+    // så vi aldri risikerer å blinke med feil lås-status fra forrige korps.
+    currentProjectAccessMode = 'open';
+    currentProjectAllowedEmails = [];
     localStorage.setItem('korpsapp-current-project', id);
     korpsDocRef = doc(db, PROJECTS_COLLECTION, id);
     updateProjectLabel();
@@ -1129,8 +1140,10 @@
     }, err => {
       console.error('Firestore-synk (korps) feilet:', err);
       // Korpset ble låst (eller vi ble fjernet fra tillatelseslisten) mens vi
-      // så på det — gi en forståelig beskjed i stedet for å bare henge fast
-      // uten data, og send brukeren tilbake til korpsvelgeren.
+      // så på det, eller det sto igjen som "sist brukt korps" fra før det ble
+      // låst — behandles helt stille som om korpset ikke fantes for denne
+      // brukeren, uten noen feilmelding, og sender bare tilbake til
+      // korpsvelgeren (som uansett ikke vil vise det låste korpset).
       if (err.code === 'permission-denied') {
         korpsInitialLoadDone = true;
         stopKorpsSync();
@@ -1142,7 +1155,6 @@
         localStorage.removeItem('korpsapp-current-project');
         updateProjectLabel();
         updateArrangementLabel();
-        alert('Du har ikke lenger tilgang til dette korpset — det kan ha blitt låst av noen andre.');
         showProjectPicker(false);
       }
     });
