@@ -67,11 +67,16 @@
   }
   .name-item:hover { border-color: #4f46e5; background: #eef2ff; }
   .name-item.selected { background: #4f46e5; color: white; border-color: #3730a3; }
-  .name-item.assigned { background: #f8fafc; cursor: default; }
-  .name-item.assigned:hover { border-color: #e2e8f0; background: #f8fafc; }
+  .name-item.assigned { background: #f8fafc; cursor: pointer; }
+  .name-item.assigned:hover { border-color: #4f46e5; background: #eef2ff; }
   .name-item.assigned .name-text { color: #94a3b8; }
   .name-item.assigned .assigned-badge { color: #94a3b8; }
   .name-item[draggable="true"]:active { cursor: grabbing; }
+  .locate-flash { animation: locate-pulse 1.6s ease-out; }
+  @keyframes locate-pulse {
+    0% { box-shadow: 0 0 0 5px rgba(245,158,11,.9); }
+    100% { box-shadow: 0 0 0 5px rgba(245,158,11,0); }
+  }
   .avatar {
     position: relative; width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
     background: #eef2ff; color: #4f46e5; font-size: 9px; font-weight: 700;
@@ -103,6 +108,11 @@
   }
   .room-slot:hover { border-color: #4f46e5; background: #eef2ff; }
   .room-slot.filled { background: #ecfdf5; border-color: #6ee7b7; border-style: solid; cursor: default; }
+  .room-card.confirmed { border-color: #10b981; background: #f0fdf4; }
+  .room-card.confirmed .room-slot { cursor: not-allowed; }
+  .room-card.confirmed .room-slot:hover { border-color: #6ee7b7; background: inherit; }
+  .room-card.confirmed .room-slot.filled:hover { background: #ecfdf5; }
+  .room-card.confirmed .remove-occ { display: none; }
   .tab-btn { padding: 7px 6px; border-radius: 8px; font-weight: 600; font-size: 11px; line-height: 1.25; cursor: pointer; transition: all .15s; text-align: center; }
   .tab-btn.active { background: #4f46e5; color: white; }
   .tab-btn:not(.active) { background: white; color: #64748b; border: 1px solid #e2e8f0; }
@@ -1451,12 +1461,14 @@ function renderNames() {
     const removeBtn = photo ? `<span class="avatar-remove" data-remove-photo="${escAttr(n)}" title="Fjern bilde">✕</span>` : '';
     return `<div class="name-item ${isSelected?'selected':''} ${isAssigned?'assigned':''}"
                  data-name="${escAttr(n)}"
-                 ${isAssigned ? '' : `draggable="true" onclick="selectName('${escJs(n)}')" style="cursor:grab"`}>
+                 ${isAssigned
+                   ? `onclick="locateName('${escJs(n)}')" title="Klikk for å finne hvor ${escAttr(n)} er plassert"`
+                   : `draggable="true" onclick="selectName('${escJs(n)}')" style="cursor:grab"`}>
       <span class="flex items-center gap-2 min-w-0">
         <span class="avatar ${isShift ? 'static' : ''}" data-avatar-name="${escAttr(n)}" title="${isShift ? '' : (photo?'Bytt eller fjern bilde':'Last opp bilde')}">${avatarInner}${removeBtn}</span>
         <span class="name-text truncate">${escHtml(n)}</span>
       </span>
-      ${isAssigned ? '<span class="assigned-badge text-xs shrink-0">✓ plassert</span>' : ''}
+      ${isAssigned ? '<span class="assigned-badge text-xs shrink-0">✓ plassert 🔎</span>' : ''}
     </div>`;
   }).join('');
 
@@ -1493,6 +1505,55 @@ function selectName(name) {
   selectedInstrument = null;
   renderNames();
   renderInstruments();
+}
+
+// ===================== FINN TILDELT PLASS =====================
+// Escaper en verdi som skal inn i en anførselstegn-avgrenset CSS-attributt-
+// selektor, f.eks. [data-seat="..."] — IKKE det samme som CSS.escape(), som
+// er laget for bare identifikatorer (f.eks. etter #) og ville feilaktig
+// escapet ledende siffer (CSS.escape("1") blir "\31 ", som ikke matcher "1").
+function cssAttrEscape(s) {
+  return String(s).replace(/[\\"]/g, '\\$&');
+}
+
+// Returnerer CSS-selektorer for hvert sted i gjeldende modus der navnet
+// faktisk sitter/bor/har vakt — flere treff er mulig i vaktmodus, siden
+// samme person kan ha flere vakter.
+function locateAssignments(kind, name) {
+  const selectors = [];
+  if (kind === 'concert' || kind === 'formation') {
+    rowsFor(kind).forEach(row => {
+      row.seats.forEach(seat => {
+        if (seat.name === name) {
+          selectors.push(`.seat[data-row="${cssAttrEscape(row.label)}"][data-seat="${cssAttrEscape(seat.id)}"]`);
+        }
+      });
+    });
+  } else {
+    groupsFor(kind).forEach((g, gi) => {
+      g.occupants.forEach((occ, idx) => {
+        if (occ === name) selectors.push(`.room-slot[data-kind="${kind}"][data-group-idx="${gi}"][data-slot="${idx}"]`);
+      });
+    });
+  }
+  return selectors;
+}
+
+function locateName(name) {
+  const kind = state.mode;
+  const els = locateAssignments(kind, name).map(sel => document.querySelector(sel)).filter(Boolean);
+  if (!els.length) {
+    const noun = kind === 'room' ? 'noe rom' : kind === 'shift' ? 'noen vakt' : kind === 'formation' ? 'korpsoppsettet' : 'konsertsalen';
+    alert(`${name} er ikke tildelt ${noun} akkurat nå.`);
+    return;
+  }
+  els[0].scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  els.forEach(el => {
+    el.classList.remove('locate-flash');
+    void el.offsetWidth; // restart animasjonen om den samme plassen klikkes flere ganger på rad
+    el.classList.add('locate-flash');
+    setTimeout(() => el.classList.remove('locate-flash'), 1600);
+  });
 }
 
 // ===================== SLAGVERKSLISTE (percussion instruments) =====================
@@ -2308,10 +2369,10 @@ function openNextEmpty(kind, lastRow, lastSeatId) {
       const g = groups[gi];
       if (gi === lastRow) {
         passed = true;
-        if (g.occupants.length < g.capacity) { showGroupAssignDialog(kind, gi); return; }
+        if (!g.confirmed && g.occupants.length < g.capacity) { showGroupAssignDialog(kind, gi); return; }
         continue;
       }
-      if (passed && g.occupants.length < g.capacity) { showGroupAssignDialog(kind, gi); return; }
+      if (passed && !g.confirmed && g.occupants.length < g.capacity) { showGroupAssignDialog(kind, gi); return; }
     }
   }
 }
@@ -2363,13 +2424,20 @@ function renderGroups(kind) {
     }
     const pct = Math.round(g.occupants.length/g.capacity*100);
     return `
-      <div class="room-card">
+      <div class="room-card ${g.confirmed?'confirmed':''}">
         <div class="flex items-center justify-between mb-2">
-          <span class="font-bold text-slate-800">${L.group} ${escHtml(g.label)}</span>
-          <span class="text-xs px-2 py-0.5 rounded-full font-semibold
-            ${g.occupants.length>=g.capacity?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}">
-            ${g.occupants.length}/${g.capacity}
-          </span>
+          <span class="font-bold text-slate-800">${g.confirmed?'🔒 ':''}${L.group} ${escHtml(g.label)}</span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+              ${g.occupants.length>=g.capacity?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}">
+              ${g.occupants.length}/${g.capacity}
+            </span>
+            <button class="confirm-toggle text-xs px-2 py-0.5 rounded-full font-semibold border ${g.confirmed?'bg-emerald-100 text-emerald-700 border-emerald-200':'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}"
+                    data-kind="${kind}" data-group-idx="${gi}"
+                    title="${g.confirmed?'Lås opp for å gjøre endringer':'Bekreft og lås oppsettet'}">
+              ${g.confirmed?'🔒 Bekreftet':'🔓 Bekreft'}
+            </button>
+          </div>
         </div>
         <div class="w-full h-1.5 bg-slate-100 rounded-full mb-3">
           <div class="h-full rounded-full ${pct>=100?'bg-red-400':'bg-indigo-400'}" style="width:${pct}%"></div>
@@ -2378,6 +2446,12 @@ function renderGroups(kind) {
       </div>`;
   }).join('');
 
+  grid.querySelectorAll('.confirm-toggle').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleGroupConfirmed(el.dataset.kind, parseInt(el.dataset.groupIdx));
+    });
+  });
   grid.querySelectorAll('.room-slot').forEach(el => {
     el.addEventListener('click', e => {
       if (e.target.closest('.remove-occ')) return;
@@ -2391,6 +2465,7 @@ function renderGroups(kind) {
     });
   });
   grid.querySelectorAll('.room-slot:not(.filled)').forEach(el => {
+    if (groups[parseInt(el.dataset.groupIdx)]?.confirmed) return; // låst rad tar ikke imot drop
     el.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('drop-hover'); });
     el.addEventListener('dragleave', () => el.classList.remove('drop-hover'));
     el.addEventListener('drop', e => {
@@ -2400,7 +2475,7 @@ function renderGroups(kind) {
       if (!name) return;
       const groups2 = groupsFor(el.dataset.kind);
       const g = groups2[parseInt(el.dataset.groupIdx)];
-      if (!g || g.occupants.length >= g.capacity || g.occupants.includes(name)) return;
+      if (!g || g.confirmed || g.occupants.length >= g.capacity || g.occupants.includes(name)) return;
       if (el.dataset.kind === 'shift') {
         // Shifts are non-exclusive: keep any other assignments this person already has
       } else {
@@ -2451,7 +2526,7 @@ function applyGroupSetup(kind) {
     if (!label || !capacity || capacity<1) continue;
     const groups = groupsFor(kind);
     const existing = groups.find(g=>g.label===label);
-    newGroups.push({ id: label.replace(/\s/g,'_'), label, capacity, occupants: existing?.occupants.slice(0,capacity)||[] });
+    newGroups.push({ id: label.replace(/\s/g,'_'), label, capacity, occupants: existing?.occupants.slice(0,capacity)||[], confirmed: existing?.confirmed || false });
   }
   if (kind === 'room') state.rooms = newGroups; else state.shifts = newGroups;
   closeModal();
@@ -2461,7 +2536,7 @@ function applyGroupSetup(kind) {
 function groupSlotClick(kind, groupIdx, slotIdx) {
   const groups = groupsFor(kind);
   const g = groups[groupIdx];
-  if (!g) return;
+  if (!g || g.confirmed) return;
   if (g.occupants[slotIdx]) return;
 
   if (selectedName) {
@@ -2478,9 +2553,18 @@ function groupSlotClick(kind, groupIdx, slotIdx) {
 function removeGroupOccupant(kind, groupIdx, idx) {
   const groups = groupsFor(kind);
   const g = groups[groupIdx];
-  if (!g) return;
+  if (!g || g.confirmed) return;
   g.occupants.splice(idx, 1);
   renderGroups(kind); renderNames(); updateStats();
+}
+
+// Låser/åpner opp en hel rom-/vaktrad, slik at et ferdig avtalt oppsett
+// (f.eks. et rom noen spesifikt har bedt om) ikke kan endres ved et uhell.
+function toggleGroupConfirmed(kind, groupIdx) {
+  const g = groupsFor(kind)[groupIdx];
+  if (!g) return;
+  g.confirmed = !g.confirmed;
+  renderGroups(kind);
 }
 
 function showGroupAssignDialog(kind, groupIdx) {
@@ -3063,6 +3147,8 @@ function showHelp() {
       <div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass.</div>
       <div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt. Bruker en egen Foreldreliste i stedet for navnelisten, siden det er foreldrene og ikke musikantene som tar vaktene.</div>
       <div><strong>🖱️ Tildeling:</strong> Klikk et navn og deretter en plass, eller dra navnet direkte til plassen. Etter Enter i søk kan du trykke Tab for å hoppe til neste ledige plass.</div>
+      <div><strong>🔎 Finn tildelt plass:</strong> Søk opp en person som allerede er plassert (de ligger nederst i listen, merket «✓ plassert») og klikk på dem — appen scroller til og blinker plassen deres i konsert, korpsoppsett, rom og vaktliste.</div>
+      <div><strong>🔒 Bekreft rom/vakt:</strong> Klikk «🔓 Bekreft» øverst i et rom- eller vaktkort for å låse hele oppsettet når det er avtalt ferdig — låste kort kan ikke lenger endres (verken tildeling, fjerning eller dra-og-slipp) før du låser opp igjen.</div>
       <div><strong>📷 Bilder:</strong> Klikk den lille runde sirkelen ved et navn i navnelisten for å laste opp et portrettbilde. Bildet vises i stedet for initialer i Korpsoppsett, både på skjerm og i utskrift.</div>
       <div><strong>☁️ Lagre:</strong> Lagrer navneliste/instrumentliste og arrangementet du står i (korpsoppsett, billettfordeling, romfordeling, vaktliste) til Firebase med en gang – knappen viser «Lagrer…» og deretter «✓ Lagret kl HH:MM» øverst når det er gjort. Skjer også automatisk hvert 30. sek. og når du bytter korps/arrangement, men bruk knappen når du vil være sikker før du bytter eller lukker appen.</div>
       <div><strong>📄 Last ned fil:</strong> Laster ned en .json-fil som lokal sikkerhetskopi. «Last inn fil» gjenoppretter fra en slik fil.</div>
