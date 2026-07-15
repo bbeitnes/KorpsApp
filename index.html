@@ -1664,7 +1664,9 @@ function parseGroupLeaders() {
   });
   state.groupLeaders = names;
   state.groupLeaderYears = years;
-  document.getElementById('group-leader-count').textContent = `${state.groupLeaders.length} gruppeledere`;
+  document.getElementById('group-leader-count').textContent = state.groupLeaders.length
+    ? `${state.groupLeaders.length} gruppeledere`
+    : '0 gruppeledere – leder velges fra Navneliste';
   renderGroupLeaders();
   updateStats();
 }
@@ -1905,6 +1907,10 @@ function renderGroupLeaders() {
   if (!el) return;
   const leaderMap = getAssignedLeaderMap();
   const sorted = state.groupLeaders.slice().sort((a,b) => a.localeCompare(b, 'no'));
+  if (sorted.length === 0) {
+    el.innerHTML = '<p class="text-xs text-slate-400 px-1">Ingen gruppeledere registrert. Lederen for hver gruppe velges i stedet fra Navneliste.</p>';
+    return;
+  }
   el.innerHTML = sorted.map(n => {
     const isSelected = selectedGroupLeader === n;
     const isAssigned = leaderMap.has(n);
@@ -2886,7 +2892,8 @@ function renderTeamGrid(grid, groups) {
       e.preventDefault();
       e.stopPropagation();
       el.classList.remove('drop-hover');
-      if (e.dataTransfer.getData('application/x-gruppeleder') !== '1') return;
+      const isGruppeleder = e.dataTransfer.getData('application/x-gruppeleder') === '1';
+      if (!isGruppeleder && state.groupLeaders.length > 0) return;
       const name = e.dataTransfer.getData('text/plain');
       if (!name) return;
       assignTeamLeader(parseInt(el.dataset.groupIdx), name);
@@ -2909,7 +2916,13 @@ function renderTeamGrid(grid, groups) {
 function teamLeaderSlotClick(groupIdx) {
   const g = state.teams[groupIdx];
   if (!g || g.confirmed || g.leader) return;
-  if (selectedGroupLeader) {
+  if (state.groupLeaders.length === 0) {
+    if (selectedName) {
+      assignTeamLeader(groupIdx, selectedName);
+    } else {
+      showTeamLeaderDialog(groupIdx);
+    }
+  } else if (selectedGroupLeader) {
     assignTeamLeader(groupIdx, selectedGroupLeader);
   } else {
     showTeamLeaderDialog(groupIdx);
@@ -2928,22 +2941,28 @@ function teamAddSlotClick(groupIdx) {
 }
 
 // ----- Gruppeleder (eksklusiv — kan bare lede én gruppe om gangen) -----
+// Har korpset ingen egen Gruppeledere-liste, velges lederen i stedet blant
+// Navneliste (samme roster som deltakerne, men leder- og deltaker-status
+// holdes uavhengig av hverandre — akkurat som de andre eksklusivitetssfærene).
 function showTeamLeaderDialog(groupIdx) {
   const g = state.teams[groupIdx];
   if (!g) return;
   const leaderMap = getAssignedLeaderMap();
-  const unassigned = state.groupLeaders.filter(n => !leaderMap.has(n));
+  const fallback = state.groupLeaders.length === 0;
+  const source = fallback ? state.names : state.groupLeaders;
+  const unassigned = source.filter(n => !leaderMap.has(n));
   const listHtml = unassigned.map(n => {
-    const year = state.groupLeaderYears[n];
+    const year = fallback ? null : state.groupLeaderYears[n];
     return `<div class="name-item" data-name="${escAttr(n)}">${escHtml(n)}${year?` <span class="text-slate-400">(${escHtml(year)})</span>`:''}</div>`;
   }).join('');
 
   showModal(`
     <h2 class="text-lg font-bold mb-3">Velg leder for «${escHtml(g.label)}»</h2>
+    ${fallback ? '<p class="text-xs text-slate-400 mb-2">Ingen gruppeledere er registrert – velger fra Navneliste.</p>' : ''}
     <input type="text" id="team-leader-search" placeholder="Søk navn..."
       class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2 focus:border-indigo-400"
       oninput="filterList('team-leader-search','team-leader-list')">
-    <div id="team-leader-list" class="max-h-64 overflow-y-auto flex flex-col gap-1">${listHtml || '<p class="text-sm text-slate-400 px-1">Ingen ledige gruppeledere.</p>'}</div>
+    <div id="team-leader-list" class="max-h-64 overflow-y-auto flex flex-col gap-1">${listHtml || '<p class="text-sm text-slate-400 px-1">Ingen ledige navn.</p>'}</div>
     <div class="mt-3 flex justify-end"><button onclick="closeModal()" class="btn btn-secondary">Avbryt</button></div>
   `);
 
@@ -2962,7 +2981,8 @@ function assignTeamLeader(groupIdx, name) {
   if (leaderMap.has(name)) return; // leder allerede en annen gruppe
   g.leader = name;
   selectedGroupLeader = null;
-  renderGroups('team'); renderGroupLeaders(); updateStats();
+  if (selectedName === name) selectedName = null;
+  renderGroups('team'); renderGroupLeaders(); renderNames(); updateStats();
 }
 
 function removeTeamLeader(groupIdx) {
