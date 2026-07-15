@@ -1672,13 +1672,41 @@ function closeSidebar() {
 // ===================== NAMES =====================
 function openNameListModal() {
   document.getElementById('name-list-modal').classList.remove('hidden');
-  document.getElementById('name-list-source-hint').textContent = state.namesSource === 'own'
-    ? 'Dette arrangementet har sin egen kopi av navnelisten — endringer her påvirker ikke korpsets felles liste eller andre arrangementer.'
-    : 'Dette er korpsets felles navneliste — endringer her gjelder for alle arrangementer som bruker den.';
+  refreshNameListSourceHint();
   document.getElementById('name-input').focus();
 }
 function closeNameListModal() {
   document.getElementById('name-list-modal').classList.add('hidden');
+}
+
+// Vist øverst i Navneliste-popupen — gjør det tydelig om man redigerer
+// korpsets felles liste (som alle arrangementer deler) eller en egen kopi
+// som kun gjelder dette arrangementet, siden det ellers er lett å tro man
+// redigerer noe arrangement-spesifikt når man egentlig endrer for alle.
+function refreshNameListSourceHint() {
+  const el = document.getElementById('name-list-source-hint');
+  if (!el) return;
+  if (state.namesSource === 'own') {
+    el.textContent = 'Dette arrangementet har sin egen kopi av navnelisten — endringer her påvirker ikke korpsets felles liste eller andre arrangementer.';
+  } else {
+    el.innerHTML = 'Dette er korpsets felles navneliste — endringer her gjelder for alle arrangementer som bruker den. ' +
+      '<button onclick="convertToOwnNamesCopy()" class="text-indigo-600 hover:underline font-medium">Gjør om til egen kopi for dette arrangementet</button>';
+  }
+}
+
+// Konverterer det gjeldende arrangementet fra korpsets felles navneliste til
+// sin egen kopi — samme startpunkt som når man aktivt velger dette ved
+// oppretting av et nytt arrangement, men her for et arrangement som allerede
+// finnes (typisk fordi valget ikke ble tatt ved oppretting). Ensrettet: det
+// finnes ingen tilsvarende "gå tilbake til korpsets liste" i appen.
+function convertToOwnNamesCopy() {
+  if (state.namesSource === 'own') return;
+  if (!confirm('Gjøre navnelisten for dette arrangementet om til en egen kopi?\n\nKopien starter identisk til korpsets nåværende liste. Videre endringer her vil ikke lenger påvirke korpsets felles liste eller andre arrangementer. Dette kan ikke reverseres i appen.')) return;
+  state.namesSource = 'own';
+  state.names = state.korpsNames.slice();
+  document.getElementById('name-input').value = state.names.join('\n');
+  parseNames();
+  refreshNameListSourceHint();
 }
 
 function parseNames() {
@@ -1690,7 +1718,7 @@ function parseNames() {
   // 'own'-modus rører vi ikke korpsNames — endringen gjelder kun arrangementet.
   if (state.namesSource !== 'own') state.korpsNames = names;
   document.getElementById('name-count').textContent = `${state.names.length} navn` +
-    (state.namesSource === 'own' ? ' — egen kopi for dette arrangementet' : '');
+    (state.namesSource === 'own' ? ' — egen kopi for dette arrangementet' : ' — delt med hele korpset');
   renderNames();
   updateStats();
 }
