@@ -1453,6 +1453,24 @@
 </script>
 
 <script>
+// ===================== MODUL-OPPSETT =====================
+// Hvilke av de fem modulene som er tilgjengelige i denne konkrete
+// installasjonen av appen. Alle er aktive som standard (dagens oppførsel er
+// uendret). For en installasjon som skal betjene et annet korps med færre
+// moduler, er dette det ENE stedet å endre — resten av appen tilpasser seg
+// automatisk (skjuler faner, hopper aldri inn i en deaktivert modus, og
+// filtrerer hjelpeteksten).
+const ENABLED_MODULES = {
+  concert: true,   // 🎵 Billettfordeling konserter
+  formation: true, // 🎺 Korpsoppsett
+  room: true,      // 🏨 Romfordeling
+  shift: true,     // 🕐 Vaktlister
+  team: true       // 👥 Gruppeinndeling
+};
+function firstEnabledMode() {
+  return Object.keys(ENABLED_MODULES).find(m => ENABLED_MODULES[m]) || 'concert';
+}
+
 // ===================== STATE =====================
 const DEFAULT_INSTRUMENTS = [
   'Bongos', 'Chimes', 'Congas', 'Klokkespill', 'Marimba', 'Pauker',
@@ -1460,7 +1478,7 @@ const DEFAULT_INSTRUMENTS = [
 ];
 
 let state = {
-  mode: 'concert',
+  mode: firstEnabledMode(),
   names: [], // effektiv navneliste for gjeldende arrangement — enten samme referanse som korpsNames (namesSource==='korps'), eller arrangementets egen kopi (namesSource==='own')
   korpsNames: [], // korpsets felles master-navneliste, alltid oppdatert uavhengig av om gjeldende arrangement bruker en egen kopi
   namesSource: 'korps', // 'korps' | 'own' — avgjør om Navneliste-redigering skriver til korpset eller kun til dette arrangementet
@@ -1628,9 +1646,12 @@ function closeHeaderActions() {
 
 // ===================== MODE =====================
 function setMode(mode) {
+  if (!ENABLED_MODULES[mode]) mode = firstEnabledMode();
   state.mode = mode;
   ['concert','formation','room','shift','team'].forEach(m => {
-    document.getElementById('tab-'+m).className = `tab-btn ${mode===m?'active':''}${m==='team'?' col-span-2':''}`;
+    const tab = document.getElementById('tab-'+m);
+    tab.className = `tab-btn ${mode===m?'active':''}${m==='team'?' col-span-2':''}`;
+    tab.classList.toggle('hidden', !ENABLED_MODULES[m]);
     document.getElementById('mode-'+m).classList.toggle('hidden', mode!==m);
   });
   selectedName = null;
@@ -3953,15 +3974,22 @@ function showGSheetsExport() {
 
 // ===================== HELP =====================
 function showHelp() {
+  // Modul-spesifikke avsnitt vises kun for moduler denne installasjonen
+  // faktisk har slått på (se ENABLED_MODULES) — resten av hjelpeteksten er
+  // felles og vises alltid.
+  const moduleHelp = [
+    ['concert', `<div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter.</div>`],
+    ['formation', `<div><strong>🎺 Korpsmodus:</strong> Rader vises som en halvsirkel rundt dirigentpunktet. Sett opp rader med antall plasser og justering (venstre/senter/høyre) – øverste linje i oppsettet er fremste rad.</div>`],
+    ['formation', `<div><strong>🥁 Slagverksliste:</strong> Vises i sidebaren kun i korpsmodus, under navnelisten. I motsetning til navn kan et instrument velges og plasseres i flere seter samtidig – f.eks. flere "Congas"-seter. Klikk et instrument og deretter et sete, eller dra det direkte til setet.</div>`],
+    ['room', `<div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass. Reiseledere (egen liste i sidebaren, under navnelisten) kan tildeles de samme sengeplassene som musikantene.</div>`],
+    ['shift', `<div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt. Bruker en egen Foreldreliste i stedet for navnelisten, siden det er foreldrene og ikke musikantene som tar vaktene.</div>`],
+    ['team', `<div><strong>👥 Gruppeinndeling:</strong> Klikk «Sett opp grupper» → skriv ett gruppenavn per linje (ingen fast størrelse). Hver gruppe har ett lederfelt (👑 øverst i kortet, valgt fra den egne Gruppeledere-listen) og en åpen liste med deltakere fra navnelisten – klikk «+ Legg til deltaker» eller dra et navn direkte inn i kortet. En gruppeleder kan bare lede én gruppe om gangen, akkurat som et navn bare kan sitte i én gruppe om gangen.</div>`]
+  ].filter(([mod]) => ENABLED_MODULES[mod]).map(([, html]) => html).join('');
+
   showModal(`
     <h2 class="text-xl font-bold mb-4">Hjelp</h2>
     <div class="text-sm text-slate-600 flex flex-col gap-3">
-      <div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter.</div>
-      <div><strong>🎺 Korpsmodus:</strong> Rader vises som en halvsirkel rundt dirigentpunktet. Sett opp rader med antall plasser og justering (venstre/senter/høyre) – øverste linje i oppsettet er fremste rad.</div>
-      <div><strong>🥁 Slagverksliste:</strong> Vises i sidebaren kun i korpsmodus, under navnelisten. I motsetning til navn kan et instrument velges og plasseres i flere seter samtidig – f.eks. flere "Congas"-seter. Klikk et instrument og deretter et sete, eller dra det direkte til setet.</div>
-      <div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass. Reiseledere (egen liste i sidebaren, under navnelisten) kan tildeles de samme sengeplassene som musikantene.</div>
-      <div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt. Bruker en egen Foreldreliste i stedet for navnelisten, siden det er foreldrene og ikke musikantene som tar vaktene.</div>
-      <div><strong>👥 Gruppeinndeling:</strong> Klikk «Sett opp grupper» → skriv ett gruppenavn per linje (ingen fast størrelse). Hver gruppe har ett lederfelt (👑 øverst i kortet, valgt fra den egne Gruppeledere-listen) og en åpen liste med deltakere fra navnelisten – klikk «+ Legg til deltaker» eller dra et navn direkte inn i kortet. En gruppeleder kan bare lede én gruppe om gangen, akkurat som et navn bare kan sitte i én gruppe om gangen.</div>
+      ${moduleHelp}
       <div><strong>🖱️ Tildeling:</strong> Klikk et navn og deretter en plass, eller dra navnet direkte til plassen. Etter Enter i søk kan du trykke Tab for å hoppe til neste ledige plass.</div>
       <div><strong>🔎 Finn tildelt plass:</strong> Søk opp en person som allerede er plassert (de ligger nederst i listen, merket «✓ plassert») og klikk på dem — appen scroller til og blinker plassen deres i konsert, korpsoppsett, rom, vaktliste og gruppeinndeling.</div>
       <div><strong>🔒 Bekreft rom/vakt/gruppe:</strong> Klikk «🔓 Bekreft» øverst i et rom-, vakt- eller gruppekort for å låse hele oppsettet når det er avtalt ferdig — låste kort kan ikke lenger endres (verken tildeling, fjerning eller dra-og-slipp) før du låser opp igjen.</div>
