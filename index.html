@@ -1461,11 +1461,11 @@
 // automatisk (skjuler faner, hopper aldri inn i en deaktivert modus, og
 // filtrerer hjelpeteksten).
 const ENABLED_MODULES = {
-  concert: true,   // 🎵 Billettfordeling konserter
-  formation: true, // 🎺 Korpsoppsett
+  concert: false,  // 🎵 Billettfordeling konserter
+  formation: false,// 🎺 Korpsoppsett
   room: true,      // 🏨 Romfordeling
-  shift: true,     // 🕐 Vaktlister
-  team: true       // 👥 Gruppeinndeling
+  shift: false,    // 🕐 Vaktlister
+  team: false      // 👥 Gruppeinndeling
 };
 function firstEnabledMode() {
   return Object.keys(ENABLED_MODULES).find(m => ENABLED_MODULES[m]) || 'concert';
