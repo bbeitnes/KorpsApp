@@ -716,26 +716,34 @@
 
   async function createProject(name) {
     const id = slugify(name, 'korps');
-    const ref = doc(db, PROJECTS_COLLECTION, id);
-    const existing = await getDoc(ref);
-    if (existing.exists()) {
-      alert('Et korps med dette navnet finnes allerede.');
+    try {
+      const ref = doc(db, PROJECTS_COLLECTION, id);
+      const existing = await getDoc(ref);
+      if (existing.exists()) {
+        alert('Et korps med dette navnet finnes allerede.');
+        return null;
+      }
+      await setDoc(ref, {
+        ...getBlankKorpsData(),
+        name,
+        // Stort tall (nå-tidspunkt) holder nye korps sist i listen, uten å måtte
+        // slå opp høyeste eksisterende order — persistProjectOrder skriver uansett
+        // om til rene 0,1,2… neste gang noen sorterer listen på nytt.
+        order: Date.now(),
+        accessMode: 'open',
+        allowedEmails: [],
+        version: 1,
+        updatedBy: currentUserLabel(),
+        updatedAt: serverTimestamp()
+      });
+      return id;
+    } catch (e) {
+      console.error('Kunne ikke opprette korps:', e);
+      alert(e.code === 'permission-denied'
+        ? 'Du har ikke tilgang til å opprette nye korps akkurat nå — dette avslås av Firestore-reglene.'
+        : 'Klarte ikke å opprette korpset. Sjekk nettforbindelsen og prøv igjen.');
       return null;
     }
-    await setDoc(ref, {
-      ...getBlankKorpsData(),
-      name,
-      // Stort tall (nå-tidspunkt) holder nye korps sist i listen, uten å måtte
-      // slå opp høyeste eksisterende order — persistProjectOrder skriver uansett
-      // om til rene 0,1,2… neste gang noen sorterer listen på nytt.
-      order: Date.now(),
-      accessMode: 'open',
-      allowedEmails: [],
-      version: 1,
-      updatedBy: currentUserLabel(),
-      updatedAt: serverTimestamp()
-    });
-    return id;
   }
 
   async function renameProject(id, oldName) {
