@@ -172,6 +172,7 @@
         </svg>
       </div>
       <h1 class="text-lg font-bold text-slate-800">Korpsapp</h1>
+      <span id="env-badge-login" class="hidden text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">TEST</span>
     </div>
 
     <button id="google-signin-btn" class="btn btn-secondary w-full justify-center">
@@ -209,6 +210,7 @@
       </svg>
     </div>
     <h1 class="text-lg font-bold text-slate-800 hidden sm:block">Korpsapp</h1>
+    <span id="env-badge-header" class="hidden text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">TEST</span>
     <span id="current-project-label" class="text-sm font-medium text-indigo-600 border-l border-slate-200 pl-3 ml-1"></span>
     <span id="current-project-lock-badge" class="hidden text-xs font-semibold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5 ml-1 cursor-pointer" title="Dette korpset er låst til bestemte personer — klikk for å administrere tilgang" onclick="manageCurrentProjectAccess()">🔒 Låst</span>
     <span id="current-arrangement-label" class="text-sm font-medium text-slate-500 border-l border-slate-200 pl-3 ml-1"></span>
@@ -569,9 +571,21 @@
   const SHARED_LOGIN_EMAIL = 'korpsapp@skiens-skolemusikk.no';
   const ALLOWED_GOOGLE_DOMAIN = 'skiens-skolemusikk.no';
 
+  // TEST (beitnes.net/Korpsapp-test) og PROD (beitnes.net/Korpsapp) er samme
+  // kodebase, samme Firebase-prosjekt/innlogging — men skal aldri dele data.
+  // Skiller på URL-en siden det er den eneste faktiske forskjellen mellom de
+  // to utrullingene, og fordi det gjør at samme index.html (uendret av
+  // hvilken gren som ble merget sist) alltid kobler til riktig database.
+  const IS_TEST_ENV = location.pathname.includes('Korpsapp-test');
+
   const firebaseApp = initializeApp(firebaseConfig);
   const auth = getAuth(firebaseApp);
-  const db = getFirestore(firebaseApp);
+  const db = IS_TEST_ENV ? getFirestore(firebaseApp, 'test') : getFirestore(firebaseApp);
+  if (IS_TEST_ENV) {
+    document.getElementById('env-badge-login').classList.remove('hidden');
+    document.getElementById('env-badge-header').classList.remove('hidden');
+    document.title = 'Korpsapp (TEST)';
+  }
   // Korps (bandet) og arrangement (den enkelte konsert/tur/seminar) lagres som
   // to nivåer: hvert korps er et dokument i PROJECTS_COLLECTION og eier
   // navneliste + instrumentliste (delt av alt korpset gjør), mens hvert
