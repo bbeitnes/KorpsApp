@@ -2625,22 +2625,46 @@ function formationSeatXY(geom, t) {
 }
 
 // En rad uten (eller med få) seter har ellers ingen synlig spor på kartet —
-// tegn alltid en svak guide (prikker langs sonen + etikett) så man ser hvor
-// raden er og har noe å sikte mot ved slipp.
-function formationRowGuideHtml(geom, conductorY) {
-  let html = '';
-  [0, 25, 50, 75, 100].forEach(t => {
-    const { x, y } = formationSeatXY(geom, t);
-    const left = `calc(50% + ${x.toFixed(1)}px)`;
-    const top = `${(conductorY - y).toFixed(1)}px`;
-    html += `<div style="position:absolute; left:${left}; top:${top}; width:5px; height:5px; margin:-2.5px; border-radius:50%; background:#e2e8f0; pointer-events:none;"></div>`;
-  });
+// vis alltid en etikett med radens navn, plassert ved starten av dens sone,
+// så man har noe å sikte mot ved slipp.
+function formationRowLabelHtml(geom, conductorY) {
   const start = formationSeatXY(geom, 0);
   const labelLeft = `calc(50% + ${start.x.toFixed(1)}px)`;
   const labelTop = `${(conductorY - start.y - 9).toFixed(1)}px`;
   const translateX = start.x <= 0 ? '0' : '-100%';
-  html += `<div style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:#94a3b8; white-space:nowrap; pointer-events:none; background:rgba(248,250,252,.9); padding:1px 5px; border-radius:5px; border:1px dashed #cbd5e1;">${escHtml(geom.row.label)}</div>`;
-  return html;
+  return `<div style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:#94a3b8; white-space:nowrap; pointer-events:none; background:rgba(248,250,252,.9); padding:1px 5px; border-radius:5px; border:1px dashed #cbd5e1; z-index:1;">${escHtml(geom.row.label)}</div>`;
+}
+
+// Prøver å samplet en sti (bue eller rett linje, avhengig av geom) som t=0..100
+// langs den — brukes både til radens egen midtlinje og til grenselinjene
+// mellom rader (der geom da er en syntetisk "hel halvsirkel"-sone).
+function formationSampledPath(geom) {
+  const pts = [];
+  for (let i=0; i<=20; i++) {
+    const p = formationSeatXY(geom, i*5);
+    pts.push(`${p.x.toFixed(1)} ${p.y.toFixed(1)}`);
+  }
+  return 'M ' + pts.join(' L ');
+}
+
+// Tegner (1) en svak stiplet linje langs hver rads egen sone, og (2) en
+// tydeligere stiplet grenselinje mellom hvert par av naboer — nøyaktig der
+// resolveFormationDrop faktisk bytter fra én rad til den neste (midt mellom
+// radiene deres), slik at man kan se om et slipp havnet i riktig rad.
+function formationGuidesSvg(geometry) {
+  const { rowGeoms, conductorY, canvasWidth, canvasHeight } = geometry;
+  let paths = '';
+  for (let i = 0; i < rowGeoms.length - 1; i++) {
+    const boundaryRadius = (rowGeoms[i].radius + rowGeoms[i+1].radius) / 2;
+    const boundaryGeom = { isFlat: false, radius: boundaryRadius, startDeg: 180, spanDeg: 180 };
+    paths += `<path d="${formationSampledPath(boundaryGeom)}" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="1,5" stroke-linecap="round"/>`;
+  }
+  rowGeoms.forEach(geom => {
+    paths += `<path d="${formationSampledPath(geom)}" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="2,5" stroke-linecap="round"/>`;
+  });
+  return `<svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
+    <g transform="translate(${canvasWidth/2},${conductorY}) scale(1,-1)">${paths}</g>
+  </svg>`;
 }
 
 function renderFormation() {
@@ -2665,9 +2689,9 @@ function renderFormation() {
   const containerWidth = Math.max(canvas.clientWidth || 0, 280);
   formationGeometry = computeFormationGeometry(rows, containerWidth);
 
-  let html = '';
+  let html = formationGuidesSvg(formationGeometry);
   formationGeometry.rowGeoms.forEach(geom => {
-    html += formationRowGuideHtml(geom, formationGeometry.conductorY);
+    html += formationRowLabelHtml(geom, formationGeometry.conductorY);
     geom.row.seats.forEach(seat => {
       const { x, y } = formationSeatXY(geom, seat.t);
       renderFormationSeat(geom.row, seat, x, y, formationGeometry.conductorY, geom.seatSize, h => html += h);
