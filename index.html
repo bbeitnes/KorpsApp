@@ -375,6 +375,7 @@
         </div>
         <div class="flex flex-wrap gap-2 items-center">
           <button onclick="showRowSetupModal('formation')" class="btn btn-secondary">⚙️ Rader</button>
+          <button onclick="spreadFormationSeats()" class="btn btn-secondary">↔️ Spre jevnt</button>
           <button onclick="clearFormationSeats()" class="btn btn-secondary">🗑️ Tøm oppstilling</button>
         </div>
       </div>
@@ -2581,9 +2582,19 @@ function renderConcert() {
 // (0–100, langs radens faste sone), IKKE ved å dele sonen jevnt på antall
 // seter — så to seter kan ligge vilkårlig tett inntil hverandre.
 let formationGeometry = null;
+// "shallow" (bred/slak bue) brukte tidligere bare en trangere vinkelsone
+// (150→30°) rundt samme radius som «senter» — det gir fortsatt en fullverdig
+// dybde midt i raden, bare smalere, så den så ikke nevneverdig slakere ut.
+// Å bare klemme høyden sammen (skalere sin med en faktor) løste det visuelt,
+// men trakk toppunktet innover mot dirigenten — og dermed rett inn i en
+// annen rads sone, siden radvalg ved slipp/klikk skjer ut fra hvilken rads
+// tegnede kurve som faktisk ligger nærmest. Løsningen er en "bue av en mye
+// større sirkel" (bow-faktor k): toppunktet (t=50) treffer fortsatt radens
+// egen dybde nøyaktig som normalt — kun endene bøyer svakt fremover i
+// stedet for helt tilbake til dirigentlinjen, se computeFormationGeometry.
 const FORMATION_ZONES = {
   center:  { startDeg: 180, spanDeg: 180 },
-  shallow: { startDeg: 150, spanDeg: 120 },
+  shallow: { bow: 2.2 },
   left:    { startDeg: 180, spanDeg: 90 },
   right:   { startDeg: 90,  spanDeg: 90 }
 };
@@ -2611,7 +2622,12 @@ function computeFormationGeometry(rows, containerWidth, opts) {
       return { row, radius, seatSize: seatSizeForRow, isFlat: true, leftX: -halfWidthTotal, width: 2*halfWidthTotal };
     }
     const zone = FORMATION_ZONES[row.align] || FORMATION_ZONES.center;
-    return { row, radius, seatSize: seatSizeForRow, isFlat: false, startDeg: zone.startDeg, spanDeg: zone.spanDeg };
+    if (zone.bow) {
+      const bowRadius = radius * zone.bow;
+      const maxTheta = Math.asin(Math.min(1, radius / bowRadius));
+      return { row, radius, seatSize: seatSizeForRow, isFlat: false, isBow: true, bowRadius, maxTheta };
+    }
+    return { row, radius, seatSize: seatSizeForRow, isFlat: false, isBow: false, startDeg: zone.startDeg, spanDeg: zone.spanDeg };
   });
 
   return { canvasWidth: containerWidth, canvasHeight, conductorY, rowGeoms };
@@ -2623,6 +2639,10 @@ function computeFormationGeometry(rows, containerWidth, opts) {
 function formationSeatXY(geom, t) {
   const tt = Math.max(0, Math.min(100, t == null ? 50 : t));
   if (geom.isFlat) return { x: geom.leftX + (tt/100)*geom.width, y: geom.radius };
+  if (geom.isBow) {
+    const theta = geom.maxTheta * (tt-50)/50;
+    return { x: geom.bowRadius * Math.sin(theta), y: (geom.radius - geom.bowRadius) + geom.bowRadius * Math.cos(theta) };
+  }
   const angleDeg = geom.startDeg - (tt/100)*geom.spanDeg;
   const angleRad = angleDeg * Math.PI/180;
   return { x: geom.radius * Math.cos(angleRad), y: geom.radius * Math.sin(angleRad) };
@@ -2744,10 +2764,12 @@ function renderFormationSeat(row, seat, x, y, conductorY, seatSize, append) {
   append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:#1e293b; white-space:normal; overflow:hidden; pointer-events:none; line-height:1.2;">${displayName}</div>`);
 }
 
-// Rad-mål for et slipp/klikk på kartet: finn nærmeste rad ut fra avstand til
-// dirigenten (uavhengig av hvor mange seter raden har), og oversett posisjonen
-// innenfor den raden til en t-verdi (0–100) — rett frem analytisk invers av
-// formationSeatXY, ingen sammenligning mot naboseter nødvendig.
+// Rad-mål for et slipp/klikk på kartet: finn raden hvis faktiske, tegnede
+// kurve (samme punkt-sampling som SVG-guiden, se formationSampledPath)
+// ligger nærmest slippunktet, og oversett posisjonen innenfor den raden til
+// en t-verdi (0–100). Ren avstand-til-radius holdt før, men en slak rad sin
+// kurve (se "squash" i FORMATION_ZONES) når ikke lenger helt ut til sin egen
+// dybde-radius, så nærmeste-kurvepunkt er nødvendig for å treffe riktig rad.
 function resolveFormationDrop(clientX, clientY) {
   if (!formationGeometry) return null;
   const canvas = document.getElementById('formation-canvas');
@@ -2755,20 +2777,25 @@ function resolveFormationDrop(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   const localX = clientX - rect.left - rect.width/2;
   const localY = formationGeometry.conductorY - (clientY - rect.top);
-  const dropDist = Math.sqrt(localX*localX + localY*localY);
 
   let best = null, bestDelta = Infinity;
   formationGeometry.rowGeoms.forEach(geom => {
-    const delta = Math.abs(dropDist - geom.radius);
-    if (delta < bestDelta) { bestDelta = delta; best = geom; }
+    for (let i = 0; i <= 20; i++) {
+      const p = formationSeatXY(geom, i*5);
+      const delta = Math.hypot(localX - p.x, localY - p.y);
+      if (delta < bestDelta) { bestDelta = delta; best = geom; }
+    }
   });
   if (!best) return null;
 
   let t;
   if (best.isFlat) {
     t = ((localX - best.leftX) / best.width) * 100;
+  } else if (best.isBow) {
+    const theta = Math.asin(Math.max(-1, Math.min(1, localX / best.bowRadius)));
+    t = 50 + 50 * theta / best.maxTheta;
   } else {
-    const angleDeg = Math.atan2(localY, localX) * 180 / Math.PI;
+    const angleDeg = Math.acos(Math.max(-1, Math.min(1, localX / best.radius))) * 180 / Math.PI;
     t = ((best.startDeg - angleDeg) / best.spanDeg) * 100;
   }
   return { row: best.row, t: Math.max(0, Math.min(100, t)) };
@@ -3651,6 +3678,19 @@ function clearFormationSeats() {
   renderFormation(); renderNames(); renderInstruments(); updateStats();
 }
 
+// Sprer setene i hver rad jevnt utover radens sone (samme venstre-høyre-
+// rekkefølge som før, basert på nåværende t) — en rask "nullstill mellomrom"
+// man kan justere videre fra, i stedet for å måtte dra alle på nytt for hånd.
+function spreadFormationSeats() {
+  state.formation.rows.forEach(row => {
+    const seats = row.seats.slice().sort((a,b) => (a.t ?? 50) - (b.t ?? 50));
+    const n = seats.length;
+    seats.forEach((seat, i) => { seat.t = n > 1 ? (i/(n-1))*100 : 50; });
+  });
+  movingFormationSeat = null;
+  renderFormation(); updateStats();
+}
+
 // ===================== RENDER =====================
 function render() {
   parseNames();
@@ -4178,7 +4218,7 @@ function showHelp() {
   // felles og vises alltid.
   const moduleHelp = [
     ['concert', `<div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter.</div>`],
-    ['formation', `<div><strong>🎺 Korpsmodus:</strong> Klikk «Rader» → skriv hvor mange rader og formen på hver (venstre/senter/høyre/flat/bred) – øverste linje er fremste rad. Ingen antall å sette opp: dra et navn fra listen til nøyaktig der på kartet musikanten skal stå, så vokser raden. Slippunktet avgjør både hvilken rad og nøyaktig posisjon i den – to musikanter kan stå tett inntil hverandre om du ønsker det. Dra en allerede plassert musikant for å flytte/finjustere, til samme rad eller en annen.</div>`],
+    ['formation', `<div><strong>🎺 Korpsmodus:</strong> Klikk «Rader» → skriv hvor mange rader og formen på hver (venstre/senter/høyre/flat/bred) – øverste linje er fremste rad. Ingen antall å sette opp: dra et navn fra listen til nøyaktig der på kartet musikanten skal stå, så vokser raden. Slippunktet avgjør både hvilken rad og nøyaktig posisjon i den – to musikanter kan stå tett inntil hverandre om du ønsker det. Dra en allerede plassert musikant for å flytte/finjustere, til samme rad eller en annen. «↔️ Spre jevnt» fordeler alle utover sin rad med jevne mellomrom (samme rekkefølge) som et raskt utgangspunkt du kan finjustere videre fra.</div>`],
     ['formation', `<div><strong>🥁 Slagverksliste:</strong> Vises i sidebaren kun i korpsmodus, under navnelisten. I motsetning til navn kan et instrument plasseres flere steder samtidig – f.eks. flere "Congas". Klikk et instrument og deretter et sted på kartet, eller dra det direkte dit.</div>`],
     ['room', `<div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass. Reiseledere (egen liste i sidebaren, under navnelisten) kan tildeles de samme sengeplassene som musikantene.</div>`],
     ['shift', `<div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt. Bruker en egen Foreldreliste i stedet for navnelisten, siden det er foreldrene og ikke musikantene som tar vaktene.</div>`],
