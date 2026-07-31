@@ -2683,8 +2683,20 @@ function formationGuidesSvg(geometry) {
   // bevisst valgt langt fra hverandre i fargesirkelen, ikke bare i lyshet,
   // så de er lette å skille fra hverandre — ikke bare fra bakgrunnen.
   for (let i = 0; i < rowGeoms.length - 1; i++) {
-    const boundaryRadius = (rowGeoms[i].radius + rowGeoms[i+1].radius) / 2;
-    const boundaryGeom = { isFlat: false, radius: boundaryRadius, startDeg: 180, spanDeg: 180 };
+    const a = rowGeoms[i], b = rowGeoms[i+1];
+    const boundaryRadius = (a.radius + b.radius) / 2;
+    // Grenser mot en slak (bow) rad skal selv følge den slake buformen —
+    // ikke en full rund halvsirkel — så den visuelt hører til den slake
+    // raden. Grenser mellom bue-formede naboer bruker snittet av bow-faktorene.
+    const bowKs = [a, b].filter(g => g.isBow).map(g => g.bowRadius / g.radius);
+    let boundaryGeom;
+    if (bowKs.length) {
+      const k = bowKs.reduce((s,v) => s+v, 0) / bowKs.length;
+      const bowRadius = boundaryRadius * k;
+      boundaryGeom = { isFlat: false, isBow: true, radius: boundaryRadius, bowRadius, maxTheta: Math.asin(Math.min(1, boundaryRadius / bowRadius)) };
+    } else {
+      boundaryGeom = { isFlat: false, radius: boundaryRadius, startDeg: 180, spanDeg: 180 };
+    }
     paths += `<path d="${formationSampledPath(boundaryGeom)}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="1,6" stroke-linecap="round" opacity="0.85"/>`;
   }
   rowGeoms.forEach(geom => {
