@@ -374,24 +374,18 @@
             oninput="state.formation.title = this.value; autoSave();">
         </div>
         <div class="flex flex-wrap gap-2 items-center">
-          <div class="flex flex-wrap gap-3 text-xs text-slate-500 items-center mr-2">
-            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-indigo-600 border-2 border-indigo-800"></span> Tildelt</span>
-            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-slate-200 border-2 border-slate-400 opacity-60"></span> Hull</span>
-            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-slate-100 border-2 border-slate-300"></span> Ledig</span>
-          </div>
-          <button onclick="showRowSetupModal('formation')" class="btn btn-primary">⚙️ Sett opp oppstilling</button>
+          <button onclick="showRowSetupModal('formation')" class="btn btn-secondary">⚙️ Rader</button>
+          <button onclick="clearFormationSeats()" class="btn btn-secondary">🗑️ Tøm oppstilling</button>
         </div>
       </div>
       <div id="formation-hint" class="text-slate-400 text-center py-16">
         <div class="text-5xl mb-3">🎺</div>
         <p class="text-lg font-medium text-slate-500">Konfigurer korpsoppstillingen</p>
-        <p class="text-sm mt-1">Klikk "Sett opp oppstilling" for å definere rader (halvsirkel), antall plasser og justering</p>
+        <p class="text-sm mt-1">Klikk "Rader" for å definere hvor mange rader og formen på hver — dra deretter navn/instrumenter fra listen inn på kartet</p>
       </div>
       <div id="formation-layout" class="hidden">
-        <div id="formation-scroll-hint" class="hidden text-xs text-slate-400 text-center mb-2">↔️ Dra sidelengs for å se hele oppstillingen</div>
-        <div id="formation-scroll" class="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-          <div id="formation-canvas" style="position:relative;"></div>
-        </div>
+        <p class="text-xs text-slate-400 text-center mb-2">Dra et navn eller instrument fra listen til nøyaktig der det skal stå på kartet — dra en plassert person for å flytte/finjustere.</p>
+        <div id="formation-canvas" style="position:relative; width:100%; max-width:1000px; margin:0 auto;" onclick="formationCanvasClick(event)"></div>
         <div id="formation-legend" class="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500"></div>
       </div>
     </div>
@@ -1585,6 +1579,26 @@ window.getKorpsData = getKorpsData;
 // er normalt korpsets felles liste, men et arrangement kan ha sin egen kopi
 // (data.names satt) — typisk en tur der ikke alle skal være med, uten at det
 // skal påvirke korpsets navneliste eller andre arrangementer.
+// Eldre korpsoppsett (fra da radene hadde et fast, jevnt fordelt antall
+// plasser) mangler `t` på setene sine. Gi dem en fornuftig startverdi jevnt
+// utover raden — akkurat som de ville vist seg før — slik at ingenting går
+// tapt; man kan finjustere videre fra der.
+function migrateFormationSeats(formation) {
+  const rows = (formation && formation.rows) || [];
+  rows.forEach(row => {
+    // Eldre oppsett kan ha uttalte, ubesatte plasser (name: null) fra den gang
+    // radene hadde et fast antall — de har ingen plass i den nye modellen,
+    // der et sete kun finnes når det faktisk har et navn.
+    const seats = (row.seats || []).filter(s => s.name);
+    const n = seats.length;
+    seats.forEach((seat, i) => {
+      if (seat.t == null) seat.t = n > 1 ? (i/(n-1))*100 : 50;
+    });
+    row.seats = seats;
+  });
+  return { title: (formation && formation.title) || '', rows };
+}
+
 function applyArrangementData(data) {
   if (Array.isArray(data.names)) {
     state.namesSource = 'own';
@@ -1595,7 +1609,7 @@ function applyArrangementData(data) {
   }
   document.getElementById('name-input').value = state.names.join('\n');
   state.concert = data.concert || { rows: [] };
-  state.formation = data.formation || { rows: [], title: '' };
+  state.formation = migrateFormationSeats(data.formation || { rows: [], title: '' });
   state.rooms = data.rooms || [];
   state.shifts = data.shifts || [];
   state.teams = data.teams || [];
@@ -2292,7 +2306,9 @@ function getAssignedNames() {
 
 function unassignExclusive(name, kind = state.mode) {
   if (kind === 'formation') {
-    state.formation.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
+    // Korpsoppsett har ingen tom, reservert plass — fjernes noen, forsvinner
+    // selve setet (og raden krymper), i stedet for å bare nulle navnet.
+    state.formation.rows.forEach(r => { r.seats = r.seats.filter(s => s.name !== name); });
   } else if (kind === 'concert') {
     state.concert.rows.forEach(r => r.seats.forEach(s => { if(s.name===name) s.name=null; }));
   } else if (kind === 'room') {
@@ -2308,50 +2324,98 @@ function renderRows(kind) { if (kind === 'concert') renderConcert(); else render
 
 function showRowSetupModal(kind) {
   const rows = rowsFor(kind);
+
+  if (kind !== 'formation') {
+    const existing = rows.map(r => `${r.label}:${r.rawDef || r.seats.length}`).join('\n');
+    showModal(`
+      <h2 class="text-xl font-bold mb-4">Sett opp konsertsalen</h2>
+      <p class="text-sm text-slate-500 mb-3">
+        Én rad per linje: <code class="bg-slate-100 px-1 rounded">Radnavn:Antall/plasser</code><br>
+        F.eks: <code class="bg-slate-100 px-1 rounded">A:20</code> eller <code class="bg-slate-100 px-1 rounded">Rad 1:15</code><br>
+        Spesifikke plasser: <code class="bg-slate-100 px-1 rounded">A:1-5,8-12</code>
+      </p>
+      <textarea id="setup-input" class="w-full h-48 border border-slate-200 rounded-lg p-3 text-sm font-mono focus:border-indigo-400"
+        placeholder="A:20&#10;B:20&#10;C:18&#10;D:18&#10;E:16">${existing}</textarea>
+      <div class="mt-3 flex gap-2 justify-between">
+        <button onclick="importRowsFromGSheetsModal('concert')" class="btn btn-secondary">📗 Importer fra Google Sheets</button>
+        <div class="flex gap-2">
+          <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
+          <button onclick="applyRowSetup('concert')" class="btn btn-primary">Bruk</button>
+        </div>
+      </div>
+    `);
+    return;
+  }
+
+  // Korpsoppsett har ingen antall-felt lenger — raden er kun form/dybde.
+  // Hvor mange som står i den, og nøyaktig hvor, styres av hvem som dras inn
+  // på kartet (se resolveFormationDrop), ikke av oppsett-teksten her.
   const existing = rows.map(r => {
-    const base = `${r.label}:${r.rawDef || r.seats.length}`;
-    if (kind !== 'formation') return base;
     const a = r.align === 'left' ? 'v' : r.align === 'right' ? 'h' : r.align === 'flat' ? 'f' : r.align === 'shallow' ? 'b' : 's';
-    return `${base}:${a}${r.large ? ':x' : ''}`;
+    return `${r.label}:${a}${r.large ? ':x' : ''}`;
   }).join('\n');
 
-  const title = kind === 'concert' ? 'Sett opp konsertsalen' : 'Sett opp korpsoppstilling';
-  const inputId = kind === 'concert' ? 'setup-input' : 'formation-setup-input';
-  const helpExtra = kind === 'formation'
-    ? `<br>Justering (valgfritt 3. felt): <code class="bg-slate-100 px-1 rounded">v</code>=venstre, <code class="bg-slate-100 px-1 rounded">h</code>=høyre, <code class="bg-slate-100 px-1 rounded">s</code>=senter (standard), <code class="bg-slate-100 px-1 rounded">b</code>=bred/slak bue, <code class="bg-slate-100 px-1 rounded">f</code>=flat horisontal rad<br>
-       Størrelse (valgfritt 4. felt): <code class="bg-slate-100 px-1 rounded">x</code>=ekstra stor (f.eks. for instrumentbilder)<br>
-       Øverste linje i listen = fremste rad (nærmest dirigent)`
-    : '';
-  const placeholderRaw = kind === 'concert'
-    ? 'A:20\nB:20\nC:18\nD:18\nE:16'
-    : 'Fløyte:10:v\nKlarinett:12:s\nKornett:8:h\nTuba:6:s';
-
   showModal(`
-    <h2 class="text-xl font-bold mb-4">${title}</h2>
+    <h2 class="text-xl font-bold mb-4">Sett opp korpsoppstilling</h2>
     <p class="text-sm text-slate-500 mb-3">
-      Én rad per linje: <code class="bg-slate-100 px-1 rounded">Radnavn:Antall/plasser</code><br>
-      F.eks: <code class="bg-slate-100 px-1 rounded">A:20</code> eller <code class="bg-slate-100 px-1 rounded">Rad 1:15</code><br>
-      Spesifikke plasser: <code class="bg-slate-100 px-1 rounded">A:1-5,8-12</code>${helpExtra}
+      Én rad per linje: <code class="bg-slate-100 px-1 rounded">Radnavn:Justering:Størrelse</code><br>
+      F.eks: <code class="bg-slate-100 px-1 rounded">Fløyte:v</code> eller <code class="bg-slate-100 px-1 rounded">Tuba:s:x</code><br>
+      Justering (valgfritt 2. felt): <code class="bg-slate-100 px-1 rounded">v</code>=venstre, <code class="bg-slate-100 px-1 rounded">h</code>=høyre, <code class="bg-slate-100 px-1 rounded">s</code>=senter (standard), <code class="bg-slate-100 px-1 rounded">b</code>=bred/slak bue, <code class="bg-slate-100 px-1 rounded">f</code>=flat horisontal rad<br>
+      Størrelse (valgfritt 3. felt): <code class="bg-slate-100 px-1 rounded">x</code>=ekstra stor (f.eks. for instrumentbilder)<br>
+      Øverste linje i listen = fremste rad (nærmest dirigent). Antallet i hver rad styres av hvor mange musikanter/instrumenter du drar inn på kartet — ikke her.
     </p>
-    <textarea id="${inputId}" class="w-full h-48 border border-slate-200 rounded-lg p-3 text-sm font-mono focus:border-indigo-400"
-      placeholder="${placeholderRaw.replace(/\n/g,'&#10;')}">${existing}</textarea>
-    <div class="mt-3 flex gap-2 justify-between">
-      <button onclick="importRowsFromGSheetsModal('${kind}')" class="btn btn-secondary">📗 Importer fra Google Sheets</button>
-      <div class="flex gap-2">
-        <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
-        <button onclick="applyRowSetup('${kind}')" class="btn btn-primary">Bruk</button>
-      </div>
+    <textarea id="formation-setup-input" class="w-full h-48 border border-slate-200 rounded-lg p-3 text-sm font-mono focus:border-indigo-400"
+      placeholder="Fløyte:v&#10;Klarinett:s&#10;Kornett:h&#10;Tuba:s">${existing}</textarea>
+    <div class="mt-3 flex justify-end gap-2">
+      <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
+      <button onclick="applyRowSetup('formation')" class="btn btn-primary">Bruk</button>
     </div>
   `);
 }
 
 function applyRowSetup(kind) {
-  const inputId = kind === 'concert' ? 'setup-input' : 'formation-setup-input';
-  const raw = document.getElementById(inputId).value;
+  const oldRows = rowsFor(kind);
+
+  if (kind === 'formation') {
+    const raw = document.getElementById('formation-setup-input').value;
+    const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+    const newRows = [];
+    const usedOldRowIdx = new Set();
+    lines.forEach((line, lineIdx) => {
+      const segs = line.split(':');
+      const label = segs[0].trim();
+      if (!label) return;
+
+      let align = 'center';
+      const tok = (segs[1]||'').trim().toLowerCase();
+      if (['v','venstre','left','l'].includes(tok)) align = 'left';
+      else if (['h','høyre','hoyre','right','r'].includes(tok)) align = 'right';
+      else if (['f','flat','horisontal'].includes(tok)) align = 'flat';
+      else if (['b','bred','slak','shallow','wide'].includes(tok)) align = 'shallow';
+      const large = ['x','stor','large','xl'].includes((segs[2]||'').trim().toLowerCase());
+
+      // En rad som beholder navnet sitt tar med seg alle musikantene/
+      // instrumentene som allerede står i den — kun form/dybde endres her.
+      let existingIdx = oldRows.findIndex((r, i) => r.label === label && !usedOldRowIdx.has(i));
+      if (existingIdx === -1 && oldRows[lineIdx] && !usedOldRowIdx.has(lineIdx)) {
+        existingIdx = lineIdx;
+      }
+      if (existingIdx !== -1) usedOldRowIdx.add(existingIdx);
+      const seats = existingIdx !== -1 ? oldRows[existingIdx].seats : [];
+
+      newRows.push({ label, align, large, seats });
+    });
+    state.formation.rows = newRows;
+    closeModal();
+    renderRows(kind);
+    updateStats();
+    return;
+  }
+
+  const raw = document.getElementById('setup-input').value;
   const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
   const newRows = [];
   // Existing rows, read once before we start overwriting state.
-  const oldRows = rowsFor(kind);
   const usedOldRowIdx = new Set();
   lines.forEach((line, lineIdx) => {
     const segs = line.split(':');
@@ -2359,16 +2423,6 @@ function applyRowSetup(kind) {
     const label = segs[0].trim();
     const seatDef = segs[1].trim();
     if (!label || !seatDef) return;
-
-    let align = 'center';
-    if (kind === 'formation') {
-      const tok = (segs[2]||'').trim().toLowerCase();
-      if (['v','venstre','left','l'].includes(tok)) align = 'left';
-      else if (['h','høyre','hoyre','right','r'].includes(tok)) align = 'right';
-      else if (['f','flat','horisontal'].includes(tok)) align = 'flat';
-      else if (['b','bred','slak','shallow','wide'].includes(tok)) align = 'shallow';
-    }
-    const large = kind === 'formation' && ['x','stor','large','xl'].includes((segs[3]||'').trim().toLowerCase());
 
     let seatIds = [];
     if (seatDef.includes('-') || seatDef.includes(',')) {
@@ -2387,11 +2441,11 @@ function applyRowSetup(kind) {
       for (let i=1;i<=count;i++) seatIds.push(String(i));
     }
 
-    // Preserve seat contents (names AND instruments alike) from the row this
-    // line used to be. Prefer an unused row with the same label; if the label
-    // itself was edited, fall back to whatever row previously sat at this same
-    // line position, so adjusting a row in place doesn't wipe what's on it —
-    // seats are only cleared when their id genuinely drops out of the new range.
+    // Preserve seat contents from the row this line used to be. Prefer an
+    // unused row with the same label; if the label itself was edited, fall
+    // back to whatever row previously sat at this same line position, so
+    // adjusting a row in place doesn't wipe what's on it — seats are only
+    // cleared when their id genuinely drops out of the new range.
     let existingIdx = oldRows.findIndex((r, i) => r.label === label && !usedOldRowIdx.has(i));
     if (existingIdx === -1 && oldRows[lineIdx] && !usedOldRowIdx.has(lineIdx)) {
       existingIdx = lineIdx;
@@ -2403,10 +2457,10 @@ function applyRowSetup(kind) {
       const ex = existing?.seats.find(s=>s.id===id);
       return { id, name: ex?.name || null };
     });
-    newRows.push({ label, rawDef: seatDef, align, large, seats });
+    newRows.push({ label, rawDef: seatDef, align: 'center', large: false, seats });
   });
 
-  if (kind === 'concert') state.concert.rows = newRows; else state.formation.rows = newRows;
+  state.concert.rows = newRows;
   closeModal();
   renderRows(kind);
   updateStats();
@@ -2516,6 +2570,79 @@ function renderConcert() {
 }
 
 // ----- Formation (half-circle rows) -----
+// ----- Formation (rows with freely positioned seats) -----
+// Hver rad har en fast dybde (avstand fra dirigenten) ut fra sin indeks blant
+// ALLE radene — uendret uansett hvor mange seter raden selv har akkurat nå.
+// Innad i raden bestemmes hvert sete sin sideveis plassering av sin egen `t`
+// (0–100, langs radens faste sone), IKKE ved å dele sonen jevnt på antall
+// seter — så to seter kan ligge vilkårlig tett inntil hverandre.
+let formationGeometry = null;
+const FORMATION_ZONES = {
+  center:  { startDeg: 180, spanDeg: 180 },
+  shallow: { startDeg: 150, spanDeg: 120 },
+  left:    { startDeg: 180, spanDeg: 90 },
+  right:   { startDeg: 90,  spanDeg: 90 }
+};
+
+function computeFormationGeometry(rows, containerWidth, opts) {
+  // Standardverdiene matcher skjermvisningen; buildFormationPrintHtml sender
+  // inn egne (litt strammere) tall for utskrift/PDF via samme funksjon, slik
+  // at begge alltid bruker nøyaktig samme sone-/radius-geometri (og dermed
+  // samme t → posisjon-oversettelse).
+  const o = Object.assign({ seatSize: 54, minBaseRadius: 60, extraPad: 110, conductorPad: 46, sidePad: 48 }, opts);
+  const seatSize = o.seatSize;
+  const availableWidth = Math.max(200, containerWidth - seatSize - o.sidePad);
+  const halfWidthTotal = availableWidth / 2;
+  const lastIdx = rows.length - 1;
+  const baseRadius = Math.max(o.minBaseRadius, halfWidthTotal * 0.32);
+  const rowGap = lastIdx > 0 ? (halfWidthTotal - baseRadius) / lastIdx : 0;
+  // Extra top padding so name labels above the topmost row are not clipped
+  const canvasHeight = halfWidthTotal + o.extraPad;
+  const conductorY = canvasHeight - o.conductorPad;
+
+  const rowGeoms = rows.map((row, r) => {
+    const radius = baseRadius + r*rowGap;
+    const seatSizeForRow = row.large ? Math.round(seatSize * 1.6) : seatSize;
+    if (row.align === 'flat') {
+      return { row, radius, seatSize: seatSizeForRow, isFlat: true, leftX: -halfWidthTotal, width: 2*halfWidthTotal };
+    }
+    const zone = FORMATION_ZONES[row.align] || FORMATION_ZONES.center;
+    return { row, radius, seatSize: seatSizeForRow, isFlat: false, startDeg: zone.startDeg, spanDeg: zone.spanDeg };
+  });
+
+  return { canvasWidth: containerWidth, canvasHeight, conductorY, rowGeoms };
+}
+
+// t=0..100 → posisjon langs radens sone. Ren funksjon av (geom, t) alene —
+// bryr seg ikke om hvor mange andre seter raden har, så to seter kan få
+// vilkårlig like t-verdier og dermed stå tett inntil hverandre.
+function formationSeatXY(geom, t) {
+  const tt = Math.max(0, Math.min(100, t == null ? 50 : t));
+  if (geom.isFlat) return { x: geom.leftX + (tt/100)*geom.width, y: geom.radius };
+  const angleDeg = geom.startDeg - (tt/100)*geom.spanDeg;
+  const angleRad = angleDeg * Math.PI/180;
+  return { x: geom.radius * Math.cos(angleRad), y: geom.radius * Math.sin(angleRad) };
+}
+
+// En rad uten (eller med få) seter har ellers ingen synlig spor på kartet —
+// tegn alltid en svak guide (prikker langs sonen + etikett) så man ser hvor
+// raden er og har noe å sikte mot ved slipp.
+function formationRowGuideHtml(geom, conductorY) {
+  let html = '';
+  [0, 25, 50, 75, 100].forEach(t => {
+    const { x, y } = formationSeatXY(geom, t);
+    const left = `calc(50% + ${x.toFixed(1)}px)`;
+    const top = `${(conductorY - y).toFixed(1)}px`;
+    html += `<div style="position:absolute; left:${left}; top:${top}; width:5px; height:5px; margin:-2.5px; border-radius:50%; background:#e2e8f0; pointer-events:none;"></div>`;
+  });
+  const start = formationSeatXY(geom, 0);
+  const labelLeft = `calc(50% + ${start.x.toFixed(1)}px)`;
+  const labelTop = `${(conductorY - start.y - 9).toFixed(1)}px`;
+  const translateX = start.x <= 0 ? '0' : '-100%';
+  html += `<div style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:#94a3b8; white-space:nowrap; pointer-events:none; background:rgba(248,250,252,.9); padding:1px 5px; border-radius:5px; border:1px dashed #cbd5e1;">${escHtml(geom.row.label)}</div>`;
+  return html;
+}
+
 function renderFormation() {
   const hint = document.getElementById('formation-hint');
   const layout = document.getElementById('formation-layout');
@@ -2535,150 +2662,197 @@ function renderFormation() {
   hint.classList.add('hidden');
   layout.classList.remove('hidden');
 
-  const seatSize = 54;
-
-  const scrollEl = document.getElementById('formation-scroll');
-  const visibleWidth = scrollEl.clientWidth || 800;
-  const maxSeats = Math.max(1, ...rows.map(r=>r.seats.length));
-  const MIN_SEAT_SPACING = 58;
-  const minRequiredWidth = seatSize + 48 + (maxSeats-1)*MIN_SEAT_SPACING;
-  const containerWidth = Math.max(visibleWidth, minRequiredWidth);
-  canvas.style.width = containerWidth + 'px';
-  document.getElementById('formation-scroll-hint').classList.toggle('hidden', containerWidth <= visibleWidth + 1);
-
-  const availableWidth = Math.max(200, containerWidth - seatSize - 48);
-  const halfWidthTotal = availableWidth/2;
-  const spacing = maxSeats > 1 ? availableWidth/(maxSeats-1) : 0;
-  const degPerSeat = maxSeats > 1 ? Math.min(9, Math.max(4, 170/(maxSeats-1))) : 8;
-
-  const lastIdx = rows.length - 1;
-  const baseRadius = Math.max(60, halfWidthTotal * 0.32);
-  const rowGap = lastIdx > 0 ? (halfWidthTotal - baseRadius) / lastIdx : 0;
-
-  // Extra top padding so name labels above the topmost row are not clipped
-  const canvasHeight = halfWidthTotal + 110;
-  const conductorY = canvasHeight - 46;
+  const containerWidth = Math.max(canvas.clientWidth || 0, 280);
+  formationGeometry = computeFormationGeometry(rows, containerWidth);
 
   let html = '';
-  rows.forEach((row, r) => {
-    const radius = baseRadius + r*rowGap;
-    const N = row.seats.length;
-    const isFlat = row.align === 'flat';
-    const rowSeatSize = row.large ? Math.round(seatSize * 1.6) : seatSize;
-
-    const rowSpacing = Math.max(spacing, rowSeatSize + 8);
-
-    if (isFlat) {
-      const rowWidth = (N-1)*rowSpacing;
-      let leftX;
-      if (row.align === 'left') leftX = -halfWidthTotal;
-      else if (row.align === 'right') leftX = halfWidthTotal - rowWidth;
-      else leftX = -rowWidth/2;
-
-      row.seats.forEach((seat, i) => {
-        const x = N === 1 ? leftX : leftX + i*rowSpacing;
-        const y = radius;
-        renderFormationSeat(row, seat, i, x, y, conductorY, rowSeatSize, rowSpacing, true, h => html += h);
-      });
-
-    } else {
-      let startAngle, stepDeg;
-      const minStepDeg = rowSeatSize * 180 / (radius * Math.PI) + 2;
-      if (row.align === 'center') {
-        stepDeg = N > 1 ? 180/(N-1) : 0;
-        startAngle = 180;
-      } else if (row.align === 'shallow') {
-        stepDeg = N > 1 ? 120/(N-1) : 0;
-        startAngle = 150;
-      } else {
-        stepDeg = Math.max(17, minStepDeg);
-        startAngle = row.align === 'left' ? 180 : (N - 1) * stepDeg;
-      }
-
-      const localSpacing = N > 1 ? radius * stepDeg * (Math.PI/180) : 999;
-      row.seats.forEach((seat, i) => {
-        const angleDeg = startAngle - i*stepDeg;
-        const angleRad = angleDeg * Math.PI/180;
-        const x = radius * Math.cos(angleRad);
-        const y = radius * Math.sin(angleRad);
-        renderFormationSeat(row, seat, i, x, y, conductorY, rowSeatSize, localSpacing, false, h => html += h);
-      });
-
-    }
+  formationGeometry.rowGeoms.forEach(geom => {
+    html += formationRowGuideHtml(geom, formationGeometry.conductorY);
+    geom.row.seats.forEach(seat => {
+      const { x, y } = formationSeatXY(geom, seat.t);
+      renderFormationSeat(geom.row, seat, x, y, formationGeometry.conductorY, geom.seatSize, h => html += h);
+    });
   });
 
-  html += `<div class="absolute text-xs text-slate-400 font-semibold tracking-widest uppercase" style="left:calc(50% - 40px); top:${conductorY+4}px; width:80px; text-align:center;">🎼 Dirigent</div>`;
+  html += `<div class="absolute text-xs text-slate-400 font-semibold tracking-widest uppercase" style="left:calc(50% - 40px); top:${formationGeometry.conductorY+4}px; width:80px; text-align:center; pointer-events:none;">🎼 Dirigent</div>`;
 
-  canvas.style.height = canvasHeight + 'px';
+  if (movingFormationSeat) {
+    html += `<div style="position:absolute; left:50%; top:4px; transform:translateX(-50%); background:#4f46e5; color:white; font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; z-index:5;">↔️ Trykk der plassen skal flyttes &nbsp;·&nbsp; <a href="#" onclick="cancelMoveFormationSeat(event)" style="color:white;">Avbryt</a></div>`;
+  }
+
+  canvas.style.height = formationGeometry.canvasHeight + 'px';
   canvas.innerHTML = html;
 
   document.getElementById('formation-legend').innerHTML = rows.map(row =>
-    `<span><strong class="text-slate-600">${escHtml(row.label)}:</strong> ${row.seats.length} plasser</span>`
+    `<span><strong class="text-slate-600">${escHtml(row.label)}:</strong> ${row.seats.length} plassert</span>`
   ).join('');
 
-  attachSeatDropHandlers('formation-canvas', 'formation');
+  attachFormationCanvasHandlers();
 }
 
-function renderFormationSeat(row, seat, i, x, y, conductorY, seatSize, localSpacing, isFlat, append) {
+function renderFormationSeat(row, seat, x, y, conductorY, seatSize, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
-  const gapSeat = !seat.name && isGapSeat(row, i);
-  const cls = seat.name ? 'occupied' : (gapSeat ? 'gap' : '');
-  const tooltipText = seat.name
-    ? escHtml(seat.name)
-    : `Rad ${escHtml(row.label)} · Plass ${escHtml(seat.id)}${gapSeat?' (hull)':''}`;
-  const photo = seat.name && state.photos[seat.name];
+  const photo = state.photos[seat.name];
   const label = photo
     ? `<img src="${photo}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;">`
-    : seat.name
-      ? `<span style="font-size:11px;font-weight:700;">${initials(seat.name)}</span>`
-      : `<span class="${gapSeat?'text-slate-400':'text-slate-300'} text-xs">${escHtml(seat.id)}</span>`;
-  append(`<div class="seat ${cls}" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px;"
+    : `<span style="font-size:11px;font-weight:700;">${initials(seat.name)}</span>`;
+  append(`<div class="seat occupied" draggable="true" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px; cursor:grab; z-index:2;"
                 data-row="${escAttr(row.label)}" data-seat="${escAttr(seat.id)}"
                 onclick="seatClick('formation','${escJs(row.label)}','${escJs(seat.id)}')">
     ${label}
-    <div class="tooltip">${tooltipText}</div>
+    <div class="tooltip">${escHtml(seat.name)}</div>
   </div>`);
 
-  if (seat.name) {
-    const nameWidth = Math.max(44, Math.min(150, localSpacing - 4));
-    const fontSize = nameWidth < 60 ? 8 : nameWidth < 85 ? 10 : nameWidth < 110 ? 11 : 12;
-    const nameLeft = `calc(50% + ${(x - nameWidth/2).toFixed(1)}px)`;
-    const nameTop = `${(conductorY - y - seatSize/2 - fontSize - 5).toFixed(1)}px`;
-    const displayName = seat.name.split(',').map(s => escHtml(s.trim())).join('<br>');
-    append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:#1e293b; white-space:normal; overflow:hidden; pointer-events:none; line-height:1.2;">${displayName}</div>`);
+  const nameWidth = row.large ? 130 : 90;
+  const fontSize = row.large ? 13 : 11;
+  const nameLeft = `calc(50% + ${(x - nameWidth/2).toFixed(1)}px)`;
+  const nameTop = `${(conductorY - y - seatSize/2 - fontSize - 5).toFixed(1)}px`;
+  const displayName = seat.name.split(',').map(s => escHtml(s.trim())).join('<br>');
+  append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:#1e293b; white-space:normal; overflow:hidden; pointer-events:none; line-height:1.2;">${displayName}</div>`);
+}
+
+// Rad-mål for et slipp/klikk på kartet: finn nærmeste rad ut fra avstand til
+// dirigenten (uavhengig av hvor mange seter raden har), og oversett posisjonen
+// innenfor den raden til en t-verdi (0–100) — rett frem analytisk invers av
+// formationSeatXY, ingen sammenligning mot naboseter nødvendig.
+function resolveFormationDrop(clientX, clientY) {
+  if (!formationGeometry) return null;
+  const canvas = document.getElementById('formation-canvas');
+  if (!canvas) return null;
+  const rect = canvas.getBoundingClientRect();
+  const localX = clientX - rect.left - rect.width/2;
+  const localY = formationGeometry.conductorY - (clientY - rect.top);
+  const dropDist = Math.sqrt(localX*localX + localY*localY);
+
+  let best = null, bestDelta = Infinity;
+  formationGeometry.rowGeoms.forEach(geom => {
+    const delta = Math.abs(dropDist - geom.radius);
+    if (delta < bestDelta) { bestDelta = delta; best = geom; }
+  });
+  if (!best) return null;
+
+  let t;
+  if (best.isFlat) {
+    t = ((localX - best.leftX) / best.width) * 100;
+  } else {
+    const angleDeg = Math.atan2(localY, localX) * 180 / Math.PI;
+    t = ((best.startDeg - angleDeg) / best.spanDeg) * 100;
+  }
+  return { row: best.row, t: Math.max(0, Math.min(100, t)) };
+}
+
+let formationSeatIdCounter = 0;
+function genFormationSeatId() {
+  formationSeatIdCounter += 1;
+  return 'f' + Date.now().toString(36) + formationSeatIdCounter;
+}
+
+// Plasserer navn/instrument nøyaktig der man slapp/trykket. `sourceSeatId`
+// er satt når dette er en flytting/finjustering av et sete som allerede
+// fantes (uansett hvilken rad) — da fjernes akkurat det setet først, i
+// stedet for å lete etter samme navn (funker likt for instrumenter, som
+// kan finnes i flere seter samtidig og ellers ikke ville blitt identifisert).
+function placeFormationSeat(name, isInstrument, clientX, clientY, sourceRowLabel, sourceSeatId) {
+  const target = resolveFormationDrop(clientX, clientY);
+  if (!target) return;
+
+  if (sourceSeatId) {
+    const sourceRow = state.formation.rows.find(r => r.label === sourceRowLabel);
+    if (sourceRow) sourceRow.seats = sourceRow.seats.filter(s => s.id !== sourceSeatId);
+  } else if (!isInstrument) {
+    unassignExclusive(name, 'formation');
+  }
+
+  target.row.seats.push({ id: genFormationSeatId(), name, t: target.t });
+  selectedName = null;
+  selectedInstrument = null;
+  movingFormationSeat = null;
+  renderRows('formation'); renderNames(); renderInstruments(); updateStats();
+}
+
+function attachFormationCanvasHandlers() {
+  const canvas = document.getElementById('formation-canvas');
+  if (!canvas) return;
+  canvas.ondragover = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+  canvas.ondrop = e => {
+    e.preventDefault();
+    const name = e.dataTransfer.getData('text/plain');
+    if (!name) return;
+    const isInstrument = e.dataTransfer.getData('application/x-slagverk') === '1';
+    const sourceSeatId = e.dataTransfer.getData('application/x-formation-seat-id') || null;
+    const sourceRowLabel = e.dataTransfer.getData('application/x-formation-row') || null;
+    placeFormationSeat(name, isInstrument, e.clientX, e.clientY, sourceRowLabel, sourceSeatId);
+  };
+
+  canvas.querySelectorAll('.seat[draggable="true"]').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      const rowLabel = el.dataset.row, seatId = el.dataset.seat;
+      const row = state.formation.rows.find(r=>r.label===rowLabel);
+      const seat = row?.seats.find(s=>s.id===seatId);
+      if (!seat) return;
+      e.dataTransfer.setData('text/plain', seat.name);
+      e.dataTransfer.setData('application/x-formation-seat-id', seatId);
+      e.dataTransfer.setData('application/x-formation-row', rowLabel);
+      if (state.instruments.includes(seat.name)) e.dataTransfer.setData('application/x-slagverk', '1');
+      e.dataTransfer.effectAllowed = 'move';
+      el.style.opacity = '0.4';
+    });
+    el.addEventListener('dragend', () => { el.style.opacity = ''; });
+  });
+}
+
+// Touch-fallback for både ny plassering (velg navn/instrument i sidepanelet,
+// trykk kartet) og flytting (trykk et sete → "Flytt" → trykk kartet).
+function formationCanvasClick(e) {
+  if (e.target.closest('.seat')) return;
+  if (movingFormationSeat) {
+    const { rowLabel, seatId } = movingFormationSeat;
+    const row = state.formation.rows.find(r=>r.label===rowLabel);
+    const seat = row?.seats.find(s=>s.id===seatId);
+    movingFormationSeat = null;
+    if (seat) placeFormationSeat(seat.name, state.instruments.includes(seat.name), e.clientX, e.clientY, rowLabel, seatId);
+    else renderFormation();
+    return;
+  }
+  if (selectedInstrument) {
+    placeFormationSeat(selectedInstrument, true, e.clientX, e.clientY, null, null);
+  } else if (selectedName) {
+    placeFormationSeat(selectedName, false, e.clientX, e.clientY, null, null);
   }
 }
 
-function buildFormationPrintSeat(row, seat, i, x, y, conductorY, seatSize, localSpacing, isFlat, append) {
+function cancelMoveFormationSeat(e) {
+  e.preventDefault();
+  movingFormationSeat = null;
+  renderFormation();
+}
+
+function buildFormationPrintSeat(row, seat, x, y, conductorY, seatSize, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
-  const gapSeat = !seat.name && isGapSeat(row, i);
-  const cls = seat.name ? 'occupied' : (gapSeat ? 'gap' : '');
-  const photo = seat.name && state.photos[seat.name];
+  const photo = state.photos[seat.name];
   const innerLabel = photo
     ? `<img src="${photo}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;">`
-    : seat.name
-      ? `<span>${initials(seat.name)}</span>`
-      : `<span class="${gapSeat?'text-slate-400':'text-slate-300'}">${escHtml(seat.id)}</span>`;
-  append(`<div class="seat ${cls}" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px; font-size:13px;">
+    : `<span>${initials(seat.name)}</span>`;
+  append(`<div class="seat occupied" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px; font-size:13px;">
     ${innerLabel}
   </div>`);
 
-  if (seat.name) {
-    const displayName = printDisplayName(seat.name).replace(',', '<br>');
-    const nameLeft = `calc(50% + ${x.toFixed(1)}px)`;
-    const nameTop = `${(conductorY - y + seatSize/2 + 3).toFixed(1)}px`;
-    append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; transform:translateX(-50%); font-size:10px; font-weight:700; color:#1e293b; white-space:normal; text-align:center; line-height:1.3;">${displayName}</div>`);
-  }
+  const displayName = printDisplayName(seat.name).replace(',', '<br>');
+  const nameLeft = `calc(50% + ${x.toFixed(1)}px)`;
+  const nameTop = `${(conductorY - y + seatSize/2 + 3).toFixed(1)}px`;
+  append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; transform:translateX(-50%); font-size:10px; font-weight:700; color:#1e293b; white-space:normal; text-align:center; line-height:1.3;">${displayName}</div>`);
 }
 
 // Builds the formation diagram geometry as a standalone snapshot (used for
 // preview/print): full landscape page width, larger boxes, and the full
-// name printed above each occupied seat so it stays readable on paper.
+// name printed above each occupied seat so it stays readable on paper. Bruker
+// samme computeFormationGeometry/formationSeatXY som skjermvisningen (bare med
+// utskrift-spesifikke mål), så det man ser i redigeringsvisningen er nøyaktig
+// det som havner på papiret.
 function buildFormationPrintHtml() {
   const rows = state.formation.rows;
-  const seatSize = 46;
 
   // Base the geometry on the printable A4-landscape width so the diagram
   // is generated at (near) the size it will actually appear on paper.
@@ -2686,79 +2860,24 @@ function buildFormationPrintHtml() {
   const pageMarginMm = 8;
   const containerWidth = (297 - 2*pageMarginMm) * pxPerMm;
 
-  const availableWidth = Math.max(200, containerWidth - seatSize - 8);
-  const halfWidthTotal = availableWidth/2;
-  const maxSeats = Math.max(1, ...rows.map(r=>r.seats.length));
-  const spacing = maxSeats > 1 ? availableWidth/(maxSeats-1) : 0;
-  const degPerSeat = maxSeats > 1 ? Math.min(9, Math.max(4, 170/(maxSeats-1))) : 8;
-
-  const lastIdx = rows.length - 1;
-  const baseRadius = Math.max(70, halfWidthTotal * 0.32);
-  const rowGap = lastIdx > 0 ? (halfWidthTotal - baseRadius) / lastIdx : 0;
-
-  // Names sit below each seat, so extra height goes at the bottom
-  const nameRowHeight = 16;
-  const canvasHeight = halfWidthTotal + 80 + nameRowHeight;
-  const conductorY = canvasHeight - 50 - nameRowHeight;
+  const geometry = computeFormationGeometry(rows, containerWidth,
+    { seatSize: 46, minBaseRadius: 70, extraPad: 96, conductorPad: 66, sidePad: 8 });
 
   let html = '';
-  rows.forEach((row, r) => {
-    const radius = baseRadius + r*rowGap;
-    const N = row.seats.length;
-    const isFlat = row.align === 'flat';
-
-    const rowSeatSize = row.large ? Math.round(seatSize * 1.6) : seatSize;
-    const rowSpacing = Math.max(spacing, rowSeatSize + 8);
-
-    if (isFlat) {
-      const rowWidth = (N-1)*rowSpacing;
-      let leftX;
-      if (row.align === 'left') leftX = -halfWidthTotal;
-      else if (row.align === 'right') leftX = halfWidthTotal - rowWidth;
-      else leftX = -rowWidth/2;
-
-      row.seats.forEach((seat, i) => {
-        const x = N === 1 ? leftX : leftX + i*rowSpacing;
-        const y = radius;
-        buildFormationPrintSeat(row, seat, i, x, y, conductorY, rowSeatSize, rowSpacing, true, h => html += h);
-      });
-
-    } else {
-      let startAngle, stepDeg;
-      const minStepDeg = rowSeatSize * 180 / (radius * Math.PI) + 2;
-      if (row.align === 'center') {
-        stepDeg = N > 1 ? 180/(N-1) : 0;
-        startAngle = 180;
-      } else if (row.align === 'shallow') {
-        stepDeg = N > 1 ? 120/(N-1) : 0;
-        startAngle = 150;
-      } else {
-        stepDeg = Math.max(17, minStepDeg);
-        startAngle = row.align === 'left' ? 180 : (N - 1) * stepDeg;
-      }
-
-      const localSpacing = N > 1 ? radius * stepDeg * (Math.PI/180) : 999;
-      row.seats.forEach((seat, i) => {
-        const angleDeg = startAngle - i*stepDeg;
-        const angleRad = angleDeg * Math.PI/180;
-        const x = radius * Math.cos(angleRad);
-        const y = radius * Math.sin(angleRad);
-        buildFormationPrintSeat(row, seat, i, x, y, conductorY, rowSeatSize, localSpacing, false, h => html += h);
-      });
-
-      const labelAngleRad = startAngle * Math.PI/180;
-      const lx = (radius+28) * Math.cos(labelAngleRad);
-      const ly = (radius+28) * Math.sin(labelAngleRad);
-    }
+  geometry.rowGeoms.forEach(geom => {
+    geom.row.seats.forEach(seat => {
+      const { x, y } = formationSeatXY(geom, seat.t);
+      buildFormationPrintSeat(geom.row, seat, x, y, geometry.conductorY, geom.seatSize, h => html += h);
+    });
   });
 
-  html += `<div class="absolute font-semibold tracking-widest uppercase text-slate-500" style="font-size:13px; left:calc(50% - 45px); top:${conductorY+6}px; width:90px; text-align:center;">🎼 Dirigent</div>`;
+  html += `<div class="absolute font-semibold tracking-widest uppercase text-slate-500" style="font-size:13px; left:calc(50% - 45px); top:${geometry.conductorY+6}px; width:90px; text-align:center;">🎼 Dirigent</div>`;
 
   const subtitle = `<div style="margin-top:10px; font-size:11px; color:#475569; display:flex; flex-wrap:wrap; gap:4px 18px;">
     ${rows.map(r => `<span><strong>${escHtml(r.label)}:</strong> ${r.seats.length} plasser</span>`).join('')}
   </div>`;
 
-  return { html, subtitle, width: containerWidth, height: canvasHeight };
+  return { html, subtitle, width: geometry.canvasWidth, height: geometry.canvasHeight };
 }
 
 function seatClick(kind, rowLabel, seatId) {
@@ -2768,6 +2887,8 @@ function seatClick(kind, rowLabel, seatId) {
   const seat = row.seats.find(s=>s.id===seatId);
   if (!seat) return;
 
+  // I korpsoppsett finnes et sete kun når det har et navn (ingen tomme
+  // plasser lenger), så denne grenen dekker all klikk-interaksjon der.
   if (seat.name) {
     showSeatOptions(kind, rowLabel, seatId, seat.name);
   } else if (kind === 'formation' && selectedInstrument) {
@@ -2785,12 +2906,17 @@ function seatClick(kind, rowLabel, seatId) {
 }
 
 function showSeatOptions(kind, rowLabel, seatId, currentName) {
+  const moveBtn = kind === 'formation'
+    ? `<button onclick="closeModal(); startMoveFormationSeat('${escJs(rowLabel)}','${escJs(seatId)}')" class="btn btn-secondary">↔️ Flytt</button>`
+    : '';
+  const removeLabel = kind === 'formation' ? '✕ Fjern plass' : '✕ Fjern tildeling';
   showModal(`
     <h2 class="text-lg font-bold mb-3">${escHtml(rowLabel)}${escHtml(seatId)}</h2>
     <p class="text-slate-600 mb-4">Tildelt: <strong>${escHtml(currentName)}</strong></p>
     <div class="flex flex-col gap-2">
-      <button onclick="closeModal(); showAssignDialog('${kind}','${escJs(rowLabel)}','${escJs(seatId)}')" class="btn btn-secondary">🔄 Tildel på nytt</button>
-      <button onclick="removeSeatAssignment('${kind}','${escJs(rowLabel)}','${escJs(seatId)}'); closeModal()" class="btn btn-danger">✕ Fjern tildeling</button>
+      <button onclick="closeModal(); showAssignDialog('${kind}','${escJs(rowLabel)}','${escJs(seatId)}')" class="btn btn-secondary">🔄 Bytt navn/instrument</button>
+      ${moveBtn}
+      <button onclick="removeSeatAssignment('${kind}','${escJs(rowLabel)}','${escJs(seatId)}'); closeModal()" class="btn btn-danger">${removeLabel}</button>
       <button onclick="closeModal()" class="btn btn-secondary">Avbryt</button>
     </div>
   `);
@@ -2799,9 +2925,25 @@ function showSeatOptions(kind, rowLabel, seatId, currentName) {
 function removeSeatAssignment(kind, rowLabel, seatId) {
   const rows = rowsFor(kind);
   const row = rows.find(r=>r.label===rowLabel);
-  const seat = row?.seats.find(s=>s.id===seatId);
-  if (seat) seat.name = null;
-  renderRows(kind); renderNames(); updateStats();
+  if (!row) return;
+  if (kind === 'formation') {
+    // Korpsoppsett har ingen "tom, reservert plass" — fjerner man noen,
+    // forsvinner selve setet, og raden krymper.
+    row.seats = row.seats.filter(s => s.id !== seatId);
+  } else {
+    const seat = row.seats.find(s=>s.id===seatId);
+    if (seat) seat.name = null;
+  }
+  renderRows(kind); renderNames(); renderInstruments(); updateStats();
+}
+
+// Armerer "flytt"-modus for et plassert sete i korpsoppsett (touch-fallback for
+// å dra det til nøyaktig ny posisjon/rad): neste klikk/trykk på kartet flytter
+// nettopp dette setet dit, i stedet for å opprette en ny plassering.
+let movingFormationSeat = null;
+function startMoveFormationSeat(rowLabel, seatId) {
+  movingFormationSeat = { rowLabel, seatId };
+  renderFormation();
 }
 
 function showAssignDialog(kind, rowLabel, seatId) {
@@ -2854,8 +2996,11 @@ function doAssignSeat(kind, rowLabel, seatId, name, isInstrument) {
   const seat = row?.seats.find(s=>s.id===seatId);
   if (!seat) return;
   // Instruments are never exclusive, so unlike names, assigning one here must not
-  // clear it off any other seat that already shows the same instrument.
-  if (!isInstrument) unassignExclusive(name, kind);
+  // clear it off any other seat that already shows the same instrument. Also skip
+  // when re-assigning the exact same name back onto this seat — unassignExclusive
+  // would otherwise remove this very seat (formation deletes on unassign) before
+  // we get to set its name below.
+  if (!isInstrument && seat.name !== name) unassignExclusive(name, kind);
   seat.name = name;
   closeModal();
   renderRows(kind); renderNames(); renderInstruments(); updateStats();
@@ -3427,8 +3572,13 @@ function updateStats() {
   const assigned = [...getAssignedNames()].filter(n => rosterSet.has(n)).length;
   const total = roster.length;
   let extra;
-  if (state.mode === 'concert' || state.mode === 'formation') {
-    const rows = rowsFor(state.mode);
+  if (state.mode === 'formation') {
+    // Korpsoppsett har ingen fast kapasitet lenger — bare tell hvor mange
+    // som faktisk er plassert.
+    const totalSeats = rowsFor('formation').reduce((s,r)=>s+r.seats.length,0);
+    extra = `Plassert: <b>${totalSeats}</b>`;
+  } else if (state.mode === 'concert') {
+    const rows = rowsFor('concert');
     const totalSeats = rows.reduce((s,r)=>s+r.seats.length,0);
     const occupied = rows.reduce((s,r)=>s+r.seats.filter(se=>se.name).length,0);
     extra = `Plasser: <b>${occupied}/${totalSeats}</b>`;
@@ -3450,14 +3600,23 @@ function updateStats() {
 function clearAssignments() {
   if (!confirm('Fjerne alle tildelinger?')) return;
   state.concert.rows.forEach(r=>r.seats.forEach(s=>s.name=null));
-  state.formation.rows.forEach(r=>r.seats.forEach(s=>s.name=null));
+  state.formation.rows.forEach(r=>r.seats=[]);
   state.rooms.forEach(r=>r.occupants=[]);
   state.shifts.forEach(r=>r.occupants=[]);
   state.teams.forEach(t=>{ t.occupants=[]; t.leader=null; });
   selectedName = null;
   selectedGroupLeader = null;
   selectedReiseleder = null;
+  movingFormationSeat = null;
   render();
+}
+
+// Tøm kun korpsoppsettet (beholder radene/formen, fjerner bare hvem som står i dem).
+function clearFormationSeats() {
+  if (!confirm('Fjerne alle plasserte musikanter/instrumenter fra korpsoppsettet?')) return;
+  state.formation.rows.forEach(r=>r.seats=[]);
+  movingFormationSeat = null;
+  renderFormation(); renderNames(); renderInstruments(); updateStats();
 }
 
 // ===================== RENDER =====================
@@ -3987,8 +4146,8 @@ function showHelp() {
   // felles og vises alltid.
   const moduleHelp = [
     ['concert', `<div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter.</div>`],
-    ['formation', `<div><strong>🎺 Korpsmodus:</strong> Rader vises som en halvsirkel rundt dirigentpunktet. Sett opp rader med antall plasser og justering (venstre/senter/høyre) – øverste linje i oppsettet er fremste rad.</div>`],
-    ['formation', `<div><strong>🥁 Slagverksliste:</strong> Vises i sidebaren kun i korpsmodus, under navnelisten. I motsetning til navn kan et instrument velges og plasseres i flere seter samtidig – f.eks. flere "Congas"-seter. Klikk et instrument og deretter et sete, eller dra det direkte til setet.</div>`],
+    ['formation', `<div><strong>🎺 Korpsmodus:</strong> Klikk «Rader» → skriv hvor mange rader og formen på hver (venstre/senter/høyre/flat/bred) – øverste linje er fremste rad. Ingen antall å sette opp: dra et navn fra listen til nøyaktig der på kartet musikanten skal stå, så vokser raden. Slippunktet avgjør både hvilken rad og nøyaktig posisjon i den – to musikanter kan stå tett inntil hverandre om du ønsker det. Dra en allerede plassert musikant for å flytte/finjustere, til samme rad eller en annen.</div>`],
+    ['formation', `<div><strong>🥁 Slagverksliste:</strong> Vises i sidebaren kun i korpsmodus, under navnelisten. I motsetning til navn kan et instrument plasseres flere steder samtidig – f.eks. flere "Congas". Klikk et instrument og deretter et sted på kartet, eller dra det direkte dit.</div>`],
     ['room', `<div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass. Reiseledere (egen liste i sidebaren, under navnelisten) kan tildeles de samme sengeplassene som musikantene.</div>`],
     ['shift', `<div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt. Bruker en egen Foreldreliste i stedet for navnelisten, siden det er foreldrene og ikke musikantene som tar vaktene.</div>`],
     ['team', `<div><strong>👥 Gruppeinndeling:</strong> Klikk «Sett opp grupper» → skriv ett gruppenavn per linje (ingen fast størrelse). Hver gruppe har ett lederfelt (👑 øverst i kortet, valgt fra den egne Gruppeledere-listen) og en åpen liste med deltakere fra navnelisten – klikk «+ Legg til deltaker» eller dra et navn direkte inn i kortet. En gruppeleder kan bare lede én gruppe om gangen, akkurat som et navn bare kan sitte i én gruppe om gangen.</div>`]
