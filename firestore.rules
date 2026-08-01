@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function korpsAllowed(korps) {
+      return !('accessMode' in korps)
+        || korps.accessMode != 'restricted'
+        || (('allowedEmails' in korps) && (request.auth.token.email in korps.allowedEmails));
+    }
+
+    match /korpsapp/{korpsId} {
+      allow read, update, delete: if isSignedIn() && (resource == null || korpsAllowed(resource.data));
+      allow create: if isSignedIn();
+
+      match /arrangementer/{arrangementId} {
+        allow read, write: if isSignedIn()
+          && korpsAllowed(get(/databases/$(database)/documents/korpsapp/$(korpsId)).data);
+
+        match /checkpoints/{checkpointId} {
+          allow read, write: if isSignedIn()
+            && korpsAllowed(get(/databases/$(database)/documents/korpsapp/$(korpsId)).data);
+        }
+      }
+    }
+  }
+}

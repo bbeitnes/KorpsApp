@@ -235,6 +235,7 @@
           <button onclick="showGSheetsExport(); toggleExportMenu(); closeHeaderActions()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 rounded-b-lg">📗 Google Sheets</button>
         </div>
       </div>
+      <button onclick="showSaveHistoryModal(); closeHeaderActions()" class="btn btn-secondary">🕐 <span class="hidden sm:inline">Versjonshistorikk</span></button>
       <button onclick="showHelp(); closeHeaderActions()" class="btn btn-secondary">❓ <span class="hidden sm:inline">Hjelp</span></button>
       <div id="current-user-badge" class="hidden items-center gap-2 text-sm text-slate-600 pl-1">
         <img id="current-user-photo" class="hidden w-6 h-6 rounded-full" alt="">
@@ -1330,7 +1331,15 @@
   }
 
   async function saveKorpsToFirestore() {
-    if (!auth.currentUser || !korpsDocRef) return;
+    // Uten denne sperren kan den stille autolagringen (eller et bytte-kall,
+    // se setActiveProject) rekke å skrive `state` sin blanke startverdi til
+    // Firestore FØR første virkelige snapshot har kommet inn — versjonssjekken
+    // under hjelper ikke da, siden både loadedKorpsVersion og
+    // latestRemoteKorps.version fortsatt står på sin initielle 0 i det
+    // vinduet, så "0 > 0" aldri oppdager at det faktisk finnes lagret innhold
+    // å ikke overskrive. Det er den mest sannsynlige årsaken til at lagrede
+    // korps av og til har blitt tomme for andre som logget inn.
+    if (!auth.currentUser || !korpsDocRef || !korpsInitialLoadDone) return;
     if (latestRemoteKorps.version > loadedKorpsVersion) {
       const reload = confirm(
         `${latestRemoteKorps.updatedBy || 'Noen andre'} har lagret endringer i navneliste/instrumentliste siden du sist hentet inn dette korpset.\n\n` +
@@ -1366,7 +1375,9 @@
   }
 
   async function saveArrangementToFirestore() {
-    if (!auth.currentUser || !arrangementDocRef) return;
+    // Se tilsvarende sperre i saveKorpsToFirestore — samme race condition
+    // gjelder her, og det er DENNE som konkret beskytter korpsoppsettet.
+    if (!auth.currentUser || !arrangementDocRef || !arrangementInitialLoadDone) return;
     if (latestRemoteArrangement.version > loadedArrangementVersion) {
       const reload = confirm(
         `${latestRemoteArrangement.updatedBy || 'Noen andre'} har lagret endringer i dette arrangementet siden du sist hentet det inn.\n\n` +
@@ -1416,6 +1427,10 @@
       if (manual) alert('Du må være logget inn for å lagre.');
       return;
     }
+    if (manual && (!korpsInitialLoadDone || !arrangementInitialLoadDone)) {
+      alert('Korpset/arrangementet er ikke ferdig lastet inn ennå — vent noen sekunder og prøv igjen.');
+      return;
+    }
     if (manual && cloudSaveBtn) {
       cloudSaveBtn.disabled = true;
       cloudSaveBtn.dataset.origHtml = cloudSaveBtn.innerHTML;
@@ -1424,6 +1439,7 @@
     try {
       await saveKorpsToFirestore();
       await saveArrangementToFirestore();
+      if (manual) await recordManualSaveCheckpoint();
       setCloudSaveStatus(`✓ Lagret kl ${new Date().toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })}`, 'text-emerald-600');
     } catch (e) {
       console.error('Lagring til Firebase feilet:', e);
@@ -1438,6 +1454,100 @@
   }
   window.saveStateToFirestore = () => performFirestoreSave(false);
   window.manualSaveToFirestore = () => performFirestoreSave(true);
+
+  // ----- Versjonshistorikk for manuelle lagringer -----
+  // Kun trykk på «Lagre»-knappen legger igjen et sjekkpunkt her — den stille
+  // 30-sekunders autolagringen teller ikke, siden den ville fylt historikken
+  // med mange nesten-identiske versjoner i stedet for de bevisste
+  // øyeblikkene brukeren faktisk ville kunne gå tilbake til. Sjekkpunktene
+  // ligger under det aktive arrangementet siden det er derfra man lagrer,
+  // men inneholder et fullt øyeblikksbilde av BÅDE korpset (navn/instrumenter/
+  // bilder) og selve arrangementet — akkurat det «Lagre»-knappen skriver.
+  const MANUAL_SAVE_HISTORY_LIMIT = 10;
+
+  function checkpointsRef() {
+    return arrangementDocRef ? collection(arrangementDocRef, 'checkpoints') : null;
+  }
+
+  async function recordManualSaveCheckpoint() {
+    const ref = checkpointsRef();
+    if (!ref) return;
+    try {
+      const id = String(Date.now());
+      await setDoc(doc(ref, id), {
+        korps: window.getKorpsData ? window.getKorpsData() : {},
+        arrangement: window.getArrangementData ? window.getArrangementData() : {},
+        savedBy: currentUserLabel(),
+        savedAt: serverTimestamp()
+      });
+      // Behold kun de MANUAL_SAVE_HISTORY_LIMIT nyeste — id-ene er
+      // tidsstempler av lik lengde, så tekstsortering gir riktig rekkefølge.
+      const snap = await getDocs(ref);
+      const excess = snap.docs.slice().sort((a, b) => b.id.localeCompare(a.id)).slice(MANUAL_SAVE_HISTORY_LIMIT);
+      await Promise.all(excess.map(d => deleteDoc(d.ref)));
+    } catch (e) {
+      // Ikke kritisk — selve lagringen av korpset/arrangementet har allerede
+      // lyktes, det er kun historikk-øyeblikksbildet som mangler denne gangen.
+      console.error('Kunne ikke lagre versjonshistorikk:', e);
+    }
+  }
+
+  async function showSaveHistoryModal() {
+    const ref = checkpointsRef();
+    if (!ref) { alert('Velg et arrangement først.'); return; }
+    let docsSnap;
+    try {
+      docsSnap = await getDocs(ref);
+    } catch (e) {
+      alert('Kunne ikke hente versjonshistorikk. Sjekk nettforbindelsen og prøv igjen.');
+      return;
+    }
+    const items = docsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.id.localeCompare(a.id));
+    const rowsHtml = items.length
+      ? items.map(it => {
+          const date = it.savedAt?.toDate ? it.savedAt.toDate() : new Date(Number(it.id));
+          const dateStr = date.toLocaleString('no-NO', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+          return `<div class="flex items-center justify-between gap-2 border border-slate-200 rounded-lg px-3 py-2">
+            <div class="text-sm">
+              <div class="font-medium text-slate-700">${window.escHtml(dateStr)}</div>
+              <div class="text-xs text-slate-400">Lagret av ${window.escHtml(it.savedBy || 'Ukjent')}</div>
+            </div>
+            <button data-restore-id="${window.escAttr(it.id)}" class="btn btn-secondary text-xs shrink-0">↩️ Gjenopprett</button>
+          </div>`;
+        }).join('')
+      : `<p class="text-sm text-slate-400">Ingen tidligere manuelle lagringer registrert for dette arrangementet ennå.</p>`;
+
+    window.showModal(`
+      <h2 class="text-lg font-bold mb-2">Versjonshistorikk</h2>
+      <p class="text-xs text-slate-500 mb-3">Viser de ${MANUAL_SAVE_HISTORY_LIMIT} siste gangene noen trykket «Lagre» for dette arrangementet (stille autolagring i bakgrunnen telles ikke). Gjenoppretting erstatter navneliste/instrumentliste/bilder (felles for hele korpset) og dette arrangementets korpsoppsett/billettfordeling/romfordeling/vaktliste/grupper med det som lå i den valgte versjonen — og lagres selv som en ny versjon, så du kan angre en feil gjenoppretting også.</p>
+      <div class="flex flex-col gap-2 max-h-80 overflow-y-auto mb-3">${rowsHtml}</div>
+      <div class="flex justify-end"><button onclick="closeModal()" class="btn btn-secondary">Lukk</button></div>
+    `);
+
+    document.querySelectorAll('[data-restore-id]').forEach(el => {
+      el.addEventListener('click', () => restoreCheckpoint(el.dataset.restoreId));
+    });
+  }
+  window.showSaveHistoryModal = showSaveHistoryModal;
+
+  async function restoreCheckpoint(id) {
+    const ref = checkpointsRef();
+    if (!ref) return;
+    if (!confirm('Gjenopprette denne versjonen?\n\nNåværende ulagrede endringer forsvinner, og navneliste/instrumentliste/bilder samt dette arrangementets innhold erstattes med det som lå i denne versjonen.')) return;
+    try {
+      const snap = await getDoc(doc(ref, id));
+      if (!snap.exists()) { alert('Finner ikke denne versjonen lenger.'); return; }
+      const data = snap.data();
+      window.applyKorpsData?.(data.korps || {});
+      window.applyArrangementData?.(data.arrangement || {});
+      window.closeModal();
+      await performFirestoreSave(true);
+      alert('Versjonen er gjenopprettet og lagret.');
+    } catch (e) {
+      console.error('Kunne ikke gjenopprette versjon:', e);
+      alert('Klarte ikke å gjenopprette denne versjonen.');
+    }
+  }
 
   document.getElementById('google-signin-btn').addEventListener('click', async () => {
     clearAuthError();
