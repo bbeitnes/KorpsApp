@@ -391,7 +391,7 @@
         <p class="text-xs text-slate-400 text-center mb-1">Dra et navn eller instrument fra listen til nøyaktig der det skal stå på kartet — dra en plassert person for å flytte/finjustere.</p>
         <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500 mb-2">
           <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:2.5px solid #6366f1;"></span> Plasser her</span>
-          <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:1px dashed #f59e0b; opacity:.6;"></span> Grense mot naborad</span>
+          <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:1.5px dashed #f59e0b; opacity:.85;"></span> Grense mot naborad</span>
         </div>
         <div id="formation-canvas" style="position:relative; width:100%; max-width:1000px; margin:0 auto;" onclick="formationCanvasClick(event)"></div>
         <div id="formation-legend" class="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500"></div>
@@ -2856,7 +2856,7 @@ function formationGuidesSvg(geometry) {
     } else {
       boundaryGeom = { isFlat: false, radius: boundaryRadius, startDeg: 180, spanDeg: 180 };
     }
-    paths += `<path d="${formationSampledPath(boundaryGeom)}" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="1,7" stroke-linecap="round" opacity="0.45"/>`;
+    paths += `<path d="${formationSampledPath(boundaryGeom)}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="2,5" stroke-linecap="round" opacity="0.75"/>`;
   }
   rowGeoms.forEach(geom => {
     paths += `<path d="${formationSampledPath(geom)}" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>`;
