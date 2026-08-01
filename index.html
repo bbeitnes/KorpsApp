@@ -2791,6 +2791,34 @@ function computeFormationGeometry(rows, containerWidth, opts) {
   return { canvasWidth: containerWidth, canvasHeight, conductorY, rowGeoms };
 }
 
+// Regner ut en felles boksstørrelse (mellom minSeatSize og opts.seatSize) som
+// gir plass til alle rader — store korps (mange plassert i én rad) skal ikke
+// flyte over i hverandre, uten at man må sette opp noe manuelt. Kjører en
+// første geometri-omgang med maks størrelse for å finne radienes faktiske
+// buelengde, finner så hvor mye plass den mest "trange" raden har pr. plassert
+// person (justert for "stor rad"-multiplikatoren ×1.6), og bruker DEN til å
+// avgjøre størrelsen for HELE oppstillingen — alle bokser skal være like
+// store, ikke store i én rad og småbitte i en annen.
+function computeAutoSeatSize(rows, containerWidth, opts, minSeatSize) {
+  const maxSeatSize = opts.seatSize;
+  const provisional = computeFormationGeometry(rows, containerWidth, opts);
+  let smallest = Infinity;
+  provisional.rowGeoms.forEach(geom => {
+    const n = geom.row.seats.length;
+    if (n < 2) return;
+    let arcLength;
+    if (geom.isFlat) arcLength = geom.width;
+    else if (geom.isBow) arcLength = geom.bowRadius * geom.maxTheta * 2;
+    else arcLength = geom.radius * (geom.spanDeg * Math.PI / 180);
+    const perSeat = (arcLength / n) / (geom.row.large ? 1.6 : 1);
+    if (perSeat < smallest) smallest = perSeat;
+  });
+  // Ingen rad var trangere enn maks-størrelsen — behold den uendret i stedet
+  // for å trekke fra marginen unødvendig på små, romslige oppstillinger.
+  if (smallest >= maxSeatSize) return maxSeatSize;
+  return Math.max(minSeatSize, Math.floor(smallest * 0.82));
+}
+
 // t=0..100 → posisjon langs radens sone. Ren funksjon av (geom, t) alene —
 // bryr seg ikke om hvor mange andre seter raden har, så to seter kan få
 // vilkårlig like t-verdier og dermed stå tett inntil hverandre.
@@ -2886,7 +2914,8 @@ function renderFormation() {
   layout.classList.remove('hidden');
 
   const containerWidth = Math.max(canvas.clientWidth || 0, 280);
-  formationGeometry = computeFormationGeometry(rows, containerWidth);
+  const autoSeatSize = computeAutoSeatSize(rows, containerWidth, { seatSize: 54 }, 20);
+  formationGeometry = computeFormationGeometry(rows, containerWidth, { seatSize: autoSeatSize });
 
   let html = formationGuidesSvg(formationGeometry);
   formationGeometry.rowGeoms.forEach(geom => {
@@ -2916,10 +2945,11 @@ function renderFormation() {
 function renderFormationSeat(row, seat, x, y, conductorY, seatSize, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
+  const initialsFontSize = Math.max(7, Math.round(seatSize * 0.22));
   const photo = state.photos[seat.name];
   const label = photo
     ? `<img src="${photo}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;">`
-    : `<span style="font-size:11px;font-weight:700;">${initials(seat.name)}</span>`;
+    : `<span style="font-size:${initialsFontSize}px;font-weight:700;">${initials(seat.name)}</span>`;
   append(`<div class="seat occupied" draggable="true" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px; cursor:grab; z-index:2;"
                 data-row="${escAttr(row.label)}" data-seat="${escAttr(seat.id)}"
                 onclick="seatClick('formation','${escJs(row.label)}','${escJs(seat.id)}')">
@@ -2927,8 +2957,11 @@ function renderFormationSeat(row, seat, x, y, conductorY, seatSize, append) {
     <div class="tooltip">${escHtml(seat.name)}</div>
   </div>`);
 
-  const nameWidth = row.large ? 130 : 90;
-  const fontSize = row.large ? 13 : 11;
+  // Navneetiketten skaleres med boksstørrelsen — ellers ville den (langt bredere
+  // enn selv en normalstor boks) blitt hovedårsaken til overlapping i tette
+  // oppstillinger, selv etter at boksene i seg selv har krympet for å få plass.
+  const nameWidth = Math.round(row.large ? Math.max(70, seatSize * 1.9) : Math.max(50, seatSize * 1.5));
+  const fontSize = Math.max(7, Math.round(seatSize * (row.large ? 0.22 : 0.19)));
   const nameLeft = `calc(50% + ${(x - nameWidth/2).toFixed(1)}px)`;
   const nameTop = `${(conductorY - y - seatSize/2 - fontSize - 5).toFixed(1)}px`;
   const displayName = seat.name.split(',').map(s => escHtml(s.trim())).join('<br>');
@@ -3061,19 +3094,25 @@ function cancelMoveFormationSeat(e) {
 function buildFormationPrintSeat(row, seat, x, y, conductorY, seatSize, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
+  const initialsFontSize = Math.max(7, Math.round(seatSize * 0.28));
   const photo = state.photos[seat.name];
   const innerLabel = photo
     ? `<img src="${photo}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;">`
     : `<span>${initials(seat.name)}</span>`;
-  append(`<div class="seat occupied" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px; font-size:13px;">
+  append(`<div class="seat occupied" style="position:absolute; left:${left}; top:${top}; width:${seatSize}px; height:${seatSize}px; font-size:${initialsFontSize}px;">
     ${innerLabel}
   </div>`);
 
+  const nameFontSize = Math.max(6, Math.round(seatSize * 0.22));
   const displayName = printDisplayName(seat.name).replace(',', '<br>');
   const nameLeft = `calc(50% + ${x.toFixed(1)}px)`;
   const nameTop = `${(conductorY - y + seatSize/2 + 3).toFixed(1)}px`;
-  append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; transform:translateX(-50%); font-size:10px; font-weight:700; color:#1e293b; white-space:normal; text-align:center; line-height:1.3;">${displayName}</div>`);
+  append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; transform:translateX(-50%); font-size:${nameFontSize}px; font-weight:700; color:#1e293b; white-space:normal; text-align:center; line-height:1.3;">${displayName}</div>`);
 }
+
+// A4 er standard; A3 gir dobbelt så mye plass til store korps der boksene
+// ellers ville måtte bli veldig små for å unngå overlapping.
+const FORMATION_PAGE_SIZES = { A4: { w: 297, h: 210 }, A3: { w: 420, h: 297 } };
 
 // Builds the formation diagram geometry as a standalone snapshot (used for
 // preview/print): full landscape page width, larger boxes, and the full
@@ -3081,17 +3120,19 @@ function buildFormationPrintSeat(row, seat, x, y, conductorY, seatSize, append) 
 // samme computeFormationGeometry/formationSeatXY som skjermvisningen (bare med
 // utskrift-spesifikke mål), så det man ser i redigeringsvisningen er nøyaktig
 // det som havner på papiret.
-function buildFormationPrintHtml() {
+function buildFormationPrintHtml(pageSize) {
   const rows = state.formation.rows;
+  const page = FORMATION_PAGE_SIZES[pageSize] || FORMATION_PAGE_SIZES.A4;
 
-  // Base the geometry on the printable A4-landscape width so the diagram
-  // is generated at (near) the size it will actually appear on paper.
+  // Base the geometry on the printable landscape-sidebredde så diagrammet
+  // genereres (nesten) i den størrelsen det faktisk havner på papiret.
   const pxPerMm = 96/25.4;
   const pageMarginMm = 8;
-  const containerWidth = (297 - 2*pageMarginMm) * pxPerMm;
+  const containerWidth = (page.w - 2*pageMarginMm) * pxPerMm;
 
-  const geometry = computeFormationGeometry(rows, containerWidth,
-    { seatSize: 46, minBaseRadius: 70, extraPad: 96, conductorPad: 66, sidePad: 8 });
+  const printOpts = { seatSize: 46, minBaseRadius: 70, extraPad: 96, conductorPad: 66, sidePad: 8 };
+  const autoSeatSize = computeAutoSeatSize(rows, containerWidth, printOpts, 16);
+  const geometry = computeFormationGeometry(rows, containerWidth, { ...printOpts, seatSize: autoSeatSize });
 
   let html = '';
   geometry.rowGeoms.forEach(geom => {
@@ -3107,7 +3148,7 @@ function buildFormationPrintHtml() {
     ${rows.map(r => `<span><strong>${escHtml(r.label)}:</strong> ${r.seats.length} plasser</span>`).join('')}
   </div>`;
 
-  return { html, subtitle, width: geometry.canvasWidth, height: geometry.canvasHeight };
+  return { html, subtitle, width: geometry.canvasWidth, height: geometry.canvasHeight, page };
 }
 
 function seatClick(kind, rowLabel, seatId) {
@@ -4231,13 +4272,15 @@ function doPrint() {
 }
 
 // ===================== FORMATION DIAGRAM PREVIEW/PRINT =====================
-function showFormationDiagramPreview() {
+function showFormationDiagramPreview(pageSize) {
   if (!state.formation.rows.length) { alert('Sett opp en korpsoppstilling først.'); return; }
-  const { html, subtitle, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml();
+  pageSize = pageSize === 'A3' ? 'A3' : 'A4';
+  const page = FORMATION_PAGE_SIZES[pageSize];
+  const { html, subtitle, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml(pageSize);
 
-  // Mirror the A4-landscape print area so what you see is what you get
+  // Mirror the valgte papirstørrelsens liggende format, så det man ser er det man får
   const boxWidth = Math.min(window.innerWidth * 0.84, 1180);
-  const boxHeight = boxWidth * (210/297) - 40;
+  const boxHeight = boxWidth * (page.h/page.w) - 40;
   const scale = Math.min(boxWidth/diagramWidth, boxHeight/diagramHeight);
   const scaledWidth = diagramWidth*scale;
   const scaledHeight = diagramHeight*scale;
@@ -4250,11 +4293,14 @@ function showFormationDiagramPreview() {
     </div>
     ${subtitle}`;
 
+  const sizeBtn = (size, label) => `<button onclick="showFormationDiagramPreview('${size}')" class="btn ${pageSize===size?'btn-primary':'btn-secondary'}" style="padding:6px 12px;font-size:12px;">${label}</button>`;
+
   showModal(`
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
       <h2 class="text-xl font-bold">Forhåndsvisning – oppstilling</h2>
-      <div class="flex gap-2">
-        <button onclick="doPrintFormationDiagram()" class="btn btn-primary">🖨️ Skriv ut / Lagre PDF</button>
+      <div class="flex gap-2 items-center">
+        <div class="flex gap-1 border border-slate-200 rounded-lg p-0.5">${sizeBtn('A4','A4')}${sizeBtn('A3','A3 (mer plass til store korps)')}</div>
+        <button onclick="doPrintFormationDiagram('${pageSize}')" class="btn btn-primary">🖨️ Skriv ut / Lagre PDF</button>
         <button onclick="closeModal()" class="btn btn-secondary">Lukk</button>
       </div>
     </div>
@@ -4266,14 +4312,16 @@ function showFormationDiagramPreview() {
   `, true, boxWidth+60);
 }
 
-function doPrintFormationDiagram() {
+function doPrintFormationDiagram(pageSize) {
+  pageSize = pageSize === 'A3' ? 'A3' : 'A4';
+  const page = FORMATION_PAGE_SIZES[pageSize];
   const date = new Date().toLocaleDateString('no-NO', {day:'2-digit',month:'long',year:'numeric'});
-  const { html, subtitle, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml();
+  const { html, subtitle, width: diagramWidth, height: diagramHeight } = buildFormationPrintHtml(pageSize);
 
   const pxPerMm = 96/25.4;
   const pageMarginMm = 4;
-  const pageWidthPx = (297 - 2*pageMarginMm) * pxPerMm;
-  const pageHeightPx = (210 - 2*pageMarginMm) * pxPerMm - 34;
+  const pageWidthPx = (page.w - 2*pageMarginMm) * pxPerMm;
+  const pageHeightPx = (page.h - 2*pageMarginMm) * pxPerMm - 34;
 
   const scale = Math.min(pageWidthPx/diagramWidth, pageHeightPx/diagramHeight);
   const scaledWidth = diagramWidth*scale;
@@ -4281,7 +4329,7 @@ function doPrintFormationDiagram() {
 
   document.getElementById('print-area').innerHTML = `
     <style>
-      @page { size: A4 landscape; margin: ${pageMarginMm}mm; }
+      @page { size: ${pageSize} landscape; margin: ${pageMarginMm}mm; }
       body{font-family:sans-serif;font-size:12px;color:#1e293b}
       .titlebar{display:flex; align-items:baseline; gap:10px; margin-bottom:6px}
       h1{font-size:15px;font-weight:700;margin:0}
