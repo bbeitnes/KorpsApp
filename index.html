@@ -598,6 +598,15 @@
   // skrives inn på nytt.
   const PROJECTS_COLLECTION = 'korpsapp';
   const ARRANGEMENTS_SUBCOLLECTION = 'arrangementer';
+  // Lettvekts-speil av korpslisten (kun id/navn/rekkefølge/lås-status — ALDRI
+  // navneliste/instrumenter/bilder osv.), brukt utelukkende til korpsvelgeren.
+  // Firestore avslår et helt "list"-kall på en samling dersom ETT ENESTE
+  // dokument som kunne blitt returnert ville feilet sikkerhetsreglene — så en
+  // ufiltrert getDocs() direkte mot korpsapp-samlingen brøt HELE korpslisten
+  // for alle andre enn de som sto i allowedEmails, i det øyeblikket ett eneste
+  // korps ble låst. Denne samlingen har ingen person-sensitiv data og ingen
+  // per-dokument-betinget regel, så den kan alltid listes av alle innloggede.
+  const KORPS_INDEX_COLLECTION = 'korpsIndex';
 
   const gateEl = document.getElementById('auth-gate');
   const headerEl = document.getElementById('app-header');
@@ -680,8 +689,18 @@
     if (currentProjectId) showProjectAccessModal(currentProjectId, currentProjectName);
   };
 
+  // Speiler id/navn/rekkefølge/lås-status til korpsIndex — kalles etter enhver
+  // endring i disse feltene på selve korpsapp-dokumentet, se KORPS_INDEX_COLLECTION.
+  async function upsertKorpsIndex(id, fields) {
+    try {
+      await setDoc(doc(db, KORPS_INDEX_COLLECTION, id), fields, { merge: true });
+    } catch (e) {
+      console.error('Kunne ikke oppdatere korps-indeksen:', e);
+    }
+  }
+
   async function listProjects() {
-    const snap = await getDocs(collection(db, PROJECTS_COLLECTION));
+    const snap = await getDocs(collection(db, KORPS_INDEX_COLLECTION));
     const projects = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id, order: d.data().order, accessMode: d.data().accessMode === 'restricted' ? 'restricted' : 'open' }));
     // Korps uten lagret rekkefølge (opprettet før dra-og-slipp-sortering fantes)
     // sorteres alfabetisk seg imellom og havner foran ethvert korps som har fått
@@ -699,6 +718,7 @@
     const batch = writeBatch(db);
     orderedIds.forEach((id, i) => {
       batch.set(doc(db, PROJECTS_COLLECTION, id), { order: i }, { merge: true });
+      batch.set(doc(db, KORPS_INDEX_COLLECTION, id), { order: i }, { merge: true });
     });
     await batch.commit();
   }
@@ -750,6 +770,7 @@
         updatedBy: currentUserLabel(),
         updatedAt: serverTimestamp()
       });
+      await upsertKorpsIndex(id, { name, order: Date.now(), accessMode: 'open' });
       return id;
     } catch (e) {
       console.error('Kunne ikke opprette korps:', e);
@@ -764,6 +785,7 @@
     const newName = prompt('Nytt navn på korpset:', oldName);
     if (!newName || !newName.trim() || newName.trim() === oldName) return false;
     await setDoc(doc(db, PROJECTS_COLLECTION, id), { name: newName.trim() }, { merge: true });
+    await upsertKorpsIndex(id, { name: newName.trim() });
     if (id === currentProjectId) {
       currentProjectName = newName.trim();
       updateProjectLabel();
@@ -773,6 +795,9 @@
 
   async function updateProjectAccess(id, accessMode, allowedEmails) {
     await setDoc(doc(db, PROJECTS_COLLECTION, id), { accessMode, allowedEmails }, { merge: true });
+    // allowedEmails er bevisst IKKE med i indeksen — den skal aldri inneholde
+    // noe som helst persondata, kun det korpsvelgeren faktisk trenger å vise.
+    await upsertKorpsIndex(id, { accessMode });
     if (id === currentProjectId) {
       currentProjectAccessMode = accessMode;
       currentProjectAllowedEmails = allowedEmails;
@@ -862,6 +887,7 @@
     const arrSnap = await getDocs(collection(db, PROJECTS_COLLECTION, id, ARRANGEMENTS_SUBCOLLECTION));
     await Promise.all(arrSnap.docs.map(d => deleteDoc(d.ref)));
     await deleteDoc(doc(db, PROJECTS_COLLECTION, id));
+    await deleteDoc(doc(db, KORPS_INDEX_COLLECTION, id)).catch(e => console.error('Kunne ikke slette fra korps-indeksen:', e));
     if (id === currentProjectId) {
       stopKorpsSync();
       stopArrangementSync();
@@ -1370,6 +1396,10 @@
       updatedBy: currentUserLabel(),
       updatedAt: serverTimestamp()
     });
+    // Speiles her også (i tillegg til renameProject/updateProjectAccess) — dekker
+    // korps som ble opprettet før korpsIndex fantes og ellers aldri ville fått
+    // en indeks-oppføring før neste bevisste omdøping eller tilgangsendring.
+    await upsertKorpsIndex(currentProjectId, { name: currentProjectName || currentProjectId, accessMode: currentProjectAccessMode });
     loadedKorpsVersion = newVersion;
     latestRemoteKorps = { version: newVersion, updatedBy: currentUserLabel() };
   }
