@@ -1,3 +1,16 @@
+// ⚠️ VIKTIG: (default)-databasen i skiensskolemusikk-b5cbc DELES med
+// Bestillingsportal (organisasjoner/prosjekter/behovslinjer/soknader/
+// tilbud/bestillinger/kjop/rapporter/aktivitetslogg m.fl. — se dens eget
+// repo for de reglene). Firestore har bare ÉT regelsett pr. database, så
+// `firebase deploy --only firestore:rules` med BARE denne filen mot
+// (default) SLETTER Bestillingsportals regler og gir dem "Missing or
+// insufficient permissions" — skjedde 2026-08-10, rettet ved å hente opp
+// igjen forrige regelsett (ruleset-historikk i Firebase) og flette inn
+// korpsIndex-tillegget derfra. Skal denne filen ut i (default)-produksjon,
+// må den FØRST flettes sammen med Bestillingsportals gjeldende regelsett
+// (hent aktivt regelsett via Firebase Rules API eller Console, ikke anta
+// at det som ligger her er hele bildet). TEST-databasen (named "test")
+// brukes foreløpig kun av Korpsapp og kan trygt få denne filen alene.
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
