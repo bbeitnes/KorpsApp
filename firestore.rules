@@ -12,6 +12,16 @@ service cloud.firestore {
         || (('allowedEmails' in korps) && (request.auth.token.email in korps.allowedEmails));
     }
 
+    // Lettvekts-speil av korpslisten (kun id/navn/rekkefølge/lås-status) —
+    // se KORPS_INDEX_COLLECTION i index.html for hvorfor denne finnes: uten
+    // den avslo Firestore HELE korpslisten for alle andre enn de som sto i
+    // allowedEmails, i det øyeblikket ett eneste korps ble låst (accessMode:
+    // "restricted"), siden et ufiltrert "list"-kall feiler i sin helhet
+    // dersom ETT ENESTE dokument det kunne returnert ville brutt reglene.
+    match /korpsIndex/{korpsId} {
+      allow read, write: if isSignedIn();
+    }
+
     match /korpsapp/{korpsId} {
       allow read, update, delete: if isSignedIn() && (resource == null || korpsAllowed(resource.data));
       allow create: if isSignedIn();
