@@ -9,7 +9,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Korpsapp">
-<meta name="theme-color" content="#4f46e5">
+<meta name="theme-color" content="#0088b0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   // ==========================================================================
@@ -73,6 +76,30 @@
             100: 'var(--farge-ok-bakgrunn-avvik)',
             700: 'var(--farge-ok-tekst-avvik)'
           }
+        },
+
+        // ------------------------------------------------------------------
+        // HJØRNERADIUS -> DESIGNSYSTEMET
+        // Broadsheet-systemet er trykksak: nesten rette hjørner (1-4 px) i
+        // stedet for Tailwinds runde 8-16 px. Klassenavnene i appen er
+        // uendret - "rounded-lg" virker som før, den er bare skarpere nå.
+        // "rounded-full" er med vilje IKKE endret: avatarer, merkelapper og
+        // fremdriftslinjer skal fortsatt være helt runde.
+        // ------------------------------------------------------------------
+        borderRadius: {
+          DEFAULT: 'var(--radius-md)',
+          sm:      'var(--radius-sm)',
+          md:      'var(--radius-md)',
+          lg:      'var(--radius-md)',
+          xl:      'var(--radius-lg)',
+          '2xl':   'var(--radius-lg)',
+          '3xl':   'var(--radius-lg)'
+        },
+
+        // Skrifttypen hentes fra samme sted som resten (--font-body).
+        fontFamily: {
+          sans:  ['var(--font-body)'],
+          serif: ['var(--font-heading)']
         }
       }
     }
@@ -80,77 +107,165 @@
 </script>
 <style>
   /* ==========================================================================
-     FARGEPALETT
-     Alle farger i appen skal hentes herfra. Endrer du en verdi her,
-     endres den overalt. Verdiene under er nøyaktig de samme fargene
-     som appen allerede bruker, så utseendet er uendret.
+     DESIGNSYSTEM — «Broadsheet»
+     Kilden til alt utseende i appen. To lag:
+
+       1) SYSTEMTOKENS (--color-*, --space-*, --radius-*, --shadow-*, --font-*)
+          Hentet rett fra designsystemet. Rør bare disse hvis du vil endre
+          selve systemet.
+
+       2) APPENS PALETT (--farge-*)
+          De gamle navnene, uendret, men de peker nå på tokens over.
+          Alle klassenavn i appen (text-slate-800, bg-indigo-600 ...) og all
+          komponent-CSS henter fortsatt herfra, så INGEN markup måtte endres
+          for å bytte utseende.
+
+     Vil du tilbake til det gamle utseendet: bytt verdiene i lag 2 tilbake.
      ========================================================================== */
   :root {
-    /* --- Primærfarge (lilla) --- */
-    --farge-primar:             #4f46e5;  /* hovedfarge: knapper, aktive faner, opptatte plasser */
-    --farge-primar-mork:        #3730a3;  /* hover på primærknapp, kantlinje */
-    --farge-primar-lys:         #6366f1;  /* linjer i oppstillingsdiagrammet */
-    --farge-primar-svak:        #818cf8;  /* kantlinje på valgbare felt (Tailwind-klassen border-indigo-400) */
-    --farge-primar-svakere:     #a5b4fc;  /* svakere variant av samme kantlinje */
-    --farge-primar-bakgrunn:    #eef2ff;  /* lys lilla bakgrunn ved hover og avatarer */
-    --farge-primar-kant:        #c7d2fe;  /* kantlinje rundt avatarer */
+    /* ---------- 1) SYSTEMTOKENS ---------- */
+
+    /* Bunn og tekst — lys «papir»-flate, nesten-svart trykksverte */
+    --color-bg:            #f3f2f2;
+    --color-surface:       #eae9e9;
+    --color-surface-raised:#ffffff;
+    --color-text:          #201e1d;
+    --color-divider:       #d7d3d3;
+
+    /* Aksent 1 — cyan: primærhandling, lenker, valgt, bekreftet */
+    --color-accent:        #0088b0;
+    --color-accent-100:    #e9f8ff;
+    --color-accent-200:    #cbeeff;
+    --color-accent-300:    #99e0ff;
+    --color-accent-400:    #62c5ee;
+    --color-accent-500:    #38a6cf;
+    --color-accent-600:    #1186ac;   /* hover */
+    --color-accent-700:    #006786;   /* trykket / tekst på lys flate */
+    --color-accent-800:    #004961;
+    --color-accent-900:    #0a303e;
+
+    /* Aksent 2 — magenta: fare, slett, feil, avvik */
+    --color-accent-2:      #d6006c;
+    --color-accent-2-100:  #fff1f4;
+    --color-accent-2-200:  #ffdee6;
+    --color-accent-2-400:  #ff90b1;
+    --color-accent-2-500:  #ff458e;
+    --color-accent-2-600:  #d82071;
+    --color-accent-2-700:  #aa0b56;
+    --color-accent-2-800:  #790e3d;
+    --color-accent-2-900:  #4b1528;
+
+    /* Nøytral gråskala */
+    --color-neutral-100:   #f8f4f4;
+    --color-neutral-200:   #eae7e7;
+    --color-neutral-300:   #d7d3d3;
+    --color-neutral-400:   #bab6b6;
+    --color-neutral-500:   #9b9797;
+    --color-neutral-600:   #7d7979;
+    --color-neutral-700:   #605d5d;
+    --color-neutral-800:   #444141;
+    --color-neutral-900:   #2d2b2b;
+
+    /* Typografi — serifen ER appens skrift, også i knapper og menyer */
+    --font-heading: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --font-body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+
+    /* Avstand */
+    --space-1: 5px;
+    --space-2: 10px;
+    --space-3: 15px;
+    --space-4: 20px;
+    --space-6: 30px;
+    --space-8: 40px;
+
+    /* Radius og skygge — trykksak: nesten rette hjørner */
+    --radius-sm: 1px;
+    --radius-md: 2px;
+    --radius-lg: 4px;
+    --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+    --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+    --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+
+    /* Minste trykkflate (WCAG AA) */
+    --tap-min: 44px;
+
+    /* ---------- 2) APPENS PALETT ---------- */
+
+    /* --- Primærfarge (cyan) --- */
+    --farge-primar:             var(--color-accent);      /* hovedfarge: knapper, aktive faner, opptatte plasser */
+    --farge-primar-mork:        var(--color-accent-700);  /* hover på primærknapp, kantlinje */
+    --farge-primar-lys:         var(--color-accent-500);  /* linjer i oppstillingsdiagrammet */
+    --farge-primar-svak:        var(--color-accent-400);  /* kantlinje på valgbare felt (Tailwind-klassen border-indigo-400) */
+    --farge-primar-svakere:     var(--color-accent-300);  /* svakere variant av samme kantlinje */
+    --farge-primar-bakgrunn:    var(--color-accent-100);  /* lys cyan bakgrunn ved hover og avatarer */
+    --farge-primar-kant:        var(--color-accent-200);  /* kantlinje rundt avatarer */
 
     /* --- Nøytrale flater og tekst --- */
-    --farge-flate:              #ffffff;  /* hvit bakgrunn: kort, modaler, menyer */
-    --farge-tekst-invers:       #ffffff;  /* hvit tekst oppå farget bakgrunn (knapper, opptatte plasser) */
-    --farge-bakgrunn:           #f8fafc;  /* sidens bakgrunn, tabellhoder */
-    --farge-bakgrunn-dempet:    #f1f5f9;  /* grå bakgrunn: ledige plasser, gruppetitler */
-    --farge-kant:               #e2e8f0;  /* standard kantlinje */
-    --farge-kant-sterk:         #cbd5e1;  /* tydeligere kantlinje: plasser, stiplede felt */
-    --farge-tekst:              #1e293b;  /* brødtekst og navn */
-    --farge-tekst-sekundar:     #334155;  /* litt lysere brødtekst: mellomtitler */
-    --farge-tekst-dempet:       #64748b;  /* undertekst, hjelpetekst */
-    --farge-tekst-dempet-mork:  #475569;  /* undertittel i PDF */
-    --farge-tekst-svak:         #94a3b8;  /* svakeste tekst: tomme felt, tildelte navn */
-    --farge-tekst-graa:         #374151;  /* tekst på sekundærknapp */
-    --farge-kant-graa:          #d1d5db;  /* kantlinje på sekundærknapp */
+    --farge-flate:              var(--color-surface-raised); /* hvit bakgrunn: kort, modaler, menyer */
+    --farge-tekst-invers:       var(--color-bg);             /* papirhvit tekst oppå farget bakgrunn */
+    --farge-bakgrunn:           var(--color-bg);             /* sidens bakgrunn, tabellhoder */
+    --farge-bakgrunn-dempet:    var(--color-surface);        /* grå bakgrunn: ledige plasser, gruppetitler */
+    --farge-kant:               var(--color-neutral-300);    /* standard kantlinje */
+    --farge-kant-sterk:         var(--color-neutral-400);    /* tydeligere kantlinje: plasser, stiplede felt */
+    --farge-tekst:              var(--color-text);           /* brødtekst og navn */
+    --farge-tekst-sekundar:     var(--color-neutral-800);    /* litt lysere brødtekst: mellomtitler */
+    --farge-tekst-dempet:       var(--color-neutral-700);    /* undertekst, hjelpetekst */
+    --farge-tekst-dempet-mork:  var(--color-neutral-800);    /* undertittel i PDF */
+    --farge-tekst-svak:         var(--color-neutral-500);    /* svakeste tekst: tomme felt, tildelte navn */
+    --farge-tekst-graa:         var(--color-text);           /* tekst på sekundærknapp */
+    --farge-kant-graa:          var(--color-neutral-300);    /* kantlinje på sekundærknapp */
 
-    /* --- Statusfarger --- */
-    --farge-varsel:             #f59e0b;  /* oransje: markering, dra-og-slipp, radgrenser */
-    --farge-varsel-bakgrunn:    #fef3c7;  /* oransje bakgrunn når noe slippes på en plass */
-    --farge-varsel-bakgrunn-lys:#fffbeb;  /* svak oransje: lagleder-felt */
-    --farge-varsel-tekst:       #b45309;  /* mørk oransje tekst: TEST-merket */
-    --farge-fare-lys:           #f87171;  /* lys rød: sletteikoner */
-    --farge-fare:               #ef4444;  /* rød: slett-knapp, ikke plassert */
-    --farge-fare-mork:          #dc2626;  /* hover på slett-knapp */
-    --farge-fare-morkere:       #b91c1c;  /* mørkeste røde tekst */
-    --farge-fare-bakgrunn:      #fee2e2;  /* lys rød bakgrunn */
-    --farge-ok:                 #10b981;  /* grønn: bekreftet rom */
-    --farge-ok-mork:            #059669;  /* mørkere grønn tekst */
-    --farge-ok-morkere:         #047857;  /* enda mørkere grønn tekst */
-    --farge-ok-tekst:           #065f46;  /* mørkeste grønne tekst */
-    --farge-ok-kant:            #6ee7b7;  /* grønn kantlinje på fylte felt */
-    --farge-ok-kant-svak:       #a7f3d0;  /* svakere grønn kantlinje */
-    --farge-ok-bakgrunn:        #ecfdf5;  /* grønn bakgrunn på fylte felt */
-    --farge-ok-bakgrunn-sterk:  #d1fae5;  /* litt sterkere grønn bakgrunn */
-    --farge-ok-bakgrunn-lys:    #f0fdf4;  /* grønn bakgrunn på bekreftet romkort */
+    /* --- Statusfarger ---
+       Systemet har to aksenter, ikke fem. Grønn «ok» er derfor blitt cyan
+       (samme familie som primærfargen), og både rød «fare» og oransje
+       «varsel» er blitt magenta. Det er med vilje: magenta er den sjeldne
+       andrefargen som betyr «se her», cyan betyr «i orden / valgt». */
+    --farge-varsel:             var(--color-accent-2-500);  /* markering, dra-og-slipp, radgrenser */
+    --farge-varsel-bakgrunn:    var(--color-accent-2-200);  /* bakgrunn når noe slippes på en plass */
+    --farge-varsel-bakgrunn-lys:var(--color-accent-2-100);  /* svak magenta: lagleder-felt */
+    --farge-varsel-tekst:       var(--color-accent-2-800);  /* mørk magenta tekst: TEST-merket */
+    --farge-fare-lys:           var(--color-accent-2-600);  /* magenta: sletteikoner (hover går til -mork) */
+    --farge-fare:               var(--color-accent-2-700);  /* slett-knapp, ikke plassert */
+    --farge-fare-mork:          var(--color-accent-2-800);  /* hover på slett-knapp */
+    --farge-fare-morkere:       var(--color-accent-2-900);  /* mørkeste magenta tekst */
+    --farge-fare-bakgrunn:      var(--color-accent-2-100);  /* lys magenta bakgrunn */
+    --farge-ok:                 var(--color-accent);        /* bekreftet rom */
+    --farge-ok-mork:            var(--color-accent-600);    /* mørkere cyan tekst */
+    --farge-ok-morkere:         var(--color-accent-700);    /* enda mørkere cyan tekst */
+    --farge-ok-tekst:           var(--color-accent-800);    /* mørkeste cyan tekst */
+    --farge-ok-kant:            var(--color-accent-300);    /* cyan kantlinje på fylte felt */
+    --farge-ok-kant-svak:       var(--color-accent-200);    /* svakere cyan kantlinje */
+    --farge-ok-bakgrunn:        var(--color-accent-100);    /* cyan bakgrunn på fylte felt */
+    --farge-ok-bakgrunn-sterk:  var(--color-accent-200);    /* litt sterkere cyan bakgrunn */
+    --farge-ok-bakgrunn-lys:    #f5fcff;                    /* svakeste cyan: bekreftet romkort */
 
     /* --- Avvikere ---
-       Disse to brukes ÉTT sted hver, og er nesten identiske med de grønne
-       over. De oppsto trolig ved en forglemmelse (Tailwind har to nesten
-       like grønnfarger, «green» og «emerald», og her er begge i bruk).
-       De er beholdt uendret nå for at utseendet skal være likt, men er
-       gode kandidater for opprydding under redesignet. */
-    --farge-ok-bakgrunn-avvik:  #dcfce7;  /* jf. --farge-ok-bakgrunn-sterk */
-    --farge-ok-tekst-avvik:     #15803d;  /* jf. --farge-ok-morkere */
+       Disse to var nesten-duplikater av de grønne over (Tailwinds «green»
+       vs «emerald»). Ryddet opp nå: de peker på samme sted som søsknene. */
+    --farge-ok-bakgrunn-avvik:  var(--color-accent-100);
+    --farge-ok-tekst-avvik:     var(--color-accent-800);
 
     /* --- Gjennomsiktige farger ---
        Disse lagres som tallverdier (rød, grønn, blå) i stedet for fargekoder,
        fordi de kombineres med ulik gjennomsiktighet. Brukes slik:
        rgba(var(--farge-skygge-rgb), .5) */
-    --farge-skygge-rgb:         15, 23, 42;     /* mørk marine: skygger og bakteppe */
+    --farge-skygge-rgb:         45, 43, 43;     /* mørk trykksverte: skygger og bakteppe */
     --farge-svart-rgb:          0, 0, 0;        /* bakteppe bak modaler */
-    --farge-varsel-rgb:         245, 158, 11;   /* oransje pulsering ved «finn person» */
-    --farge-bakgrunn-rgb:       248, 250, 252;  /* halvgjennomsiktig radetikett */
+    --farge-varsel-rgb:         255, 69, 142;   /* magenta pulsering ved «finn person» */
+    --farge-bakgrunn-rgb:       243, 242, 242;  /* halvgjennomsiktig radetikett */
   }
 
   html, body { height: 100%; }
-  body { font-family: 'Segoe UI', sans-serif; background: var(--farge-bakgrunn); display: flex; flex-direction: column; }
+  body { font-family: var(--font-body); background: var(--farge-bakgrunn); color: var(--farge-tekst); display: flex; flex-direction: column; }
+
+  /* Overskrifter og knappetekst i samme serif — serifen er «chrome» i dette
+     systemet, ikke bare brødtekst. */
+  h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); letter-spacing: -0.015em; }
+
+  /* Tastaturfokus er tema-styrt, aldri nettleserens blå standardring. */
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
   #sidebar-backdrop { position: fixed; inset: 0; background: rgba(var(--farge-skygge-rgb), .5); z-index: 45; }
   @media (max-width: 1023px) {
     #sidebar {
@@ -165,6 +280,15 @@
     #sidebar-close { display: none; }
   }
   #header-more-btn { display: none; }
+  /* Serifen er bredere enn den gamle Segoe UI, så korps-/arrangementsnavn
+     brøt over flere linjer og dyttet headeren nedover på mobil. De kuttes
+     med ellipse i stedet. (Designforslagets samlede hamburgermeny løser
+     dette skikkelig — se notatet i redesign-planen.) */
+  @media (max-width: 767px) {
+    #current-project-label, #current-arrangement-label, #cloud-save-status {
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30vw;
+    }
+  }
   @media (max-width: 1023px) {
     #header-more-btn { display: inline-flex; }
     #header-actions {
@@ -181,29 +305,36 @@
   }
   .reorder-handle { cursor: grab; touch-action: none; font-size: 15px; }
   [data-reorder-item].reorder-dragging { opacity: .5; background: var(--farge-primar-bakgrunn); border-color: var(--farge-primar) !important; cursor: grabbing; }
+  /* Ledig stolplass tegnes stiplet, opptatt tegnes som fylt blokk — samme
+     grep som resten av systemet bruker for «tomt» vs «satt». */
   .seat {
-    width: 40px; height: 40px; border-radius: 7px; font-size: 9px;
+    width: 40px; height: 40px; border-radius: var(--radius-md); font-size: 9px;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
-    border: 2px solid var(--farge-kant-sterk); background: var(--farge-bakgrunn-dempet); transition: all .15s;
+    border: 1.5px dashed var(--farge-kant-sterk); background: transparent;
+    color: var(--farge-tekst-dempet); transition: all .15s;
     position: relative; overflow: visible; flex-shrink: 0;
   }
-  .seat:hover { border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); }
+  .seat:hover { border-style: solid; border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); color: var(--color-accent-800); }
   .seat.occupied {
-    background: var(--farge-primar); border-color: var(--farge-primar-mork); color: var(--farge-tekst-invers);
+    background: var(--color-accent-700); border: 1.5px solid var(--color-accent-700); color: var(--farge-tekst-invers);
     font-size: 9px; text-align: center; line-height: 1.2; font-weight: 600;
   }
+  .seat.occupied:hover { background: var(--color-accent-800); border-color: var(--color-accent-800); color: var(--farge-tekst-invers); }
   .seat.gap {
-    background: var(--farge-kant); border-color: var(--farge-tekst-svak); color: var(--farge-tekst-svak);
+    background: var(--color-neutral-200); border: 1.5px solid var(--color-neutral-300); color: var(--farge-tekst-svak);
     opacity: 0.6;
   }
-  .seat.gap:hover { border-color: var(--farge-tekst-dempet); background: var(--farge-kant-sterk); opacity: 0.8; }
+  .seat.gap:hover { border-color: var(--farge-tekst-dempet); background: var(--color-neutral-300); opacity: 0.8; }
   .name-item {
-    cursor: pointer; padding: 6px 10px; border-radius: 6px;
+    cursor: pointer; padding: 8px 10px; border-radius: var(--radius-md);
     border: 1px solid var(--farge-kant); background: var(--farge-flate); font-size: 13px;
     transition: all .15s; display: flex; align-items: center; justify-content: space-between;
   }
   .name-item:hover { border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); }
-  .name-item.selected { background: var(--farge-primar); color: var(--farge-tekst-invers); border-color: var(--farge-primar-mork); }
+  .name-item.selected {
+    background: var(--color-accent-100); color: var(--color-accent-800); font-weight: 600;
+    border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent);
+  }
   .name-item.assigned { background: var(--farge-bakgrunn); cursor: pointer; }
   .name-item.assigned:hover { border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); }
   .name-item.assigned .name-text { color: var(--farge-tekst-svak); }
@@ -237,41 +368,89 @@
   .avatar:hover .avatar-remove { display: flex; }
   .seat.drop-hover { border-color: var(--farge-varsel) !important; background: var(--farge-varsel-bakgrunn) !important; transform: scale(1.1); }
   .room-slot.drop-hover { border-color: var(--farge-varsel) !important; background: var(--farge-varsel-bakgrunn-lys) !important; border-style: solid; }
-  .room-card { border: 2px solid var(--farge-kant); border-radius: 12px; background: var(--farge-flate); padding: 12px; }
+  .room-card {
+    border: 1px solid var(--farge-kant); border-radius: var(--radius-md);
+    background: var(--farge-flate); padding: 14px; box-shadow: var(--shadow-sm);
+  }
+  /* Ledig seng = stiplet og dempet. Fylt seng = rolig, solid flate.
+     Hover er den ENESTE cyan-tonede tilstanden her, så «kan fylles» aldri
+     forveksles med «er fylt» nå som grønt og lilla er samme familie. */
   .room-slot {
-    min-height: 34px; border: 1px dashed var(--farge-kant-sterk); border-radius: 6px;
-    padding: 4px 10px; font-size: 13px; cursor: pointer;
+    min-height: 34px; border: 1px dashed var(--farge-kant-sterk); border-radius: var(--radius-md);
+    padding: 5px 10px; font-size: 13px; cursor: pointer; color: var(--farge-tekst-dempet);
     display: flex; align-items: center; justify-content: space-between; transition: all .15s;
   }
-  .room-slot:hover { border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); }
-  .room-slot.filled { background: var(--farge-ok-bakgrunn); border-color: var(--farge-ok-kant); border-style: solid; cursor: default; }
-  .room-card.confirmed { border-color: var(--farge-ok); background: var(--farge-ok-bakgrunn-lys); }
+  .room-slot:hover { border-style: solid; border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); color: var(--color-accent-800); }
+  .room-slot.filled {
+    background: var(--color-surface); border-color: var(--farge-kant); border-style: solid;
+    color: var(--farge-tekst); cursor: default;
+  }
+  .room-card.confirmed { border-color: var(--color-accent); background: var(--farge-ok-bakgrunn-lys); }
   .room-card.confirmed .room-slot { cursor: not-allowed; }
-  .room-card.confirmed .room-slot:hover { border-color: var(--farge-ok-kant); background: inherit; }
-  .room-card.confirmed .room-slot.filled:hover { background: var(--farge-ok-bakgrunn); }
+  .room-card.confirmed .room-slot:hover { border-color: var(--farge-kant-sterk); background: inherit; color: var(--farge-tekst-dempet); }
+  .room-card.confirmed .room-slot.filled { background: var(--color-surface-raised); border-color: var(--color-accent-200); }
+  .room-card.confirmed .room-slot.filled:hover { background: var(--color-surface-raised); border-color: var(--color-accent-200); color: var(--farge-tekst); }
   .room-card.confirmed .remove-occ { display: none; }
   .team-leader-slot:not(.filled) { border-color: var(--farge-varsel); background: var(--farge-varsel-bakgrunn-lys); }
   .room-card.confirmed .remove-team-leader, .room-card.confirmed .remove-team-occ { display: none; }
-  .tab-btn { padding: 7px 6px; border-radius: 8px; font-weight: 600; font-size: 11px; line-height: 1.25; cursor: pointer; transition: all .15s; text-align: center; }
-  .tab-btn.active { background: var(--farge-primar); color: var(--farge-tekst-invers); }
+  .tab-btn {
+    padding: 9px 8px; border-radius: var(--radius-md); font-family: var(--font-heading);
+    font-weight: 600; font-size: 11px; line-height: 1.25; cursor: pointer; transition: all .15s; text-align: center;
+  }
+  .tab-btn.active { background: var(--color-accent-100); color: var(--color-accent-800); border: 1px solid var(--color-accent); }
   .tab-btn:not(.active) { background: var(--farge-flate); color: var(--farge-tekst-dempet); border: 1px solid var(--farge-kant); }
   .tab-btn:not(.active):hover { border-color: var(--farge-primar); color: var(--farge-primar); }
-  input, textarea, select { outline: none; }
-  .modal-bg { position: fixed; inset: 0; background: rgba(var(--farge-svart-rgb), .45); z-index: 50; display: flex; align-items: center; justify-content: center; }
-  .modal { background: var(--farge-flate); border-radius: 16px; padding: 28px; min-width: min(380px, 92vw); max-width: 92vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(var(--farge-svart-rgb), .3); }
-  @media (max-width: 480px) { .modal { padding: 18px; border-radius: 12px; } }
+  input, textarea, select { outline: none; font-family: inherit; }
+  input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 0; border-color: var(--color-accent); }
+  .modal-bg { position: fixed; inset: 0; background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent); z-index: 50; display: flex; align-items: center; justify-content: center; }
+  .modal { background: var(--color-surface-raised); border-radius: var(--radius-lg); padding: 28px; min-width: min(380px, 92vw); max-width: 92vw; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+  @media (max-width: 480px) { .modal { padding: 18px; } }
   .modal-wide { min-width: min(720px, 92vw); }
-  .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; border: none; }
-  .btn-primary { background: var(--farge-primar); color: var(--farge-tekst-invers); }
-  .btn-primary:hover { background: var(--farge-primar-mork); }
-  .btn-secondary { background: var(--farge-flate); color: var(--farge-tekst-graa); border: 1px solid var(--farge-kant-graa); }
-  .btn-secondary:hover { border-color: var(--farge-primar); color: var(--farge-primar); }
-  .btn-danger { background: var(--farge-fare); color: var(--farge-tekst-invers); }
-  .btn-danger:hover { background: var(--farge-fare-mork); }
+
+  /* Knapper. Trykkflaten er 40 px på desktop (headeren er tett pakket) og
+     vokser til WCAG-målet 44 px på mobil, der fingeren treffer. */
+  .btn {
+    min-height: 40px; padding: 0 var(--space-3); border-radius: var(--radius-md);
+    font-family: var(--font-heading); font-size: 13px; font-weight: 600; line-height: 1.2;
+    cursor: pointer; transition: all .15s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid transparent;
+  }
+  @media (max-width: 1023px) { .btn { min-height: var(--tap-min); } }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary { background: var(--color-accent); color: var(--farge-tekst-invers); }
+  .btn-primary:hover { background: var(--color-accent-600); }
+  .btn-primary:active { background: var(--color-accent-700); }
+  .btn-secondary { background: transparent; color: var(--farge-tekst); border-color: var(--farge-kant-graa); }
+  .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); border-color: var(--farge-kant-sterk); color: var(--farge-tekst); }
+  .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+  .btn-danger { background: var(--color-accent-2-700); color: #ffffff; }
+  .btn-danger:hover { background: var(--color-accent-2-800); }
+  .btn-danger:active { background: var(--color-accent-2-900); }
+
+  /* Statusmerker — ny komponent fra designsystemet.
+     Bekreftet/Tildelt = cyan, Ledig = nøytral og stiplet, Hull/avvik = magenta. */
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+    font-family: var(--font-heading); font-size: 11px; font-weight: 600;
+    padding: 4px 11px; border-radius: 999px; border: 1px solid transparent;
+  }
+  .chip-sm { padding: 3px 9px; font-size: 10px; }
+  .chip-confirmed { background: var(--color-accent-100); color: var(--color-accent-800); }
+  .chip-assigned  { background: var(--color-accent-700); color: var(--farge-tekst-invers); }
+  .chip-free      { background: var(--color-neutral-100); color: var(--color-neutral-700); border: 1px dashed var(--color-neutral-400); }
+  .chip-gap       { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+
+  /* Tom tilstand og lasteskjelett — fra designsystemet, klare til bruk. */
+  .empty-state { text-align: center; padding: var(--space-8) var(--space-4); color: var(--farge-tekst-dempet); }
+  .empty-state h3 { color: var(--farge-tekst); margin-bottom: var(--space-1); }
+  .skeleton { background: var(--color-neutral-200); border-radius: var(--radius-sm); animation: skeleton-pulse 1.4s ease-in-out infinite; }
+  @keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
   .tooltip {
     position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-    background: var(--farge-tekst); color: var(--farge-tekst-invers); font-size: 11px; padding: 4px 8px;
-    border-radius: 5px; white-space: nowrap; pointer-events: none; z-index: 20;
+    background: var(--color-neutral-900); color: var(--farge-tekst-invers); font-size: 11px; padding: 4px 8px;
+    border-radius: var(--radius-md); white-space: nowrap; pointer-events: none; z-index: 20;
     opacity: 0; transition: opacity .15s;
   }
   .seat:hover .tooltip { opacity: 1; }
@@ -486,9 +665,9 @@
         <h2 class="text-lg font-semibold text-slate-800">Billettfordeling konserter</h2>
         <div class="flex flex-wrap gap-2 items-center">
           <div class="flex flex-wrap gap-3 text-xs text-slate-500 items-center mr-2">
-            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-indigo-600 border-2 border-indigo-800"></span> Tildelt</span>
-            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-slate-200 border-2 border-slate-400 opacity-60"></span> Hull</span>
-            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded bg-slate-100 border-2 border-slate-300"></span> Ledig</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded" style="background:var(--color-accent-700)"></span> Tildelt</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded opacity-60" style="background:var(--color-neutral-200);border:1.5px solid var(--color-neutral-300)"></span> Hull</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded" style="border:1.5px dashed var(--farge-kant-sterk)"></span> Ledig</span>
           </div>
           <button onclick="showRowSetupModal('concert')" class="btn btn-primary">⚙️ Sett opp sal</button>
         </div>
@@ -3537,7 +3716,7 @@ function renderGroups(kind) {
       slots.push(`
         <div class="room-slot ${occ?'filled':''}" data-kind="${kind}" data-group-idx="${gi}" data-slot="${i}">
           ${occ
-            ? `<span class="flex items-center"><span class="font-medium text-emerald-800">${escHtml(occ)}</span>${countBadge}</span>
+            ? `<span class="flex items-center"><span class="font-medium text-slate-800">${escHtml(occ)}</span>${countBadge}</span>
                <button class="remove-occ text-red-400 hover:text-red-600 ml-2 text-lg leading-none" data-kind="${kind}" data-group-idx="${gi}" data-idx="${i}">✕</button>`
             : `<span class="text-slate-400 text-sm">${L.slot} ${i+1} — ledig</span>`}
         </div>`);
@@ -3548,8 +3727,7 @@ function renderGroups(kind) {
         <div class="flex items-center justify-between mb-2">
           <span class="font-bold text-slate-800">${g.confirmed?'🔒 ':''}${L.group} ${escHtml(g.label)}</span>
           <div class="flex items-center gap-1.5 shrink-0">
-            <span class="text-xs px-2 py-0.5 rounded-full font-semibold
-              ${g.occupants.length>=g.capacity?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}">
+            <span class="chip chip-sm ${g.occupants.length>=g.capacity?'chip-gap':'chip-confirmed'}">
               ${g.occupants.length}/${g.capacity}
             </span>
             <button class="confirm-toggle text-xs px-2 py-0.5 rounded-full font-semibold border ${g.confirmed?'bg-emerald-100 text-emerald-700 border-emerald-200':'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}"
@@ -3615,13 +3793,13 @@ function renderTeamGrid(grid, groups) {
     const leaderRow = `
       <div class="room-slot team-leader-slot ${g.leader?'filled':''}" data-group-idx="${gi}">
         ${g.leader
-          ? `<span class="flex items-center"><span class="mr-1">👑</span><span class="font-medium text-emerald-800">${escHtml(g.leader)}</span></span>
+          ? `<span class="flex items-center"><span class="mr-1">👑</span><span class="font-medium text-slate-800">${escHtml(g.leader)}</span></span>
              <button class="remove-team-leader text-red-400 hover:text-red-600 ml-2 text-lg leading-none" data-group-idx="${gi}">✕</button>`
           : `<span class="text-slate-500 text-sm font-medium">👑 Velg gruppeleder</span>`}
       </div>`;
     const occupantRows = g.occupants.map((occ, idx) => `
       <div class="room-slot filled" data-kind="team" data-group-idx="${gi}" data-slot="${idx}">
-        <span class="font-medium text-emerald-800">${escHtml(occ)}</span>
+        <span class="font-medium text-slate-800">${escHtml(occ)}</span>
         <button class="remove-team-occ text-red-400 hover:text-red-600 ml-2 text-lg leading-none" data-group-idx="${gi}" data-idx="${idx}">✕</button>
       </div>`).join('');
     const addRow = g.confirmed ? '' : `
