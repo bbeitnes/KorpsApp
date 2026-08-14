@@ -439,8 +439,8 @@
       <div id="formation-layout" class="hidden">
         <p class="text-xs text-slate-400 text-center mb-1">Dra et navn eller instrument fra listen til nøyaktig der det skal stå på kartet — dra en plassert person for å flytte/finjustere.</p>
         <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500 mb-2">
-          <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:2.5px solid #6366f1;"></span> Plasser her</span>
-          <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:1.5px dashed #f59e0b; opacity:.85;"></span> Grense mot naborad</span>
+          <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:2.5px solid var(--farge-primar-lys);"></span> Plasser her</span>
+          <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:1.5px dashed var(--farge-varsel); opacity:.85;"></span> Grense mot naborad</span>
         </div>
         <div id="formation-canvas" style="position:relative; width:100%; max-width:1000px; margin:0 auto;" onclick="formationCanvasClick(event)"></div>
         <div id="formation-legend" class="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500"></div>
@@ -2794,7 +2794,7 @@ function renderConcert() {
       }).join('');
       const sep = groupIdx > 0
         ? `<div class="flex items-center self-stretch mx-1" title="Fysisk opphold i raden">
-             <div style="width:6px;height:100%;background:repeating-linear-gradient(to bottom,#94a3b8 0,#94a3b8 3px,transparent 3px,transparent 7px);opacity:.5;border-radius:2px"></div>
+             <div style="width:6px;height:100%;background:repeating-linear-gradient(to bottom,var(--farge-tekst-svak) 0,var(--farge-tekst-svak) 3px,transparent 3px,transparent 7px);opacity:.5;border-radius:2px"></div>
            </div>`
         : '';
       return sep + groupHtml;
@@ -2921,7 +2921,7 @@ function formationRowLabelHtml(geom, conductorY) {
   const labelLeft = `calc(50% + ${start.x.toFixed(1)}px)`;
   const labelTop = `${(conductorY - start.y - 9).toFixed(1)}px`;
   const translateX = start.x <= 0 ? '0' : '-100%';
-  return `<div style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:#4f46e5; white-space:nowrap; pointer-events:none; background:rgba(248,250,252,.9); padding:1px 5px; border-radius:5px; border:1.5px solid #6366f1; z-index:1;">${escHtml(geom.row.label)}</div>`;
+  return `<div style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:var(--farge-primar); white-space:nowrap; pointer-events:none; background:rgba(var(--farge-bakgrunn-rgb), .9); padding:1px 5px; border-radius:5px; border:1.5px solid var(--farge-primar-lys); z-index:1;">${escHtml(geom.row.label)}</div>`;
 }
 
 // Prøver å samplet en sti (bue eller rett linje, avhengig av geom) som t=0..100
@@ -2963,10 +2963,10 @@ function formationGuidesSvg(geometry) {
     } else {
       boundaryGeom = { isFlat: false, radius: boundaryRadius, startDeg: 180, spanDeg: 180 };
     }
-    paths += `<path d="${formationSampledPath(boundaryGeom)}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="2,5" stroke-linecap="round" opacity="0.75"/>`;
+    paths += `<path d="${formationSampledPath(boundaryGeom)}" fill="none" style="stroke:var(--farge-varsel)" stroke-width="1.5" stroke-dasharray="2,5" stroke-linecap="round" opacity="0.75"/>`;
   }
   rowGeoms.forEach(geom => {
-    paths += `<path d="${formationSampledPath(geom)}" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>`;
+    paths += `<path d="${formationSampledPath(geom)}" fill="none" style="stroke:var(--farge-primar-lys)" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>`;
   });
   return `<svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
     <g transform="translate(${canvasWidth/2},${conductorY}) scale(1,-1)">${paths}</g>
@@ -3008,7 +3008,7 @@ function renderFormation() {
   html += `<div class="absolute text-xs text-slate-400 font-semibold tracking-widest uppercase" style="left:calc(50% - 40px); top:${formationGeometry.conductorY+4}px; width:80px; text-align:center; pointer-events:none;">🎼 Dirigent</div>`;
 
   if (movingFormationSeat) {
-    html += `<div style="position:absolute; left:50%; top:4px; transform:translateX(-50%); background:#4f46e5; color:white; font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; z-index:5;">↔️ Trykk der plassen skal flyttes &nbsp;·&nbsp; <a href="#" onclick="cancelMoveFormationSeat(event)" style="color:white;">Avbryt</a></div>`;
+    html += `<div style="position:absolute; left:50%; top:4px; transform:translateX(-50%); background:var(--farge-primar); color:var(--farge-tekst-invers); font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; z-index:5;">↔️ Trykk der plassen skal flyttes &nbsp;·&nbsp; <a href="#" onclick="cancelMoveFormationSeat(event)" style="color:var(--farge-tekst-invers);">Avbryt</a></div>`;
   }
 
   canvas.style.height = formationGeometry.canvasHeight + 'px';
@@ -3044,7 +3044,7 @@ function renderFormationSeat(row, seat, x, y, conductorY, seatSize, append) {
   const nameLeft = `calc(50% + ${(x - nameWidth/2).toFixed(1)}px)`;
   const nameTop = `${(conductorY - y - seatSize/2 - fontSize - 5).toFixed(1)}px`;
   const displayName = seat.name.split(',').map(s => escHtml(s.trim())).join('<br>');
-  append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:#1e293b; white-space:normal; overflow:hidden; pointer-events:none; line-height:1.2;">${displayName}</div>`);
+  append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:var(--farge-tekst); white-space:normal; overflow:hidden; pointer-events:none; line-height:1.2;">${displayName}</div>`);
 }
 
 // Rad-mål for et slipp/klikk på kartet: finn raden hvis faktiske, tegnede
@@ -4307,7 +4307,7 @@ function buildPdfHtml() {
 
   if (unassigned.length) {
     body += `<div class="group">
-      <div class="group-title" style="border-left-color:#ef4444">Ikke plassert (${unassigned.length})</div>
+      <div class="group-title" style="border-left-color:var(--farge-fare)">Ikke plassert (${unassigned.length})</div>
       <table><tr><th>Navn</th></tr>${unassigned.map(n=>`<tr><td>${escHtml(n)}</td></tr>`).join('')}</table>
     </div>`;
   }
