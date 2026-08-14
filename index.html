@@ -454,6 +454,14 @@
     opacity: 0; transition: opacity .15s;
   }
   .seat:hover .tooltip { opacity: 1; }
+  /* Radetiketten i Korpsoppsett ligger over boksene (z-index 3), ellers ville
+     musikeren på t=0 dekket radnavnet — de ankres i samme punkt på kurven.
+     Men tooltip-en ligger INNE i boksen, som med position:absolute + z-index
+     lager sin egen stablingskontekst: tooltip-ens egen z-index:20 gjelder bare
+     inne i boksen, så den ville blitt dekket av etiketten. Løft derfor hele
+     boksen over etiketten mens den er under musepekeren, så følger tooltip-en
+     med. !important fordi boksens z-index settes inline i renderFormationSeat. */
+  #formation-canvas .seat:hover { z-index: 4 !important; }
   /* PDF preview */
   .pdf-preview { font-family: sans-serif; font-size: 13px; color: var(--farge-tekst); }
   .pdf-preview h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
@@ -3183,12 +3191,19 @@ function formationSeatXY(geom, t) {
 // En rad uten (eller med få) seter har ellers ingen synlig spor på kartet —
 // vis alltid en etikett med radens navn, plassert ved starten av dens sone,
 // så man har noe å sikte mot ved slipp.
+// Etiketten ankres i radens startpunkt — nøyaktig samme punkt på kurven som en
+// plass på t=0 opptar. Den må derfor ligge OVER boksene (z-index 3 mot boksenes
+// 2), ellers blir radnavnet borte så snart noen plasseres først i raden. Å
+// flytte etiketten i stedet er prøvd og forkastet: boksen dekker seatSize/2 på
+// hver side av kurven, og radavstanden er for liten til at det finnes ledig
+// plass verken over, under eller utover langs buen. Se kortet
+// radetiketten-forsvinner-bak-plassen.
 function formationRowLabelHtml(geom, conductorY) {
   const start = formationSeatXY(geom, 0);
   const labelLeft = `calc(50% + ${start.x.toFixed(1)}px)`;
   const labelTop = `${(conductorY - start.y - 9).toFixed(1)}px`;
   const translateX = start.x <= 0 ? '0' : '-100%';
-  return `<div style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:var(--farge-primar); white-space:nowrap; pointer-events:none; background:rgba(var(--farge-bakgrunn-rgb), .9); padding:1px 5px; border-radius:5px; border:1.5px solid var(--farge-primar-lys); z-index:1;">${escHtml(geom.row.label)}</div>`;
+  return `<div style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:var(--farge-primar); white-space:nowrap; pointer-events:none; background:rgba(var(--farge-bakgrunn-rgb), .9); padding:1px 5px; border-radius:5px; border:1.5px solid var(--farge-primar-lys); z-index:3;">${escHtml(geom.row.label)}</div>`;
 }
 
 // Prøver å samplet en sti (bue eller rett linje, avhengig av geom) som t=0..100

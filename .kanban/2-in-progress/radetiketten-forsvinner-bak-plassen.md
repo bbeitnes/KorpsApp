@@ -15,17 +15,17 @@ til, verken over, under eller til siden. Se «Notater».
 
 ## Plan
 
-- [ ] Hev `z-index` på radetiketten fra `1` til `3`
+- [x] Hev `z-index` på radetiketten fra `1` til `3`
       ([index.html:3191](../../index.html), `formationRowLabelHtml`).
       Boksene ligger på `2`, så `3` er nok. Hold deg under `5` — der ligger
       «Trykk der plassen skal flyttes»-banneret, som skal vinne.
-- [ ] Rett opp følgefeilen på tooltip-en: `.tooltip`
+- [x] Rett opp følgefeilen på tooltip-en: `.tooltip`
       ([index.html:453](../../index.html)) har `z-index: 20`, men ligger
       *inne i* boksen, som har `z-index:2` og `position:absolute` og dermed
       lager sin egen stablingskontekst. Tooltip-en er derfor låst til nivå 2
       og blir dekket av en etikett på nivå 3. Navnet på musikeren må fortsatt
       kunne leses ved hover.
-- [ ] Merk at boksens `z-index:2` er satt **inline**
+- [x] Merk at boksens `z-index:2` er satt **inline**
       ([index.html:3299](../../index.html)). En CSS-regel som
       `.seat:hover { z-index: 4 }` slår derfor ikke gjennom uten
       `!important` — eller så må `z-index` flyttes ut av inline-stilen og
@@ -36,19 +36,45 @@ til, verken over, under eller til siden. Se «Notater».
 
 ## Verifisering
 
-- [ ] Plasser en musiker først i raden (`t = 0`) — radnavnet skal være lesbart
+- [x] Plasser en musiker først i raden (`t = 0`) — radnavnet skal være lesbart
       oppå boksen
-- [ ] Hold musepekeren over nettopp den musikeren — tooltip-en med fullt navn
+- [x] Hold musepekeren over nettopp den musikeren — tooltip-en med fullt navn
       skal fortsatt være lesbar, ikke dekket av radetiketten
 - [ ] Sjekk både med foto og med initialer
-- [ ] Sjekk dra-og-slipp: etiketten har `pointer-events:none`, så den skal
+- [x] Sjekk dra-og-slipp: etiketten har `pointer-events:none`, så den skal
       ikke stjele klikk selv når den ligger øverst
-- [ ] Sjekk en `right`-justert rad spesielt — der ligger `t = 0` øverst i
+- [x] Sjekk en `right`-justert rad spesielt — der ligger `t = 0` øverst i
       midten, ikke til venstre som i de andre radformene
 - [ ] Testet på https://beitnes.net/Korpsapp-test
 - [ ] Merget til `main`
 
 ## Notater
+
+**Utført 2026-08-14.** To endringer i `index.html`:
+`formationRowLabelHtml` fikk `z-index:3` (var `1`), og det kom en ny CSS-regel
+`#formation-canvas .seat:hover { z-index: 4 !important; }`. `!important` var
+nødvendig fordi boksens `z-index:2` settes inline og ellers vinner over
+klassen. Regelen er scopet til `#formation-canvas` slik at Billettfordeling
+(`renderConcert`) ikke berøres — den er den eneste andre `.seat`-brukeren, og
+den setter ingen inline `z-index`.
+
+**Verifisert i nettleser** (lokal `serve` på port 8794, syntetisk oppstilling
+med en musiker på `t = 0` i alle fire radene):
+
+- Hver radetikett ble målt til å overlappe nøyaktig sin egen `t = 0`-musiker —
+  det bekrefter årsaksforklaringen under.
+- Skjermbilde viser alle fire radnavnene lesbare oppå boksene, inkludert
+  `right`-raden der `t = 0` ligger øverst i midten i stedet for til venstre.
+- Ved hover måltes boksen til `z-index: 4` og tooltip-en til `opacity: 1`,
+  altså over etiketten på `3`.
+- Dra-og-slipp er uberørt: `document.elementFromPoint` midt på etiketten
+  returnerer *boksen*, ikke etiketten — `pointer-events:none` gjør etiketten
+  usynlig for treff-testing. (Det betyr også at `elementFromPoint` ikke kan
+  brukes til å måle tegnerekkefølge her; det må gjøres visuelt.)
+
+De 404-ene som ligger i konsollen er `.jpg` som prøves før `.jpeg` på
+instrumentbilder — kjent fra kortet `fjern-unodvendige-404-er…`, ikke fra
+denne endringen.
 
 **Årsaken**, funnet 2026-08-14: radetiketten ankres i `formationSeatXY(geom, 0)`
 — nøyaktig samme punkt på kurven som en plass på `t = 0` opptar. Etiketten har
