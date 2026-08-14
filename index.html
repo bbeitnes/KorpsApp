@@ -11,6 +11,73 @@
 <meta name="apple-mobile-web-app-title" content="Korpsapp">
 <meta name="theme-color" content="#4f46e5">
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // ==========================================================================
+  // TAILWIND-FARGER -> FARGEPALETTEN
+  // Her får Tailwind beskjed om å hente fargene sine fra variablene i :root
+  // lenger nede, i stedet for sine egne innebygde farger.
+  //
+  // INGEN klassenavn er endret. "text-slate-400" virker akkurat som før -
+  // den henter bare fargen fra --farge-tekst-svak nå. Det betyr at ETT sted
+  // (:root) styrer hele utseendet.
+  //
+  // Kun fargetonene appen faktisk bruker er listet opp. Resten av Tailwinds
+  // farger er urørt, så nye klasser virker som normalt.
+  //
+  // ⚠️ MERK: Tailwind kan tone ned en farge med skråstrek, f.eks.
+  // "bg-white/50". Den skrivemåten virker IKKE på fargene under, fordi de
+  // kommer fra variabler. Appen bruker den ingen steder i dag. Trenger du
+  // gjennomsiktighet, bruk en rgba-variabel slik som --farge-skygge-rgb.
+  // ==========================================================================
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          white: 'var(--farge-flate)',
+          slate: {
+            50:  'var(--farge-bakgrunn)',
+            100: 'var(--farge-bakgrunn-dempet)',
+            200: 'var(--farge-kant)',
+            300: 'var(--farge-kant-sterk)',
+            400: 'var(--farge-tekst-svak)',
+            500: 'var(--farge-tekst-dempet)',
+            600: 'var(--farge-tekst-dempet-mork)',
+            700: 'var(--farge-tekst-sekundar)',
+            800: 'var(--farge-tekst)'
+          },
+          indigo: {
+            300: 'var(--farge-primar-svakere)',
+            400: 'var(--farge-primar-svak)',
+            600: 'var(--farge-primar)',
+            800: 'var(--farge-primar-mork)'
+          },
+          red: {
+            100: 'var(--farge-fare-bakgrunn)',
+            400: 'var(--farge-fare-lys)',
+            500: 'var(--farge-fare)',
+            600: 'var(--farge-fare-mork)',
+            700: 'var(--farge-fare-morkere)'
+          },
+          amber: {
+            100: 'var(--farge-varsel-bakgrunn)',
+            700: 'var(--farge-varsel-tekst)'
+          },
+          emerald: {
+            100: 'var(--farge-ok-bakgrunn-sterk)',
+            200: 'var(--farge-ok-kant-svak)',
+            600: 'var(--farge-ok-mork)',
+            700: 'var(--farge-ok-morkere)',
+            800: 'var(--farge-ok-tekst)'
+          },
+          green: {
+            100: 'var(--farge-ok-bakgrunn-avvik)',
+            700: 'var(--farge-ok-tekst-avvik)'
+          }
+        }
+      }
+    }
+  };
+</script>
 <style>
   /* ==========================================================================
      FARGEPALETT
@@ -23,6 +90,8 @@
     --farge-primar:             #4f46e5;  /* hovedfarge: knapper, aktive faner, opptatte plasser */
     --farge-primar-mork:        #3730a3;  /* hover på primærknapp, kantlinje */
     --farge-primar-lys:         #6366f1;  /* linjer i oppstillingsdiagrammet */
+    --farge-primar-svak:        #818cf8;  /* kantlinje på valgbare felt (Tailwind-klassen border-indigo-400) */
+    --farge-primar-svakere:     #a5b4fc;  /* svakere variant av samme kantlinje */
     --farge-primar-bakgrunn:    #eef2ff;  /* lys lilla bakgrunn ved hover og avatarer */
     --farge-primar-kant:        #c7d2fe;  /* kantlinje rundt avatarer */
 
@@ -34,6 +103,7 @@
     --farge-kant:               #e2e8f0;  /* standard kantlinje */
     --farge-kant-sterk:         #cbd5e1;  /* tydeligere kantlinje: plasser, stiplede felt */
     --farge-tekst:              #1e293b;  /* brødtekst og navn */
+    --farge-tekst-sekundar:     #334155;  /* litt lysere brødtekst: mellomtitler */
     --farge-tekst-dempet:       #64748b;  /* undertekst, hjelpetekst */
     --farge-tekst-dempet-mork:  #475569;  /* undertittel i PDF */
     --farge-tekst-svak:         #94a3b8;  /* svakeste tekst: tomme felt, tildelte navn */
@@ -44,12 +114,30 @@
     --farge-varsel:             #f59e0b;  /* oransje: markering, dra-og-slipp, radgrenser */
     --farge-varsel-bakgrunn:    #fef3c7;  /* oransje bakgrunn når noe slippes på en plass */
     --farge-varsel-bakgrunn-lys:#fffbeb;  /* svak oransje: lagleder-felt */
+    --farge-varsel-tekst:       #b45309;  /* mørk oransje tekst: TEST-merket */
+    --farge-fare-lys:           #f87171;  /* lys rød: sletteikoner */
     --farge-fare:               #ef4444;  /* rød: slett-knapp, ikke plassert */
     --farge-fare-mork:          #dc2626;  /* hover på slett-knapp */
+    --farge-fare-morkere:       #b91c1c;  /* mørkeste røde tekst */
+    --farge-fare-bakgrunn:      #fee2e2;  /* lys rød bakgrunn */
     --farge-ok:                 #10b981;  /* grønn: bekreftet rom */
+    --farge-ok-mork:            #059669;  /* mørkere grønn tekst */
+    --farge-ok-morkere:         #047857;  /* enda mørkere grønn tekst */
+    --farge-ok-tekst:           #065f46;  /* mørkeste grønne tekst */
     --farge-ok-kant:            #6ee7b7;  /* grønn kantlinje på fylte felt */
+    --farge-ok-kant-svak:       #a7f3d0;  /* svakere grønn kantlinje */
     --farge-ok-bakgrunn:        #ecfdf5;  /* grønn bakgrunn på fylte felt */
+    --farge-ok-bakgrunn-sterk:  #d1fae5;  /* litt sterkere grønn bakgrunn */
     --farge-ok-bakgrunn-lys:    #f0fdf4;  /* grønn bakgrunn på bekreftet romkort */
+
+    /* --- Avvikere ---
+       Disse to brukes ÉTT sted hver, og er nesten identiske med de grønne
+       over. De oppsto trolig ved en forglemmelse (Tailwind har to nesten
+       like grønnfarger, «green» og «emerald», og her er begge i bruk).
+       De er beholdt uendret nå for at utseendet skal være likt, men er
+       gode kandidater for opprydding under redesignet. */
+    --farge-ok-bakgrunn-avvik:  #dcfce7;  /* jf. --farge-ok-bakgrunn-sterk */
+    --farge-ok-tekst-avvik:     #15803d;  /* jf. --farge-ok-morkere */
 
     /* --- Gjennomsiktige farger ---
        Disse lagres som tallverdier (rød, grønn, blå) i stedet for fargekoder,
@@ -214,7 +302,7 @@
   <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
     <div class="flex items-center gap-3 mb-6">
       <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="w-6 h-6" style="color: var(--farge-tekst-invers)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 18V5l12-2v13"/>
           <circle cx="6" cy="18" r="3"/>
           <circle cx="18" cy="16" r="3"/>
@@ -252,7 +340,7 @@
   <div class="flex items-center gap-3">
     <button id="sidebar-toggle" onclick="toggleSidebar()" class="btn btn-secondary lg:hidden" aria-label="Meny">☰</button>
     <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-      <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="w-5 h-5" style="color: var(--farge-tekst-invers)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M9 18V5l12-2v13"/>
         <circle cx="6" cy="18" r="3"/>
         <circle cx="18" cy="16" r="3"/>
