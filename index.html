@@ -63,7 +63,7 @@
 
   html, body { height: 100%; }
   body { font-family: 'Segoe UI', sans-serif; background: var(--farge-bakgrunn); display: flex; flex-direction: column; }
-  #sidebar-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 45; }
+  #sidebar-backdrop { position: fixed; inset: 0; background: rgba(var(--farge-skygge-rgb), .5); z-index: 45; }
   @media (max-width: 1023px) {
     #sidebar {
       position: fixed; top: 0; bottom: 0; left: 0; z-index: 50; width: 85vw; max-width: 320px;
@@ -83,7 +83,7 @@
       display: none;
       position: absolute; top: calc(100% + 6px); right: 0;
       background: var(--farge-flate); border: 1px solid var(--farge-kant); border-radius: 12px;
-      box-shadow: 0 20px 40px rgba(15,23,42,.2);
+      box-shadow: 0 20px 40px rgba(var(--farge-skygge-rgb), .2);
       padding: 10px; flex-direction: column !important; align-items: stretch !important;
       min-width: 230px; max-height: 75vh; overflow-y: auto; z-index: 60;
     }
@@ -123,8 +123,8 @@
   .name-item[draggable="true"]:active { cursor: grabbing; }
   .locate-flash { animation: locate-pulse 1.6s ease-out; }
   @keyframes locate-pulse {
-    0% { box-shadow: 0 0 0 5px rgba(245,158,11,.9); }
-    100% { box-shadow: 0 0 0 5px rgba(245,158,11,0); }
+    0% { box-shadow: 0 0 0 5px rgba(var(--farge-varsel-rgb), .9); }
+    100% { box-shadow: 0 0 0 5px rgba(var(--farge-varsel-rgb), 0); }
   }
   .avatar {
     position: relative; width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
@@ -144,7 +144,7 @@
   .avatar.static::after { content: none; }
   .avatar-remove {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
-    background: rgba(15,23,42,.65); color: var(--farge-tekst-invers); font-size: 10px; cursor: pointer;
+    background: rgba(var(--farge-skygge-rgb), .65); color: var(--farge-tekst-invers); font-size: 10px; cursor: pointer;
   }
   .avatar:hover .avatar-remove { display: flex; }
   .seat.drop-hover { border-color: var(--farge-varsel) !important; background: var(--farge-varsel-bakgrunn) !important; transform: scale(1.1); }
@@ -169,8 +169,8 @@
   .tab-btn:not(.active) { background: var(--farge-flate); color: var(--farge-tekst-dempet); border: 1px solid var(--farge-kant); }
   .tab-btn:not(.active):hover { border-color: var(--farge-primar); color: var(--farge-primar); }
   input, textarea, select { outline: none; }
-  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: flex; align-items: center; justify-content: center; }
-  .modal { background: var(--farge-flate); border-radius: 16px; padding: 28px; min-width: min(380px, 92vw); max-width: 92vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,.3); }
+  .modal-bg { position: fixed; inset: 0; background: rgba(var(--farge-svart-rgb), .45); z-index: 50; display: flex; align-items: center; justify-content: center; }
+  .modal { background: var(--farge-flate); border-radius: 16px; padding: 28px; min-width: min(380px, 92vw); max-width: 92vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(var(--farge-svart-rgb), .3); }
   @media (max-width: 480px) { .modal { padding: 18px; border-radius: 12px; } }
   .modal-wide { min-width: min(720px, 92vw); }
   .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; border: none; }
