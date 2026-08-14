@@ -31,8 +31,8 @@ følger både den håndskrevne CSS-en og alle Tailwind-klassene etter.
 - [x] Steg 6 verifisert ved måling i nettleser: 39 av 39 fargetoner riktige,
       inkludert 3 kontrolltoner appen ikke bruker
 - [x] Steg 1–5 testet på https://beitnes.net/Korpsapp-test
-- [ ] Steg 6 testet på https://beitnes.net/Korpsapp-test
-- [ ] Merget til `main`
+- [x] Steg 6 testet på https://beitnes.net/Korpsapp-test
+- [x] Merget til `main`
 
 ## Notater
 
