@@ -12,8 +12,57 @@
 <meta name="theme-color" content="#4f46e5">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
+  /* ==========================================================================
+     FARGEPALETT
+     Alle farger i appen skal hentes herfra. Endrer du en verdi her,
+     endres den overalt. Verdiene under er nøyaktig de samme fargene
+     som appen allerede bruker, så utseendet er uendret.
+     ========================================================================== */
+  :root {
+    /* --- Primærfarge (lilla) --- */
+    --farge-primar:             #4f46e5;  /* hovedfarge: knapper, aktive faner, opptatte plasser */
+    --farge-primar-mork:        #3730a3;  /* hover på primærknapp, kantlinje */
+    --farge-primar-lys:         #6366f1;  /* linjer i oppstillingsdiagrammet */
+    --farge-primar-bakgrunn:    #eef2ff;  /* lys lilla bakgrunn ved hover og avatarer */
+    --farge-primar-kant:        #c7d2fe;  /* kantlinje rundt avatarer */
+
+    /* --- Nøytrale flater og tekst --- */
+    --farge-flate:              #ffffff;  /* hvit bakgrunn: kort, modaler, menyer */
+    --farge-tekst-invers:       #ffffff;  /* hvit tekst oppå farget bakgrunn (knapper, opptatte plasser) */
+    --farge-bakgrunn:           #f8fafc;  /* sidens bakgrunn, tabellhoder */
+    --farge-bakgrunn-dempet:    #f1f5f9;  /* grå bakgrunn: ledige plasser, gruppetitler */
+    --farge-kant:               #e2e8f0;  /* standard kantlinje */
+    --farge-kant-sterk:         #cbd5e1;  /* tydeligere kantlinje: plasser, stiplede felt */
+    --farge-tekst:              #1e293b;  /* brødtekst og navn */
+    --farge-tekst-dempet:       #64748b;  /* undertekst, hjelpetekst */
+    --farge-tekst-dempet-mork:  #475569;  /* undertittel i PDF */
+    --farge-tekst-svak:         #94a3b8;  /* svakeste tekst: tomme felt, tildelte navn */
+    --farge-tekst-graa:         #374151;  /* tekst på sekundærknapp */
+    --farge-kant-graa:          #d1d5db;  /* kantlinje på sekundærknapp */
+
+    /* --- Statusfarger --- */
+    --farge-varsel:             #f59e0b;  /* oransje: markering, dra-og-slipp, radgrenser */
+    --farge-varsel-bakgrunn:    #fef3c7;  /* oransje bakgrunn når noe slippes på en plass */
+    --farge-varsel-bakgrunn-lys:#fffbeb;  /* svak oransje: lagleder-felt */
+    --farge-fare:               #ef4444;  /* rød: slett-knapp, ikke plassert */
+    --farge-fare-mork:          #dc2626;  /* hover på slett-knapp */
+    --farge-ok:                 #10b981;  /* grønn: bekreftet rom */
+    --farge-ok-kant:            #6ee7b7;  /* grønn kantlinje på fylte felt */
+    --farge-ok-bakgrunn:        #ecfdf5;  /* grønn bakgrunn på fylte felt */
+    --farge-ok-bakgrunn-lys:    #f0fdf4;  /* grønn bakgrunn på bekreftet romkort */
+
+    /* --- Gjennomsiktige farger ---
+       Disse lagres som tallverdier (rød, grønn, blå) i stedet for fargekoder,
+       fordi de kombineres med ulik gjennomsiktighet. Brukes slik:
+       rgba(var(--farge-skygge-rgb), .5) */
+    --farge-skygge-rgb:         15, 23, 42;     /* mørk marine: skygger og bakteppe */
+    --farge-svart-rgb:          0, 0, 0;        /* bakteppe bak modaler */
+    --farge-varsel-rgb:         245, 158, 11;   /* oransje pulsering ved «finn person» */
+    --farge-bakgrunn-rgb:       248, 250, 252;  /* halvgjennomsiktig radetikett */
+  }
+
   html, body { height: 100%; }
-  body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; display: flex; flex-direction: column; }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--farge-bakgrunn); display: flex; flex-direction: column; }
   #sidebar-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 45; }
   @media (max-width: 1023px) {
     #sidebar {
@@ -33,7 +82,7 @@
     #header-actions {
       display: none;
       position: absolute; top: calc(100% + 6px); right: 0;
-      background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+      background: var(--farge-flate); border: 1px solid var(--farge-kant); border-radius: 12px;
       box-shadow: 0 20px 40px rgba(15,23,42,.2);
       padding: 10px; flex-direction: column !important; align-items: stretch !important;
       min-width: 230px; max-height: 75vh; overflow-y: auto; z-index: 60;
@@ -43,34 +92,34 @@
     #header-actions span.hidden { display: inline !important; }
   }
   .reorder-handle { cursor: grab; touch-action: none; font-size: 15px; }
-  [data-reorder-item].reorder-dragging { opacity: .5; background: #eef2ff; border-color: #4f46e5 !important; cursor: grabbing; }
+  [data-reorder-item].reorder-dragging { opacity: .5; background: var(--farge-primar-bakgrunn); border-color: var(--farge-primar) !important; cursor: grabbing; }
   .seat {
     width: 40px; height: 40px; border-radius: 7px; font-size: 9px;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
-    border: 2px solid #cbd5e1; background: #f1f5f9; transition: all .15s;
+    border: 2px solid var(--farge-kant-sterk); background: var(--farge-bakgrunn-dempet); transition: all .15s;
     position: relative; overflow: visible; flex-shrink: 0;
   }
-  .seat:hover { border-color: #4f46e5; background: #eef2ff; }
+  .seat:hover { border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); }
   .seat.occupied {
-    background: #4f46e5; border-color: #3730a3; color: white;
+    background: var(--farge-primar); border-color: var(--farge-primar-mork); color: var(--farge-tekst-invers);
     font-size: 9px; text-align: center; line-height: 1.2; font-weight: 600;
   }
   .seat.gap {
-    background: #e2e8f0; border-color: #94a3b8; color: #94a3b8;
+    background: var(--farge-kant); border-color: var(--farge-tekst-svak); color: var(--farge-tekst-svak);
     opacity: 0.6;
   }
-  .seat.gap:hover { border-color: #64748b; background: #cbd5e1; opacity: 0.8; }
+  .seat.gap:hover { border-color: var(--farge-tekst-dempet); background: var(--farge-kant-sterk); opacity: 0.8; }
   .name-item {
     cursor: pointer; padding: 6px 10px; border-radius: 6px;
-    border: 1px solid #e2e8f0; background: white; font-size: 13px;
+    border: 1px solid var(--farge-kant); background: var(--farge-flate); font-size: 13px;
     transition: all .15s; display: flex; align-items: center; justify-content: space-between;
   }
-  .name-item:hover { border-color: #4f46e5; background: #eef2ff; }
-  .name-item.selected { background: #4f46e5; color: white; border-color: #3730a3; }
-  .name-item.assigned { background: #f8fafc; cursor: pointer; }
-  .name-item.assigned:hover { border-color: #4f46e5; background: #eef2ff; }
-  .name-item.assigned .name-text { color: #94a3b8; }
-  .name-item.assigned .assigned-badge { color: #94a3b8; }
+  .name-item:hover { border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); }
+  .name-item.selected { background: var(--farge-primar); color: var(--farge-tekst-invers); border-color: var(--farge-primar-mork); }
+  .name-item.assigned { background: var(--farge-bakgrunn); cursor: pointer; }
+  .name-item.assigned:hover { border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); }
+  .name-item.assigned .name-text { color: var(--farge-tekst-svak); }
+  .name-item.assigned .assigned-badge { color: var(--farge-tekst-svak); }
   .name-item[draggable="true"]:active { cursor: grabbing; }
   .locate-flash { animation: locate-pulse 1.6s ease-out; }
   @keyframes locate-pulse {
@@ -79,75 +128,75 @@
   }
   .avatar {
     position: relative; width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-    background: #eef2ff; color: #4f46e5; font-size: 9px; font-weight: 700;
+    background: var(--farge-primar-bakgrunn); color: var(--farge-primar); font-size: 9px; font-weight: 700;
     display: flex; align-items: center; justify-content: center; overflow: hidden;
-    cursor: pointer; border: 2px solid #c7d2fe; transition: all .15s;
+    cursor: pointer; border: 2px solid var(--farge-primar-kant); transition: all .15s;
   }
-  .avatar:hover { border-color: #4f46e5; transform: scale(1.08); box-shadow: 0 0 0 3px #eef2ff; }
+  .avatar:hover { border-color: var(--farge-primar); transform: scale(1.08); box-shadow: 0 0 0 3px var(--farge-primar-bakgrunn); }
   .avatar img { width: 100%; height: 100%; object-fit: cover; }
   .avatar:not(:has(img))::after {
     content: '📷'; position: absolute; bottom: -3px; right: -3px; font-size: 9px;
-    background: white; border-radius: 50%; width: 13px; height: 13px;
-    display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px #e2e8f0;
+    background: var(--farge-flate); border-radius: 50%; width: 13px; height: 13px;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px var(--farge-kant);
   }
   .avatar.static { cursor: default; }
-  .avatar.static:hover { transform: none; box-shadow: none; border-color: #c7d2fe; }
+  .avatar.static:hover { transform: none; box-shadow: none; border-color: var(--farge-primar-kant); }
   .avatar.static::after { content: none; }
   .avatar-remove {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
-    background: rgba(15,23,42,.65); color: white; font-size: 10px; cursor: pointer;
+    background: rgba(15,23,42,.65); color: var(--farge-tekst-invers); font-size: 10px; cursor: pointer;
   }
   .avatar:hover .avatar-remove { display: flex; }
-  .seat.drop-hover { border-color: #f59e0b !important; background: #fef3c7 !important; transform: scale(1.1); }
-  .room-slot.drop-hover { border-color: #f59e0b !important; background: #fffbeb !important; border-style: solid; }
-  .room-card { border: 2px solid #e2e8f0; border-radius: 12px; background: white; padding: 12px; }
+  .seat.drop-hover { border-color: var(--farge-varsel) !important; background: var(--farge-varsel-bakgrunn) !important; transform: scale(1.1); }
+  .room-slot.drop-hover { border-color: var(--farge-varsel) !important; background: var(--farge-varsel-bakgrunn-lys) !important; border-style: solid; }
+  .room-card { border: 2px solid var(--farge-kant); border-radius: 12px; background: var(--farge-flate); padding: 12px; }
   .room-slot {
-    min-height: 34px; border: 1px dashed #cbd5e1; border-radius: 6px;
+    min-height: 34px; border: 1px dashed var(--farge-kant-sterk); border-radius: 6px;
     padding: 4px 10px; font-size: 13px; cursor: pointer;
     display: flex; align-items: center; justify-content: space-between; transition: all .15s;
   }
-  .room-slot:hover { border-color: #4f46e5; background: #eef2ff; }
-  .room-slot.filled { background: #ecfdf5; border-color: #6ee7b7; border-style: solid; cursor: default; }
-  .room-card.confirmed { border-color: #10b981; background: #f0fdf4; }
+  .room-slot:hover { border-color: var(--farge-primar); background: var(--farge-primar-bakgrunn); }
+  .room-slot.filled { background: var(--farge-ok-bakgrunn); border-color: var(--farge-ok-kant); border-style: solid; cursor: default; }
+  .room-card.confirmed { border-color: var(--farge-ok); background: var(--farge-ok-bakgrunn-lys); }
   .room-card.confirmed .room-slot { cursor: not-allowed; }
-  .room-card.confirmed .room-slot:hover { border-color: #6ee7b7; background: inherit; }
-  .room-card.confirmed .room-slot.filled:hover { background: #ecfdf5; }
+  .room-card.confirmed .room-slot:hover { border-color: var(--farge-ok-kant); background: inherit; }
+  .room-card.confirmed .room-slot.filled:hover { background: var(--farge-ok-bakgrunn); }
   .room-card.confirmed .remove-occ { display: none; }
-  .team-leader-slot:not(.filled) { border-color: #f59e0b; background: #fffbeb; }
+  .team-leader-slot:not(.filled) { border-color: var(--farge-varsel); background: var(--farge-varsel-bakgrunn-lys); }
   .room-card.confirmed .remove-team-leader, .room-card.confirmed .remove-team-occ { display: none; }
   .tab-btn { padding: 7px 6px; border-radius: 8px; font-weight: 600; font-size: 11px; line-height: 1.25; cursor: pointer; transition: all .15s; text-align: center; }
-  .tab-btn.active { background: #4f46e5; color: white; }
-  .tab-btn:not(.active) { background: white; color: #64748b; border: 1px solid #e2e8f0; }
-  .tab-btn:not(.active):hover { border-color: #4f46e5; color: #4f46e5; }
+  .tab-btn.active { background: var(--farge-primar); color: var(--farge-tekst-invers); }
+  .tab-btn:not(.active) { background: var(--farge-flate); color: var(--farge-tekst-dempet); border: 1px solid var(--farge-kant); }
+  .tab-btn:not(.active):hover { border-color: var(--farge-primar); color: var(--farge-primar); }
   input, textarea, select { outline: none; }
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: flex; align-items: center; justify-content: center; }
-  .modal { background: white; border-radius: 16px; padding: 28px; min-width: min(380px, 92vw); max-width: 92vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,.3); }
+  .modal { background: var(--farge-flate); border-radius: 16px; padding: 28px; min-width: min(380px, 92vw); max-width: 92vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,.3); }
   @media (max-width: 480px) { .modal { padding: 18px; border-radius: 12px; } }
   .modal-wide { min-width: min(720px, 92vw); }
   .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; border: none; }
-  .btn-primary { background: #4f46e5; color: white; }
-  .btn-primary:hover { background: #3730a3; }
-  .btn-secondary { background: white; color: #374151; border: 1px solid #d1d5db; }
-  .btn-secondary:hover { border-color: #4f46e5; color: #4f46e5; }
-  .btn-danger { background: #ef4444; color: white; }
-  .btn-danger:hover { background: #dc2626; }
+  .btn-primary { background: var(--farge-primar); color: var(--farge-tekst-invers); }
+  .btn-primary:hover { background: var(--farge-primar-mork); }
+  .btn-secondary { background: var(--farge-flate); color: var(--farge-tekst-graa); border: 1px solid var(--farge-kant-graa); }
+  .btn-secondary:hover { border-color: var(--farge-primar); color: var(--farge-primar); }
+  .btn-danger { background: var(--farge-fare); color: var(--farge-tekst-invers); }
+  .btn-danger:hover { background: var(--farge-fare-mork); }
   .tooltip {
     position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-    background: #1e293b; color: white; font-size: 11px; padding: 4px 8px;
+    background: var(--farge-tekst); color: var(--farge-tekst-invers); font-size: 11px; padding: 4px 8px;
     border-radius: 5px; white-space: nowrap; pointer-events: none; z-index: 20;
     opacity: 0; transition: opacity .15s;
   }
   .seat:hover .tooltip { opacity: 1; }
   /* PDF preview */
-  .pdf-preview { font-family: sans-serif; font-size: 13px; color: #1e293b; }
+  .pdf-preview { font-family: sans-serif; font-size: 13px; color: var(--farge-tekst); }
   .pdf-preview h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-  .pdf-preview .subtitle { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+  .pdf-preview .subtitle { font-size: 12px; color: var(--farge-tekst-dempet); margin-bottom: 16px; }
   .pdf-preview .group { margin-bottom: 18px; break-inside: avoid; }
-  .pdf-preview .group-title { font-size: 14px; font-weight: 700; background: #f1f5f9; padding: 4px 10px; border-radius: 4px; margin-bottom: 6px; border-left: 4px solid #4f46e5; }
+  .pdf-preview .group-title { font-size: 14px; font-weight: 700; background: var(--farge-bakgrunn-dempet); padding: 4px 10px; border-radius: 4px; margin-bottom: 6px; border-left: 4px solid var(--farge-primar); }
   .pdf-preview table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-  .pdf-preview th { background: #f8fafc; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: .05em; }
-  .pdf-preview th, .pdf-preview td { border: 1px solid #e2e8f0; padding: 5px 10px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pdf-preview td.empty { color: #94a3b8; }
+  .pdf-preview th { background: var(--farge-bakgrunn); font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--farge-tekst-dempet); letter-spacing: .05em; }
+  .pdf-preview th, .pdf-preview td { border: 1px solid var(--farge-kant); padding: 5px 10px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pdf-preview td.empty { color: var(--farge-tekst-svak); }
   .pdf-preview .col-seat { width: 70px; }
   .pdf-preview .col-name { width: auto; }
   #print-area { display: none; }
