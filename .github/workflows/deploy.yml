@@ -10,6 +10,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      # SFTP-steget laster opp './*', så config/ ville fulgt med og lagt andre
+      # kunders oppsett ut på denne kundens vert. Kopier ut, rydd bort resten.
+      - name: Velg kundeoppsett
+        run: |
+          cp config/skolekorps.js config.js
+          rm -rf config
       - name: Deploy to server via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:

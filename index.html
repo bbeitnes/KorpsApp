@@ -499,18 +499,23 @@
       <span id="env-badge-login" class="hidden text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">TEST</span>
     </div>
 
-    <button id="google-signin-btn" class="btn btn-secondary w-full justify-center">
-      <svg class="w-4 h-4" viewBox="0 0 18 18">
-        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.71-1.57 2.68-3.88 2.68-6.64z"/>
-        <path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/>
-        <path fill="#FBBC05" d="M3.97 10.7c-.18-.54-.28-1.11-.28-1.7s.1-1.16.28-1.7V4.96H.96A8.996 8.996 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.34z"/>
-        <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/>
-      </svg>
-      Logg inn med Google
-    </button>
+    <!-- Skjules i sin helhet når `auth.googleLoginEnabled` er av i config.js —
+         både knappen og «eller»-skillelinjen, ellers står skillelinjen igjen
+         uten noe å skille. -->
+    <div id="google-login-block">
+      <button id="google-signin-btn" class="btn btn-secondary w-full justify-center">
+        <svg class="w-4 h-4" viewBox="0 0 18 18">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.71-1.57 2.68-3.88 2.68-6.64z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.97 10.7c-.18-.54-.28-1.11-.28-1.7s.1-1.16.28-1.7V4.96H.96A8.996 8.996 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.34z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/>
+        </svg>
+        Logg inn med Google
+      </button>
 
-    <div class="flex items-center gap-2 my-4 text-xs text-slate-400">
-      <div class="flex-1 h-px bg-slate-200"></div> eller <div class="flex-1 h-px bg-slate-200"></div>
+      <div class="flex items-center gap-2 my-4 text-xs text-slate-400">
+        <div class="flex-1 h-px bg-slate-200"></div> eller <div class="flex-1 h-px bg-slate-200"></div>
+      </div>
     </div>
 
     <label class="text-xs font-medium text-slate-600 mb-1 block">Delt passord</label>
@@ -872,6 +877,14 @@
   </div>
 </div>
 
+<!-- ===================== KUNDEOPPSETT ===================== -->
+<!-- Alt som skiller én kunde fra en annen — Firebase-nøkler, innlogging og
+     modulvalg. Utrullingen kopierer riktig fil fra `config/` hit. Vanlig
+     <script> (ikke module), så den er ferdig kjørt før modulskriptet under og
+     før den store <script>-blokken lenger nede — begge leser
+     window.KORPSAPP_CONFIG. Ingen byggesteg trengs. -->
+<script src="config.js"></script>
+
 <!-- ===================== AUTENTISERING (Firebase) ===================== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -884,17 +897,34 @@
     collection, getDocs, deleteDoc, writeBatch
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDQA3CmYameS10cjuiqAaxAk4UpB8Lg1GI",
-    authDomain: "skiensskolemusikk-b5cbc.firebaseapp.com",
-    projectId: "skiensskolemusikk-b5cbc",
-    storageBucket: "skiensskolemusikk-b5cbc.firebasestorage.app",
-    messagingSenderId: "125188360972",
-    appId: "1:125188360972:web:4d7c61a2155353e0b79729"
-  };
-  // Fast delt konto (e-post/passord) + Google-kontoer begrenset til korpsets Workspace-domene.
-  const SHARED_LOGIN_EMAIL = 'korpsapp@skiens-skolemusikk.no';
-  const ALLOWED_GOOGLE_DOMAIN = 'skiens-skolemusikk.no';
+  // Kundeoppsettet kommer fra config.js. Mangler den — eller er den ufullstendig
+  // — skal appen si tydelig fra i stedet for å dø halvveis inne i
+  // initializeApp() og etterlate en blank side.
+  const CONFIG = window.KORPSAPP_CONFIG;
+  if (!CONFIG || !CONFIG.firebase || !CONFIG.firebase.apiKey || !CONFIG.firebase.projectId) {
+    document.getElementById('auth-gate').innerHTML = `
+      <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
+        <h1 class="text-lg font-bold text-slate-800 mb-3">Kundeoppsettet mangler</h1>
+        <p class="text-sm text-slate-600 mb-3">
+          Appen fant ingen gyldig <code>config.js</code> og vet derfor ikke hvilket
+          Firebase-prosjekt den hører til. Ingen data er borte — filen er bare ikke på plass.
+        </p>
+        <p class="text-sm text-slate-600 mb-2">
+          Utrullingen skal kopiere riktig kundeoppsett fra <code>config/</code> til
+          <code>config.js</code> i rota. Lokalt gjør du det samme selv:
+        </p>
+        <pre class="text-xs bg-slate-100 rounded-lg p-3 overflow-x-auto">cp config/skolekorps.js config.js</pre>
+      </div>`;
+    throw new Error('KorpsApp: config.js mangler eller er ufullstendig.');
+  }
+
+  const firebaseConfig = CONFIG.firebase;
+  // Fast delt konto (e-post/passord) + Google-kontoer begrenset til korpsets
+  // Workspace-domene. En kunde uten Workspace-domene skrur av Google-knappen.
+  const GOOGLE_LOGIN_ENABLED = CONFIG.auth?.googleLoginEnabled !== false;
+  const SHARED_LOGIN_EMAIL = CONFIG.auth?.sharedLoginEmail || '';
+  const ALLOWED_GOOGLE_DOMAIN = CONFIG.auth?.googleDomain || '';
+  document.getElementById('google-login-block').classList.toggle('hidden', !GOOGLE_LOGIN_ENABLED);
 
   // TEST (beitnes.net/Korpsapp-test) og PROD (beitnes.net/Korpsapp) er samme
   // kodebase, samme Firebase-prosjekt/innlogging — men skal aldri dele data.
@@ -1158,7 +1188,7 @@
       <div id="access-emails-wrap" class="${accessMode==='restricted'?'':'hidden'}">
         <label class="text-xs font-medium text-slate-600 mb-1 block">Google-e-postadresser med tilgang (én per linje)</label>
         <textarea id="access-emails-input" class="w-full h-28 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
-          placeholder="navn@skiens-skolemusikk.no">${window.escHtml(allowedEmails.join('\n'))}</textarea>
+          placeholder="navn@${ALLOWED_GOOGLE_DOMAIN || 'eksempel.no'}">${window.escHtml(allowedEmails.join('\n'))}</textarea>
         <p class="text-xs text-slate-400 mt-1">Gjelder kun innlogging med personlig Google-konto — «Delt konto» mister tilgangen til dette korpset når det låses.</p>
       </div>
       <div class="mt-4 flex justify-end gap-2">
@@ -1974,18 +2004,22 @@
 <script>
 // ===================== MODUL-OPPSETT =====================
 // Hvilke av de fem modulene som er tilgjengelige i denne konkrete
-// installasjonen av appen. Alle er aktive som standard (dagens oppførsel er
-// uendret). For en installasjon som skal betjene et annet korps med færre
-// moduler, er dette det ENE stedet å endre — resten av appen tilpasser seg
-// automatisk (skjuler faner, hopper aldri inn i en deaktivert modus, og
-// filtrerer hjelpeteksten).
-const ENABLED_MODULES = {
-  concert: true,   // 🎵 Billettfordeling konserter
-  formation: true, // 🎺 Korpsoppsett
-  room: true,      // 🏨 Romfordeling
-  shift: true,     // 🕐 Vaktlister
-  team: true       // 👥 Gruppeinndeling
-};
+// installasjonen av appen. Verdiene settes per kunde i config.js
+// (`modules`-bolken) — resten av appen tilpasser seg automatisk (skjuler
+// faner, hopper aldri inn i en deaktivert modus, og filtrerer hjelpeteksten).
+//
+// Alle fem er på når oppsettet ikke sier noe, så en glemt eller ufullstendig
+// config.js aldri gir en app uten faner.
+const ENABLED_MODULES = Object.assign(
+  {
+    concert: true,   // 🎵 Billettfordeling konserter
+    formation: true, // 🎺 Korpsoppsett
+    room: true,      // 🏨 Romfordeling
+    shift: true,     // 🕐 Vaktlister
+    team: true       // 👥 Gruppeinndeling
+  },
+  (window.KORPSAPP_CONFIG && window.KORPSAPP_CONFIG.modules) || {}
+);
 function firstEnabledMode() {
   return Object.keys(ENABLED_MODULES).find(m => ENABLED_MODULES[m]) || 'concert';
 }

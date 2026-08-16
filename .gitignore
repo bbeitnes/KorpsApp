@@ -1,1 +1,10 @@
 .DS_Store
+
+# Kundeoppsettet som appen faktisk laster. Genereres av utrullingen ved å
+# kopiere riktig fil fra config/ — se config/skolekorps.js. Bevisst ikke
+# sporet: da feiler en glemt kopiering høylytt (appen sier «Kundeoppsettet
+# mangler») i stedet for at en kunde stille får en annen kundes Firebase-nøkler.
+config.js
+
+# Lokal tilstand fra Firebase CLI
+.firebase/
