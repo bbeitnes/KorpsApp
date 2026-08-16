@@ -1,6 +1,7 @@
 const CACHE = 'fordeling-v1';
 const ASSETS = [
   './index.html',
+  './config.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -22,9 +23,15 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Network-first for index.html so the user always gets updates when online;
-  // cache-first for everything else (icons, Tailwind) for fast/offline loading.
-  const isMainPage = e.request.url.endsWith('index.html') || e.request.url.endsWith('/');
+  // Network-first for index.html OG config.js, så brukeren alltid får
+  // oppdateringer når hen er på nett; cache-first for resten (ikoner, Tailwind)
+  // for rask lasting og offline-bruk.
+  //
+  // config.js MÅ være network-first: den bærer kundeoppsettet, og cache-first
+  // uten versjonering ville låst en kunde til det oppsettet hen lastet første
+  // gang — en påslått modul eller ny delt e-post ville aldri nådd fram.
+  const url = e.request.url;
+  const isMainPage = url.endsWith('index.html') || url.endsWith('/') || url.endsWith('config.js');
   if (isMainPage) {
     e.respondWith(
       fetch(e.request)
