@@ -34,8 +34,8 @@ som fargekortet, som endte med tre nye kort.
   - Let etter død kode. Merk: fargekortet mistenkte død kode og tok feil, så
     her må hver mistanke bekreftes før den skrives ned som funn
 - [ ] Steg 2 — Gjennomgå token-taksonomien
-  - Tre navnelag oppå hverandre: systemtokens (`--color-*`, 53 stk), appens
-    palett (`--farge-*`, 45 stk) og Tailwind-klassene i markupen
+  - Tre navnelag oppå hverandre: systemtokens (`--color-*` m.fl., 48 definert), appens
+    palett (`--farge-*`, 44 definert) og Tailwind-klassene i markupen
   - **Klassenavnene lyver:** `bg-indigo-600` maler cyan, `text-red-500` maler
     magenta. 292 slike bruk. Den som leser koden blir aktivt villedet
   - Vurder om mellomlaget `--farge-*` fortsatt gjør en jobb, eller om det nå
@@ -114,7 +114,8 @@ skal nedskaleres først, siden det er det med svakest dokumentert gevinst.
 ### Grunnlag samlet før grillingen
 
 - 4912 linjer, 245 kB, én fil
-- 53 systemtokens, 45 palett-variabler, 292 Tailwind-fargeklasser i bruk
+- 48 systemtokens og 44 palett-variabler definert i `:root`, 292
+  Tailwind-fargeklasser i bruk
 - 545 `class=`-attributter, 114 ulike klasser
 - 45 `style="..."` rett i markupen
 - Deploy er ren SFTP-kopi av `./*`, uten byggesteg, til
