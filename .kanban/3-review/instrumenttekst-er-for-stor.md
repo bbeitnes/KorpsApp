@@ -17,7 +17,7 @@ større.
 
 ## Plan
 
-- [ ] Steg 1 — Send basisstørrelsen med inn i `renderFormationSeat`
+- [x] Steg 1 — Send basisstørrelsen med inn i `renderFormationSeat`
       ([index.html:3306](../../index.html))
   - `autoSeatSize` finnes allerede i `renderFormation`
     ([index.html:3279](../../index.html)) og er størrelsen før
@@ -26,16 +26,16 @@ større.
   - Alternativet — å regne baklengs med `seatSize / 1.6` inne i funksjonen —
     ville lagt tallet 1,6 på et sted til. Det står i dag kun ett sted
     ([index.html:3132](../../index.html)) og bør fortsette med det
-- [ ] Steg 2 — Bruk basisstørrelsen til navneetiketten
+- [x] Steg 2 — Bruk basisstørrelsen til navneetiketten
   - Skriftstørrelse ([index.html:3325](../../index.html)): `0.19` for alle
     rader, regnet ut fra basisstørrelsen. `row.large`-forgreningen forsvinner
   - Etikettbredde ([index.html:3324](../../index.html)): `Math.max(50, …*1.5)`
     for alle rader, også regnet fra basisstørrelsen
-- [ ] Steg 3 — La plasseringen være i fred
+- [x] Steg 3 — La plasseringen være i fred
   - `nameTop` bruker `seatSize/2` for å legge etiketten over boksen. Den skal
     fortsatt bruke den **store** boksstørrelsen, ellers havner etiketten oppå
     boksen på store rader
-- [ ] Steg 4 — Ikke rør utskrift/PDF
+- [x] Steg 4 — Ikke rør utskrift/PDF
   - `buildFormationPrintSeat` ([index.html:3455](../../index.html)) har ikke
     feilen: den bruker én faktor for alle rader og skalerer allerede riktig
   - Initialene inne i boksen ([index.html:3309](../../index.html)) har heller
@@ -52,7 +52,7 @@ større.
       etiketter 7 px / 53 px, og **null overlappende par** målt
 - [x] Utskrift/PDF er uendret — `buildFormationPrintSeat` har fortsatt 7
       parametre og gir 14 px på en stor rad, som før
-- [ ] Testet på https://beitnes.net/Korpsapp-test
+- [x] Testet på https://beitnes.net/Korpsapp-test — bruker bekreftet «looks good» 2026-08-16
 - [ ] Merget til `main`
 
 ## Notater

@@ -32,7 +32,7 @@ Bruker ba om at den skulle flyttes. Se «Utført 2026-08-16».
       `.seat:hover { z-index: 4 }` slår derfor ikke gjennom uten
       `!important` — eller så må `z-index` flyttes ut av inline-stilen og
       inn i `.seat`-klassen.
-- [ ] Sjekk at etikettens halvgjennomsiktige bakgrunn
+- [x] Sjekk at etikettens halvgjennomsiktige bakgrunn
       (`rgba(var(--farge-bakgrunn-rgb), .9)`) er lesbar oppå et foto, ikke
       bare oppå initialer på ensfarget bunn.
 - [x] Flytt etiketten ned under radens linje, rett under første boks
@@ -49,12 +49,12 @@ Bruker ba om at den skulle flyttes. Se «Utført 2026-08-16».
       oppå boksen
 - [x] Hold musepekeren over nettopp den musikeren — tooltip-en med fullt navn
       skal fortsatt være lesbar, ikke dekket av radetiketten
-- [ ] Sjekk både med foto og med initialer
+- [x] Sjekk både med foto og med initialer — godkjent av bruker på testsiden 2026-08-16
 - [x] Sjekk dra-og-slipp: etiketten har `pointer-events:none`, så den skal
       ikke stjele klikk selv når den ligger øverst
 - [x] Sjekk en `right`-justert rad spesielt — der ligger `t = 0` øverst i
       midten, ikke til venstre som i de andre radformene
-- [ ] Testet på https://beitnes.net/Korpsapp-test
+- [x] Testet på https://beitnes.net/Korpsapp-test — bruker bekreftet «looks good» 2026-08-16
 - [ ] Merget til `main`
 
 ## Notater
