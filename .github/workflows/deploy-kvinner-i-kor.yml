@@ -1,0 +1,48 @@
+# Utrulling til kunden Kvinner i Kor (Firebase Hosting, prosjekt
+# `kvinner-i-kor`). Erstatter firebase-hosting-merge.yml på den nedlagte grenen
+# `customer/kvinner-i-kor` — kunden bygges nå fra `main` med sitt eget
+# kundeoppsett fra config/.
+name: Deploy Kvinner i Kor (Firebase)
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  checks: write
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Velg kundeoppsett
+        run: cp config/kvinner-i-kor.js config.js
+
+      - name: Legg ut tjenestekontoen
+        run: |
+          printf '%s' "$SA" > "$RUNNER_TEMP/kvinner-i-kor-sa.json"
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KVINNER_I_KOR }}
+
+      # Reglene FØR hostingen, aldri motsatt. Ny kode kan ta i bruk en ny
+      # samling (slik `main` gjorde med korpsIndex), og da må regelen være på
+      # plass før koden som leser den er ute — ellers møter kunden «Kunne ikke
+      # hente listen over korps».
+      #
+      # Trygt her fordi `kvinner-i-kor` er kundens EGET prosjekt og dette
+      # regelsettet er hele bildet der. Det motsatte gjelder for
+      # skiensskolemusikk-b5cbc — se advarselen øverst i firestore.rules.
+      - name: Rull ut Firestore-regler
+        run: npx -y firebase-tools@latest deploy --only firestore:rules --project kvinner-i-kor --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/kvinner-i-kor-sa.json
+
+      - name: Rull ut hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KVINNER_I_KOR }}
+          channelId: live
+          projectId: kvinner-i-kor
