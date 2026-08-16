@@ -1,0 +1,13 @@
+{
+  "_comment": [
+    "Bevisst UTEN «default». Da må hver firebase-kommando oppgi --project, og",
+    "ingen kan rulle ut til feil kunde ved et uhell. Særlig viktig fordi",
+    "firestore.rules i dette repoet IKKE er hele regelsettet for",
+    "skiensskolemusikk-b5cbc — begge databasene der deles med Bestillingsportal.",
+    "Se advarselen øverst i firestore.rules før du deployer regler dit."
+  ],
+  "projects": {
+    "kvinner-i-kor": "kvinner-i-kor",
+    "skolekorps": "skiensskolemusikk-b5cbc"
+  }
+}
