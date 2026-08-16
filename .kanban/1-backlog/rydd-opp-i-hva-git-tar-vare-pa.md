@@ -9,22 +9,22 @@ updated: 2026-08-15
 Sørge for at git tar vare på alt som ikke finnes andre steder — og ikke noe
 annet. I dag stemmer ingen av delene.
 
-**Det som haster:** `kanban.sh` og `card-template.md` ligger ikke i git.
-De er skrevet for hånd til KorpsApp og finnes ingen andre steder. Går fila
-tapt, er tavleverktøyet borte for godt. Git er sikkerhetskopien, og akkurat
-denne fila står utenfor den.
+**Det som hastet, er allerede gjort.** `kanban.sh` og `card-template.md` lå
+utenfor git da kortet ble skrevet. De ble lagt inn i `d5dc443` mens kortet
+sto til grilling — se steg 1.
 
-**Det som er opprydding:** 9489 filer i `node_modules` som appen aldri
-bruker, og en `.gitignore` på én linje som ikke hindrer at de blir dratt inn.
+**Det som gjenstår er opprydding:** `skills-lock.json` står fortsatt utenfor
+git, 9489 filer i `node_modules` som appen aldri bruker ligger igjen, og
+`.gitignore` er på én linje som ikke hindrer at de blir dratt inn.
 
 ## Plan
 
-- [ ] Steg 1 — Legg det egenskrevne verktøyet i git
-  - Hele `.claude/skills/kanban/`: `kanban.sh`, `card-template.md`, `SKILL.md`
-  - `plan.sh` og planlegging-`SKILL.md` er allerede i git, men `plan.sh`
-    slår opp alle kort via `kanban.sh`. Repoet inneholder altså i dag et
-    verktøy som ikke kan kjøre
-  - Dette er eneste steg som fikser noe som er galt nå. Resten er opprydding
+- [x] Steg 1 — Legg det egenskrevne verktøyet i git — **gjort i `d5dc443`**
+  - Hele `.claude/skills/kanban/` (`kanban.sh`, `card-template.md`,
+    `SKILL.md`) ble commitet 16.08 kl. 09:20 fra en annen økt, mens dette
+    kortet lå til grilling. Planlegging-`SKILL.md` kom inn i `0bd9aee`
+  - Var det eneste steget som fikset noe som var galt der og da. Resten av
+    kortet er opprydding, og står fortsatt igjen
 - [ ] Steg 2 — Legg `skills-lock.json` i git
   - Den er oppskriften som gjør de 11 Firebase-ferdighetene gjenskapbare
   - Uten den er hverken ferdighetene eller måten å hente dem på tatt vare på
@@ -65,6 +65,13 @@ bruker, og en `.gitignore` på én linje som ikke hindrer at de blir dratt inn.
 
 **Bakgrunn:** funnet mens kortet om arkitekturgjennomgang ble committet
 (`e0073dd`). Ikke en del av det arbeidet, og derfor eget kort.
+
+**Steg 1 ble løst av en annen økt før kortet rakk å starte.** Da grillingen
+sjekket, lå `.claude/skills/kanban/` utenfor git; en time senere var den inne
+(`d5dc443`). Verdt å merke seg som arbeidsmåte: flere økter jobber i samme
+repo, så et kort kan bli delvis utdatert mellom skriving og oppstart.
+Sjekk `git ls-files` mot planen før arbeidet begynner, ikke bare stol på
+kortet.
 
 ### Avklart i grilling (2026-08-15)
 
