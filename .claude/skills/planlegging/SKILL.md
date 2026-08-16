@@ -19,8 +19,9 @@ All paths below are relative to the repo root.
 ## Driver
 
 `.claude/skills/planlegging/plan.sh` — works from any directory inside the
-repo. Cards are addressed by **any unique substring** of their filename,
-exactly like `kanban.sh`.
+repo. Cards are addressed by **their number** (`plan.sh check 7`) or by **any
+unique substring** of their filename, exactly like `kanban.sh` — the lookup is
+`kanban.sh`'s, inherited rather than reimplemented.
 
 | command | what it does |
 |---|---|

@@ -34,9 +34,69 @@ slugify() {
     | sed -e 's/[^a-z0-9]\{1,\}/-/g' -e 's/^-//' -e 's/-$//'
 }
 
-# Find a card by partial name across all columns. Prints its path.
+# A card's number, from its filename prefix. "" when it hasn't got one.
+# The filename is the only place the number lives — no frontmatter copy to
+# drift out of sync.
+card_number() {
+  local b; b="$(basename "$1")"
+  case "$b" in
+    [0-9][0-9][0-9]-*) printf '%s' "${b%%-*}" ;;
+    *)                 printf '' ;;
+  esac
+}
+
+# Highest number in use across every column, or 0 on an unnumbered board.
+# Numbers are never reused, so this only ever goes up.
+max_number() {
+  local f n max=0
+  for f in "$BOARD"/*/*.md; do
+    [ -e "$f" ] || continue
+    n="$(card_number "$f")"
+    [ -n "$n" ] || continue
+    n=$((10#$n))            # 10# or 008/009 read as bad octal
+    [ "$n" -gt "$max" ] && max="$n"
+  done
+  printf '%d' "$max"
+}
+
+# Give a number to every card that lacks one, oldest first. Ties inside a day
+# break alphabetically — created: only records the date, and day-level
+# accuracy is all the number promises.
+assign_numbers() {
+  local f d b list next dst
+  list=""
+  for f in "$BOARD"/*/*.md; do
+    [ -e "$f" ] || continue
+    [ -n "$(card_number "$f")" ] && continue
+    d="$(grep -m1 '^created: ' "$f" | sed 's/^created: //' || true)"
+    [ -n "$d" ] || d="9999-99-99"   # undated sorts last
+    list="$list$d	$(basename "$f")	$f
+"
+  done
+  [ -n "$list" ] || return 0
+  next=$(( $(max_number) + 1 ))
+  # Process substitution, not a pipe: a piped `while` runs in a subshell and
+  # every increment of $next would be thrown away.
+  while IFS='	' read -r d b f; do
+    [ -n "$f" ] || continue
+    dst="$(dirname "$f")/$(printf '%03d' "$next")-$b"
+    move_file "$f" "$dst"
+    next=$((next+1))
+  done < <(printf '%s' "$list" | LC_ALL=C sort)
+}
+
+# Find a card by number or by partial name across all columns. Prints its path.
 find_card() {
   local q="$1" matches
+  # A bare number is an exact lookup, and must be tried first: as a substring
+  # "1" would also hit 001-, 010-…014- and every slug containing a 1.
+  case "$q" in
+    ''|*[!0-9]*) ;;
+    *)
+      matches="$(find "$BOARD" -name "$(printf '%03d' "$((10#$q))")-*.md" -type f 2>/dev/null || true)"
+      if [ -n "$matches" ]; then printf '%s' "$matches"; return 0; fi
+      ;;
+  esac
   matches="$(find "$BOARD" -name '*.md' -type f 2>/dev/null | grep -i -- "$q" || true)"
   local n; n="$(printf '%s' "$matches" | grep -c . || true)"
   if [ "$n" -eq 0 ]; then
@@ -83,7 +143,10 @@ move_file() {
 # --- commands --------------------------------------------------------------
 
 cmd_board() {
-  local col dir count f title prog
+  local col dir count f title prog num
+  # Stragglers added by hand get a number on sight. This makes `board` a
+  # command that writes — hence move_file, so tracked cards keep their history.
+  assign_numbers
   for col in "${COLUMNS[@]}"; do
     dir="$BOARD/$col"
     count=0
@@ -98,10 +161,13 @@ cmd_board() {
       title="$(grep -m1 '^title: ' "$f" | sed 's/^title: //' || true)"
       [ -n "$title" ] || title="$(basename "$f" .md)"
       prog="$(progress "$f")"
+      num="$(card_number "$f")"
+      # Spoken, not typed: "#7", never "#007".
+      [ -n "$num" ] && num="$((10#$num))" || num="—"
       if [ -n "$prog" ]; then
-        printf '  • %s \033[2m[%s] (%s)\033[0m\n' "$title" "$prog" "$(basename "$f" .md)"
+        printf '  • \033[2m#%-3s\033[0m %s \033[2m[%s]\033[0m\n' "$num" "$title" "$prog"
       else
-        printf '  • %s \033[2m(%s)\033[0m\n' "$title" "$(basename "$f" .md)"
+        printf '  • \033[2m#%-3s\033[0m %s\n' "$num" "$title"
       fi
     done
   done
@@ -109,14 +175,17 @@ cmd_board() {
 }
 
 cmd_new() {
-  local col slug file title
+  local col slug file title num dupe
   col="$(resolve_column "${1:-backlog}")"
   shift || true
   title="$*"
   [ -n "$title" ] || { echo "kanban: new <column> <title>" >&2; exit 1; }
   slug="$(slugify "$title")"
-  file="$BOARD/$col/$slug.md"
-  [ -e "$file" ] && { echo "kanban: $file already exists" >&2; exit 1; }
+  # The number is always fresh, so only the slug can collide.
+  dupe="$(find "$BOARD" -name "*-$slug.md" -type f 2>/dev/null || true)"
+  [ -n "$dupe" ] && { echo "kanban: $dupe already exists" >&2; exit 1; }
+  num="$(printf '%03d' "$(( $(max_number) + 1 ))")"
+  file="$BOARD/$col/$num-$slug.md"
   sed -e "s|{{TITLE}}|$title|" -e "s|{{DATE}}|$TODAY|" \
       "$ROOT/.claude/skills/kanban/card-template.md" > "$file"
   echo "$file"
