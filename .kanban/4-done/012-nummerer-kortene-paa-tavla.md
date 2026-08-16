@@ -64,7 +64,7 @@ gjenbrukes aldri. Å flytte et kort mellom kolonner endrer det ikke.
 - [x] Testet på https://beitnes.net/Korpsapp-test — **verktøyendring, ikke
       appendring**: testsiden viser samme app som før. Reell testing er punktene
       over, kjørt lokalt. Se `## Notater`.
-- [ ] Merget til `main`
+- [x] Merget til `main` — `97bbe08..ea78a8d`, ren fast-forward
 
 ## Notater
 
