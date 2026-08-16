@@ -3198,12 +3198,39 @@ function formationSeatXY(geom, t) {
 // hver side av kurven, og radavstanden er for liten til at det finnes ledig
 // plass verken over, under eller utover langs buen. Se kortet
 // radetiketten-forsvinner-bak-plassen.
+// Radetiketten ligger UNDER radens linje, rett under den første boksen. Den lå
+// før over linja, der den havnet oppå boksen til den som står først i raden.
+// z-index:3 er beholdt: skulle etiketten likevel komme borti en boks i et
+// trangt oppsett, skal navnet fortsatt være lesbart. Hold deg under 5 — der
+// ligger «Trykk der plassen skal flyttes»-banneret, som skal vinne.
 function formationRowLabelHtml(geom, conductorY) {
   const start = formationSeatXY(geom, 0);
   const labelLeft = `calc(50% + ${start.x.toFixed(1)}px)`;
-  const labelTop = `${(conductorY - start.y - 9).toFixed(1)}px`;
+  const labelTop = `${(conductorY - start.y + geom.seatSize/2 + 4).toFixed(1)}px`;
   const translateX = start.x <= 0 ? '0' : '-100%';
-  return `<div style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:var(--farge-primar); white-space:nowrap; pointer-events:none; background:rgba(var(--farge-bakgrunn-rgb), .9); padding:1px 5px; border-radius:5px; border:1.5px solid var(--farge-primar-lys); z-index:3;">${escHtml(geom.row.label)}</div>`;
+  return `<div data-row-label="1" style="position:absolute; left:${labelLeft}; top:${labelTop}; transform:translateX(${translateX}); font-size:10px; font-weight:700; color:var(--farge-primar); white-space:nowrap; pointer-events:none; background:rgba(var(--farge-bakgrunn-rgb), .9); padding:1px 5px; border-radius:5px; border:1.5px solid var(--farge-primar-lys); z-index:3;">${escHtml(geom.row.label)}</div>`;
+}
+
+// Den innerste raden bøyer seg rundt dirigenten, så etiketten dens kan lande
+// oppå «🎼 Dirigent». Bredden på en etikett avhenger av teksten og kan ikke
+// regnes ut på forhånd — derfor måles den her, etter at den er tegnet, og
+// skyves akkurat så langt til venstre at den går klar. Samme runde passer på
+// at ingen etikett havner utenfor kanten av kartet.
+function nudgeFormationRowLabels(canvas) {
+  const conductor = canvas.querySelector('[data-conductor]');
+  if (!conductor) return;
+  const canvasBox = canvas.getBoundingClientRect();
+  const cond = conductor.getBoundingClientRect();
+  canvas.querySelectorAll('[data-row-label]').forEach(el => {
+    const box = el.getBoundingClientRect();
+    let shift = 0;
+    const overlapsConductor = box.left < cond.right && cond.left < box.right &&
+                              box.top < cond.bottom && cond.top < box.bottom;
+    if (overlapsConductor) shift = (cond.left - 4) - box.right;
+    if (box.left + shift < canvasBox.left) shift = canvasBox.left - box.left;
+    if (box.right + shift > canvasBox.right) shift = canvasBox.right - box.right;
+    if (shift) el.style.marginLeft = `${Math.round(shift)}px`;
+  });
 }
 
 // Prøver å samplet en sti (bue eller rett linje, avhengig av geom) som t=0..100
@@ -3287,7 +3314,7 @@ function renderFormation() {
     });
   });
 
-  html += `<div class="absolute text-xs text-slate-400 font-semibold tracking-widest uppercase" style="left:calc(50% - 40px); top:${formationGeometry.conductorY+4}px; width:80px; text-align:center; pointer-events:none;">🎼 Dirigent</div>`;
+  html += `<div data-conductor="1" class="absolute text-xs text-slate-400 font-semibold tracking-widest uppercase" style="left:calc(50% - 40px); top:${formationGeometry.conductorY+4}px; width:80px; text-align:center; pointer-events:none;">🎼 Dirigent</div>`;
 
   if (movingFormationSeat) {
     html += `<div style="position:absolute; left:50%; top:4px; transform:translateX(-50%); background:var(--farge-primar); color:var(--farge-tekst-invers); font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; z-index:5;">↔️ Trykk der plassen skal flyttes &nbsp;·&nbsp; <a href="#" onclick="cancelMoveFormationSeat(event)" style="color:var(--farge-tekst-invers);">Avbryt</a></div>`;
@@ -3295,6 +3322,7 @@ function renderFormation() {
 
   canvas.style.height = formationGeometry.canvasHeight + 'px';
   canvas.innerHTML = html;
+  nudgeFormationRowLabels(canvas);
 
   document.getElementById('formation-legend').innerHTML = rows.map(row =>
     `<span><strong class="text-slate-600">${escHtml(row.label)}:</strong> ${row.seats.length} plassert</span>`

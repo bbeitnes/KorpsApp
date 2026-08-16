@@ -9,9 +9,11 @@ updated: 2026-08-15
 I Korpsoppsett blir radnavnet dekket av boksen til musikeren som står først i
 raden. Etter dette skal radnavnet være lesbart også når plassen er fylt.
 
-Løsningen er å heve radetiketten over boksene i lagdelingen — ikke å flytte
-den. Grillingen 2026-08-14 viste at det ikke finnes ledig plass å flytte den
-til, verken over, under eller til siden. Se «Notater».
+Løsningen er **både** å flytte etiketten ned under radens linje **og** å
+beholde den hevet i lagdelingen. Grillingen 2026-08-14 konkluderte med at det
+ikke fantes plass å flytte den til, og at heving var nok. Testingen 2026-08-16
+viste at det ikke holdt: etiketten lå fortsatt oppå boksene, bare lesbart.
+Bruker ba om at den skulle flyttes. Se «Utført 2026-08-16».
 
 ## Plan
 
@@ -33,6 +35,13 @@ til, verken over, under eller til siden. Se «Notater».
 - [ ] Sjekk at etikettens halvgjennomsiktige bakgrunn
       (`rgba(var(--farge-bakgrunn-rgb), .9)`) er lesbar oppå et foto, ikke
       bare oppå initialer på ensfarget bunn.
+- [x] Flytt etiketten ned under radens linje, rett under første boks
+      (`formationRowLabelHtml`). Var `- 9` over linja, er nå
+      `+ geom.seatSize/2 + 4` under den
+- [x] Legg til `nudgeFormationRowLabels`: måler etikettene etter tegning og
+      skyver dem til side hvis de lander oppå «🎼 Dirigent» eller utenfor
+      kanten av kartet. Bredden avhenger av teksten og kan ikke regnes ut på
+      forhånd, derfor måling i stedet for utregning
 
 ## Verifisering
 
@@ -129,3 +138,52 @@ med geometri likevel.
 **Beslektet kort:** `instrumenttekst-er-for-stor` gjelder navneetiketten over
 hver boks — en annen etikett enn denne. Grillingen slo fast at de to kortene
 *ikke* er samme sak, og de kan gjøres uavhengig.
+
+### Utført 2026-08-16 — etiketten er flyttet ned
+
+Bruker testet på testsiden og meldte at plasseringen ikke var som ønsket:
+etiketten lå fortsatt oppå boksene, bare lesbart. Tre plasseringer ble tegnet
+opp og målt i nettleser før valget:
+
+| | Plassering | Problem |
+|---|---|---|
+| Dagens | Over linja, ved radens start | Ligger oppå første boks |
+| A **(valgt)** | Rett ned, under første boks | Traff «🎼 Dirigent» på innerste rad |
+| B | Ned og ut til venstre, utenfor buen | Ytterste rad falt 26 px utenfor kartet |
+
+Bruker valgte A, og at etiketten fortsatt skal ligge øverst i lagdelingen
+hvis den likevel kommer borti en boks. `nudgeFormationRowLabels` løser
+Dirigent-kollisjonen: i eksempeloppsettet ble «4. rekke» dyttet 7 px til
+venstre, resten sto urørt.
+
+**Målt før og etter, antall etiketter som ligger oppå en boks:**
+
+| Oppsett | Før | Etter |
+|---|---|---|
+| 4 rader, 35 plasser | 3 | **0** |
+| Lange radnavn, 3 rader | 3 | **0** |
+| 6 rader | 3 | **1** |
+
+Null kollisjoner med Dirigent og null utenfor kartet i alle fem oppsettene
+som ble testet (også flate rader, venstre/høyre-fløyer og én enkelt solist).
+
+**Analysen i «Hvorfor ikke flytte etiketten» over holder fortsatt** — den er
+ikke motbevist, bare avgrenset. Regnestykket der sier at etiketten trenger
+~40 px for å klarere boksen, mens radavstanden kan komme ned i ~39 px ved
+mange rader. Målingen bekrefter det: 6-raders oppsettet er nettopp det ene
+tilfellet som fortsatt kolliderer. Flyttingen løser altså de vanlige
+oppsettene, ikke geometrien i seg selv. Derfor er hevingen **ikke** reversert
+— de to grepene dekker hver sin del av problemet.
+
+**Det som gjenstår, ærlig sagt:**
+
+- **Ett tilfelle igjen med 6 rader** der en etikett fortsatt lander på en
+  boks. Den er lesbar, fordi `z-index:3` er beholdt — det er nettopp derfor
+  hevingen ikke ble reversert.
+- **To etiketter kan overlappe hverandre** ved svært lange radnavn. Dette er
+  **ikke nytt** — det ble målt til å skje like mye med den gamle
+  plasseringen, så det er en eksisterende svakhet og ikke en følgefeil.
+  Eget kort hvis det blir plagsomt.
+
+**Verifisert uten innlogging:** appen krever pålogging, så oppstillingene ble
+bygget syntetisk i nettleseren og `renderFormation()` kalt direkte.
