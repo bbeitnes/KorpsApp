@@ -3283,7 +3283,7 @@ function renderFormation() {
     html += formationRowLabelHtml(geom, formationGeometry.conductorY);
     geom.row.seats.forEach(seat => {
       const { x, y } = formationSeatXY(geom, seat.t);
-      renderFormationSeat(geom.row, seat, x, y, formationGeometry.conductorY, geom.seatSize, h => html += h);
+      renderFormationSeat(geom.row, seat, x, y, formationGeometry.conductorY, geom.seatSize, autoSeatSize, h => html += h);
     });
   });
 
@@ -3303,7 +3303,9 @@ function renderFormation() {
   attachFormationCanvasHandlers();
 }
 
-function renderFormationSeat(row, seat, x, y, conductorY, seatSize, append) {
+// seatSize er boksstørrelsen for DENNE raden (ganget med 1,6 på store rader);
+// baseSeatSize er størrelsen før det påslaget, felles for hele oppstillingen.
+function renderFormationSeat(row, seat, x, y, conductorY, seatSize, baseSeatSize, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
   const initialsFontSize = Math.max(7, Math.round(seatSize * 0.22));
@@ -3318,11 +3320,14 @@ function renderFormationSeat(row, seat, x, y, conductorY, seatSize, append) {
     <div class="tooltip">${escHtml(seat.name)}</div>
   </div>`);
 
-  // Navneetiketten skaleres med boksstørrelsen — ellers ville den (langt bredere
-  // enn selv en normalstor boks) blitt hovedårsaken til overlapping i tette
-  // oppstillinger, selv etter at boksene i seg selv har krympet for å få plass.
-  const nameWidth = Math.round(row.large ? Math.max(70, seatSize * 1.9) : Math.max(50, seatSize * 1.5));
-  const fontSize = Math.max(7, Math.round(seatSize * (row.large ? 0.22 : 0.19)));
+  // Navneetiketten skaleres med BASISstørrelsen, ikke radens egen boksstørrelse.
+  // Den skal fortsatt krympe i tette oppstillinger — det var den (langt bredere
+  // enn selv en normalstor boks) som var hovedårsaken til overlapping før — men
+  // et navn er et navn: like stort på store rader (`:x`) som på vanlige.
+  // Regnet man fra radens egen boksstørrelse, kom påslaget på 1,6 oppå et påslag
+  // til, og etiketten ble dobbelt så bred på en boks bare 1,6 ganger bredere.
+  const nameWidth = Math.round(Math.max(50, baseSeatSize * 1.5));
+  const fontSize = Math.max(7, Math.round(baseSeatSize * 0.19));
   const nameLeft = `calc(50% + ${(x - nameWidth/2).toFixed(1)}px)`;
   const nameTop = `${(conductorY - y - seatSize/2 - fontSize - 5).toFixed(1)}px`;
   const displayName = seat.name.split(',').map(s => escHtml(s.trim())).join('<br>');
