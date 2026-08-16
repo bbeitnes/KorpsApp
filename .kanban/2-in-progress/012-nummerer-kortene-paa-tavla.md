@@ -56,10 +56,11 @@ gjenbrukes aldri. Å flytte et kort mellom kolonner endrer det ikke.
 - [x] Et kort lagt inn for hånd, uten nummer, fikk 015 neste gang `board` kjørte
 - [x] `git status` viser de fire sporede kortene som ekte omdøpinger (`R`), ikke
       som slett + nyopprett
-- [ ] `git log --follow` finner historikken gjennom omdøpingen — **gjenstår til
-      omdøpingene er committet**; `--follow` finner ingenting så lenge det nye
-      filnavnet ikke finnes i noen commit. Dette er kjent oppførsel, dokumentert
-      i `kanban/SKILL.md`.
+- [x] `git log --follow` finner historikken gjennom omdøpingen. Bekreftet etter
+      commit `298c0f6` — kort 003 viser fortsatt hele rekka tilbake til
+      «Navneetiketten er like stor på store rader». Før commit fant `--follow`
+      ingenting, siden det nye filnavnet ikke fantes i noen commit ennå; det er
+      kjent oppførsel, dokumentert i `kanban/SKILL.md`.
 - [x] Testet på https://beitnes.net/Korpsapp-test — **verktøyendring, ikke
       appendring**: testsiden viser samme app som før. Reell testing er punktene
       over, kjørt lokalt. Se `## Notater`.
