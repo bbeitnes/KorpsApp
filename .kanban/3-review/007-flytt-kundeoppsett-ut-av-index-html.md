@@ -197,6 +197,20 @@ Verdt å merke seg: rekkefølgen reglene-før-hostingen gjorde jobben sin. Da
 regelsteget feilet, ble hostingen hoppet over, og kunden ble stående på forrige
 bygg i stedet for å få ny kode mot gamle regler. Ingen nedetid.
 
+### Servicearbeideren måtte etter (2026-08-16)
+
+Å flytte oppsettet ut av `index.html` flyttet det samtidig fra
+network-first til cache-first i `sw.js`. `index.html` er bevisst network-first
+så oppdateringer alltid når fram; alt annet er cache-first — og `CACHE` er
+konstanten `fordeling-v1` som aldri endres. En cachet `config.js` ville derfor
+vunnet for alltid, og neste endring i en kundes oppsett ville aldri nådd noen
+som alt hadde vært innom. Rettet ved å legge `config.js` i network-first-grenen
+og i forhåndscachen ([sw.js:27](../../sw.js)).
+
+Ingen rakk å bli rammet — `config.js` var ny, så ingen hadde den cachet da
+rettelsen gikk ut. Men den er verdt å huske som mønster: filer som bærer
+oppsett hører hjemme på network-first-veien.
+
 ### Bekreftet mot de to live-utrullingene
 
 | | beitnes.net/Korpsapp | kvinner-i-kor.web.app |
