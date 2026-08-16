@@ -70,11 +70,11 @@ Firebase-nøklene — de trengs før appen når Firestore. Se «Notater».
       `config.js` skiller dem
 - [x] En manglende eller ødelagt `config.js` gir en forståelig feil, ikke en
       blank side
-- [ ] En endring som krever nye Firestore-regler når kundens eget prosjekt via
+- [x] En endring som krever nye Firestore-regler når kundens eget prosjekt via
       utrullingen — eller kortet slår fast at reglene fortsatt deployes for
       hånd, og hvor det står beskrevet
-- [ ] Testet på https://beitnes.net/Korpsapp-test
-- [ ] Merget til `main`
+- [x] Testet på https://beitnes.net/Korpsapp-test
+- [x] Merget til `main`
 
 ## Notater
 
@@ -174,6 +174,41 @@ Poenget for dette kortet: å samle kundene på én gren fjerner git-driften, men
 ikke denne. Så lenge hver kunde har sitt eget Firebase-prosjekt, har hver kunde
 sitt eget regelsett som må ut når reglene endres. Da må utrullingen gjøre det,
 ikke et menneske som husker det.
+
+### Utrullingen 2026-08-16: regelsteget avslørte en manglende rettighet
+
+Første push til `main` feilet på `Rull ut Firestore-regler`:
+
+```
+Request to https://firebaserules.googleapis.com/v1/projects/kvinner-i-kor:test
+had HTTP Error: 403, The caller does not have permission
+```
+
+`FIREBASE_SERVICE_ACCOUNT_KVINNER_I_KOR` ble laget av `firebase init
+hosting:github` og hadde kun hosting-rettigheter — den kunne ikke engang
+kompileringsteste et regelsett. Det er nettopp derfor reglene alltid har blitt
+deployet for hånd fra en personlig konto: automatikken hadde aldri rettighetene.
+Rettet ved å gi tjenestekontoen rollen **Firebase Rules Admin**
+(`roles/firebaserules.admin`) i prosjektet. To forsøk rett etterpå feilet
+fortsatt — IAM-endringer bruker noen minutter på å forplante seg — og tredje
+forsøk gikk grønt.
+
+Verdt å merke seg: rekkefølgen reglene-før-hostingen gjorde jobben sin. Da
+regelsteget feilet, ble hostingen hoppet over, og kunden ble stående på forrige
+bygg i stedet for å få ny kode mot gamle regler. Ingen nedetid.
+
+### Bekreftet mot de to live-utrullingene
+
+| | beitnes.net/Korpsapp | kvinner-i-kor.web.app |
+|---|---|---|
+| `projectId` i `config.js` | `skiensskolemusikk-b5cbc` | `kvinner-i-kor` |
+| faner | alle fem | kun Romfordeling |
+| oppstartsmodus | Billettfordeling | Romfordeling |
+| Google-blokk | synlig | skjult |
+| `config/` på veven | 404 | 404 |
+
+`index.html` er tegn for tegn lik på de to (`cmp` mot begge live-URL-ene).
+`setMode('concert')` hos kunden faller tilbake til `room`.
 
 ### Valg tatt i grillingen
 
