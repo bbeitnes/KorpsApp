@@ -53,7 +53,7 @@ større.
 - [x] Utskrift/PDF er uendret — `buildFormationPrintSeat` har fortsatt 7
       parametre og gir 14 px på en stor rad, som før
 - [x] Testet på https://beitnes.net/Korpsapp-test — bruker bekreftet «looks good» 2026-08-16
-- [ ] Merget til `main`
+- [x] Merget til `main` — 2026-08-16, sammen med Broadsheet-redesignet
 
 ## Notater
 

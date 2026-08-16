@@ -1,7 +1,7 @@
 ---
 title: Radetiketten forsvinner bak plassen i Korpsoppsett
 created: 2026-08-14
-updated: 2026-08-15
+updated: 2026-08-16
 ---
 
 ## Mål
@@ -55,7 +55,7 @@ Bruker ba om at den skulle flyttes. Se «Utført 2026-08-16».
 - [x] Sjekk en `right`-justert rad spesielt — der ligger `t = 0` øverst i
       midten, ikke til venstre som i de andre radformene
 - [x] Testet på https://beitnes.net/Korpsapp-test — bruker bekreftet «looks good» 2026-08-16
-- [ ] Merget til `main`
+- [x] Merget til `main` — 2026-08-16, sammen med Broadsheet-redesignet
 
 ## Notater
 
