@@ -30,10 +30,10 @@ neste kunde skal kunne følge den uten å finne den opp på nytt.
 - [x] Registrer en **web-app** og hent `firebaseConfig`. Ignorer
       `npm install firebase` som konsollet foreslår — appen laster Firebase
       fra CDN og har ingen byggesteg.
-- [ ] Lag tjenestekontoen for GitHub. `firebase init hosting:github` gjør det
+- [x] Lag tjenestekontoen for GitHub. `firebase init hosting:github` gjør det
       enkleste, men **skriver over `firebase.json`, `.firebaserc` og lager
       egne arbeidsflytfiler** — se Notater før du kjører den.
-- [ ] Gi tjenestekontoen rollen **Firebase Rules Admin**
+- [x] Gi tjenestekontoen rollen **Firebase Rules Admin**
       (`roles/firebaserules.admin`), og vent noen minutter på at IAM forplanter
       seg før første utrulling.
 
@@ -46,18 +46,41 @@ neste kunde skal kunne følge den uten å finne den opp på nytt.
       `setMode('room')` faller tilbake til `formation`, kun én fane,
       hjelpeteksten viser bare Korpsmodus og Slagverksliste,
       Google-blokken skjult.
-- [ ] Push til `main` — først når tjenestekontoen og rollen finnes, ellers
+- [x] Push til `main` — først når tjenestekontoen og rollen finnes, ellers
       feiler jobben.
-- [ ] Bekreft at `musikkforeningen-suoni.web.app` svarer, at `config.js`
+- [x] Bekreft at `musikkforeningen-suoni.web.app` svarer, at `config.js`
       serveres med riktig prosjekt, og at `config/` ikke ligger ute.
 - [ ] Logg inn og opprett ett korps, som røyktest av regelsettet CI la ut.
 
 ## Verifisering
 
 - [ ] Testet på https://beitnes.net/Korpsapp-test
-- [ ] Merget til `main`
+- [x] Merget til `main`
 
 ## Notater
+
+### Utrullingen 2026-08-17
+
+Alle tre jobbene grønne på første forsøk — inkludert regelsteget, som for
+Kvinner i Kor krevde tre forsøk fordi rollen manglet. Rekkefølgen «rolle først,
+vent, rull ut etterpå» er altså det som gjorde forskjellen.
+
+Tjenestekontoen `firebase init hosting:github` lager, heter
+`github-action-<GitHub-repoets numeriske ID>@<prosjekt>.iam.gserviceaccount.com`.
+For dette repoet er ID-en `1285859995`. Nyttig neste gang, siden kontoen ikke
+dukker opp i IAM-lista før den har en rolle — bruk «GRANT ACCESS» og lim inn
+adressen i stedet for å lete.
+
+Ryddet bort etter `init`: den la inn `"default": "musikkforeningen-suoni"` i
+`.firebaserc` (nettopp det kort 7 unngikk — et løst `firebase deploy` ville da
+truffet en levende kunde) og lagde
+`.github/workflows/firebase-hosting-pull-request.yml`. `firebase.json` slapp
+unna. Hemmeligheten på GitHub overlevde oppryddingen, som var hele poenget.
+
+Bekreftet live: `musikkforeningen-suoni.web.app` starter i Korpsoppsett, kun
+den ene fanen, `setMode('room')` faller tilbake til `formation`, Google-blokken
+skjult, og `config/` gir 404. `index.html` har samme SHA-256 på alle tre
+utrullingene som `git show main:index.html`.
 
 ### Hva som faktisk koster tid
 
