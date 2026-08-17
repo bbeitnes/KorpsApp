@@ -1,7 +1,7 @@
 ---
 title: Flytt kundeoppsett ut av index.html og dropp kundegrenene
 created: 2026-08-15
-updated: 2026-08-16
+updated: 2026-08-17
 ---
 
 ## Mål
@@ -54,7 +54,7 @@ Firebase-nøklene — de trengs før appen når Firestore. Se «Notater».
 - [x] Få regelsettet med i utrullingen for Kvinner-i-Kor. I dag ruller
       `firebase-hosting-merge.yml` ut kun hosting, så reglene må deployes for
       hånd — se «Regler følger ikke med utrullingen» i Notater.
-- [ ] Avvikle `customer/kvinner-i-kor` når oppsettet er flyttet, og bekreft at
+- [x] Avvikle `customer/kvinner-i-kor` når oppsettet er flyttet, og bekreft at
       kunden fortsatt peker på sitt eget Firebase-prosjekt.
 
 ## Verifisering
@@ -196,6 +196,23 @@ forsøk gikk grønt.
 Verdt å merke seg: rekkefølgen reglene-før-hostingen gjorde jobben sin. Da
 regelsteget feilet, ble hostingen hoppet over, og kunden ble stående på forrige
 bygg i stedet for å få ny kode mot gamle regler. Ingen nedetid.
+
+### Kundegrenen er avviklet 2026-08-17
+
+`customer/kvinner-i-kor` slettet, lokalt og på origin. Tuppen var
+`a63169ae3a2171d04952694d5d9e5a34e1af1cdc` med åtte commits som aldri fantes i
+`main` — seks oppsett-commits og to fletteringer. Ingenting av verdi gikk tapt:
+alt de bar var kundeoppsett, og det bor nå i
+[config/kvinner-i-kor.js](../../config/kvinner-i-kor.js). SHA-en står her i
+tilfelle noen vil grave den opp fra GitHub senere.
+
+Dermed er drivproblemet borte: det finnes ingen gren igjen som kan komme ut av
+takt med `main`. Tre kunder — Skiens skolemusikk, Kvinner i Kor og
+Musikkforeningen Suoni — bygges nå fra samme gren og samme `index.html`.
+
+Kort 17 satte opp Suoni som den første kunden etter denne modellen, og
+bekreftet at den holder: tre filer i repoet, ingen kodeendring, og en
+`index.html` med samme SHA-256 på alle tre utrullingene.
 
 ### Servicearbeideren måtte etter (2026-08-16)
 
