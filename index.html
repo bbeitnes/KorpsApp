@@ -407,6 +407,25 @@
   @media (max-width: 480px) { .modal { padding: 18px; } }
   .modal-wide { min-width: min(720px, 92vw); }
 
+  /* Kortvarig beskjed (showFlash). Ligger nederst midt på skjermen, over alt
+     annet unntatt modalen (z-index 50), og slipper alltid trykk gjennom —
+     den skal fortelle hva som skjedde, aldri komme i veien for neste trykk.
+     Brukes der en handling ellers ville endt i stillhet: et trykk som ikke
+     førte fram sier nå fra hvorfor. */
+  #flash-container { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+                     z-index: 45; display: flex; flex-direction: column; align-items: center;
+                     gap: 6px; pointer-events: none; width: max-content; max-width: 92vw; }
+  .flash { background: var(--color-neutral-900); color: var(--farge-tekst-invers);
+           font-size: 13px; font-weight: 600; line-height: 1.35; text-align: center;
+           padding: 10px 16px; border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+           animation: flash-in .18s ease-out; }
+  @keyframes flash-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .flash.flash-out { opacity: 0; transform: translateY(8px); transition: opacity .25s ease-in, transform .25s ease-in; }
+  @media (prefers-reduced-motion: reduce) {
+    .flash { animation: none; }
+    .flash.flash-out { transition: none; }
+  }
+
   /* Knapper. Trykkflaten er 40 px på desktop (headeren er tett pakket) og
      vokser til WCAG-målet 44 px på mobil, der fingeren treffer. */
   .btn {
@@ -714,10 +733,13 @@
       <div id="formation-hint" class="text-slate-400 text-center py-16">
         <div class="text-5xl mb-3">🎺</div>
         <p class="text-lg font-medium text-slate-500">Konfigurer korpsoppstillingen</p>
-        <p class="text-sm mt-1">Klikk "Rader" for å definere hvor mange rader og formen på hver — dra deretter navn/instrumenter fra listen inn på kartet</p>
+        <p class="text-sm mt-1">Klikk "Rader" for å definere hvor mange rader og formen på hver — velg deretter navn/instrumenter i listen og trykk der de skal stå på kartet</p>
       </div>
       <div id="formation-layout" class="hidden">
-        <p class="text-xs text-slate-400 text-center mb-1">Dra et navn eller instrument fra listen til nøyaktig der det skal stå på kartet — dra en plassert person for å flytte/finjustere.</p>
+        <!-- Trykkveien nevnes først: den virker med både mus og finger, mens
+             dra-og-slipp er upålitelig på nettbrett. Se kortet
+             korpsoppsett-maa-kunne-brukes-fra-ipad. -->
+        <p class="text-xs text-slate-400 text-center mb-1">Velg et navn eller instrument i listen, og trykk der det skal stå på kartet — eller dra det dit. Trykk en plassert person for å flytte, bytte eller fjerne.</p>
         <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500 mb-2">
           <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:2.5px solid var(--farge-primar-lys);"></span> Plasser her</span>
           <span class="flex items-center gap-1.5"><span style="display:inline-block; width:16px; height:0; border-top:1.5px dashed var(--farge-varsel); opacity:.85;"></span> Grense mot naborad</span>
@@ -773,6 +795,10 @@
 
 <!-- MODALS -->
 <div id="modal-container"></div>
+<!-- Kortvarige beskjeder (showFlash). aria-live gjør at skjermlesere leser dem
+     opp uten at fokus flyttes; pointer-events:none i CSS-en gjør at de aldri
+     stjeler et trykk fra kartet under. -->
+<div id="flash-container" aria-live="polite" aria-atomic="true"></div>
 <div id="print-area"></div>
 
 <!-- NAME LIST MODAL -->
@@ -2487,6 +2513,14 @@ function selectName(name) {
   renderNames();
   renderInstruments();
   renderReiseledere();
+  // Korpsoppsett tegner et banner («Trykk der X skal stå») som avhenger av
+  // hva som er valgt, så kartet må tegnes om når valget endrer seg.
+  if (state.mode === 'formation') renderFormation();
+  // Under 1024px ligger sidepanelet som et overlegg oppå kartet. Valgte man
+  // et navn ble panelet stående, så neste steg — «trykk der hen skal stå» —
+  // var bokstavelig talt skjult bak panelet man nettopp brukte. Lukk det når
+  // et navn faktisk BLE valgt (ikke når man trykket det samme navnet av igjen).
+  if (selectedName) closeSidebar();
 }
 
 // ===================== FINN TILDELT PLASS =====================
@@ -2536,6 +2570,14 @@ function locateName(name) {
     el.classList.add('locate-flash');
     setTimeout(() => el.classList.remove('locate-flash'), 1600);
   });
+
+  // Et allerede plassert navn får locateName, ikke selectName — trykker man
+  // det og så på kartet, skjer det ingenting, og det ser ut som en ødelagt app.
+  // Blinket alene forklarer ikke hvorfor navnet ikke lot seg velge, særlig
+  // ikke på touch der man ikke ser noen markør. Si det med ord.
+  showFlash(kind === 'formation' || kind === 'concert'
+    ? `${name} står allerede i oppsettet. Trykk plassen som blinker og velg «↔️ Flytt» for å flytte, eller «✕ Fjern plass» for å ta den ut.`
+    : `${name} er allerede tildelt — plassen blinker.`);
 }
 
 // ===================== SLAGVERKSLISTE (percussion instruments) =====================
@@ -2618,6 +2660,8 @@ function selectInstrument(instr) {
   selectedReiseleder = null;
   renderInstruments();
   renderNames();
+  if (state.mode === 'formation') renderFormation(); // se selectName
+  if (selectedInstrument) closeSidebar();            // se selectName
 }
 
 // ===================== GRUPPELEDERE-LISTE (gruppeinndeling) =====================
@@ -3350,8 +3394,17 @@ function renderFormation() {
 
   html += `<div data-conductor="1" class="absolute text-xs text-slate-400 font-semibold tracking-widest uppercase" style="left:calc(50% - 40px); top:${formationGeometry.conductorY+4}px; width:80px; text-align:center; pointer-events:none;">🎼 Dirigent</div>`;
 
+  // Banneret over kartet er den eneste plassen som forteller hva neste trykk
+  // gjør. Det fantes før bare for flytting; nå gjelder det også ny plassering,
+  // slik at trykkveien «velg navn → trykk kart» er synlig i det hele tatt —
+  // ellers står det bare «dra ...» i hjelpeteksten, og på touch er dra det
+  // vanskeligste man kan be noen om.
   if (movingFormationSeat) {
-    html += `<div style="position:absolute; left:50%; top:4px; transform:translateX(-50%); background:var(--farge-primar); color:var(--farge-tekst-invers); font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; z-index:5;">↔️ Trykk der plassen skal flyttes &nbsp;·&nbsp; <a href="#" onclick="cancelMoveFormationSeat(event)" style="color:var(--farge-tekst-invers);">Avbryt</a></div>`;
+    html += formationBannerHtml('↔️ Trykk der plassen skal flyttes', 'cancelMoveFormationSeat(event)');
+  } else if (selectedInstrument) {
+    html += formationBannerHtml(`👇 Trykk der ${escHtml(selectedInstrument)} skal stå`, 'clearFormationSelection(event)');
+  } else if (selectedName) {
+    html += formationBannerHtml(`👇 Trykk der ${escHtml(selectedName)} skal stå`, 'clearFormationSelection(event)');
   }
 
   canvas.style.height = formationGeometry.canvasHeight + 'px';
@@ -3446,7 +3499,14 @@ function genFormationSeatId() {
 // kan finnes i flere seter samtidig og ellers ikke ville blitt identifisert).
 function placeFormationSeat(name, isInstrument, clientX, clientY, sourceRowLabel, sourceSeatId) {
   const target = resolveFormationDrop(clientX, clientY);
-  if (!target) return;
+  if (!target) {
+    // Kan i praksis bare skje hvis kartet ikke er tegnet ennå eller det ikke
+    // finnes rader — men da skal brukeren få vite hva som mangler.
+    showFlash(state.formation.rows.length
+      ? 'Fant ingen rad å plassere i. Prøv å trykke nærmere en av linjene.'
+      : 'Legg til minst én rad under «⚙️ Rader» før du plasserer noen.');
+    return;
+  }
 
   if (sourceSeatId) {
     const sourceRow = state.formation.rows.find(r => r.label === sourceRowLabel);
@@ -3496,6 +3556,8 @@ function attachFormationCanvasHandlers() {
 // Touch-fallback for både ny plassering (velg navn/instrument i sidepanelet,
 // trykk kartet) og flytting (trykk et sete → "Flytt" → trykk kartet).
 function formationCanvasClick(e) {
+  // Trykket landet på en plass — den har sin egen onclick (seatClick), som
+  // åpner plassmenyen. Ikke stille: brukeren får en dialog.
   if (e.target.closest('.seat')) return;
   if (movingFormationSeat) {
     const { rowLabel, seatId } = movingFormationSeat;
@@ -3503,20 +3565,40 @@ function formationCanvasClick(e) {
     const seat = row?.seats.find(s=>s.id===seatId);
     movingFormationSeat = null;
     if (seat) placeFormationSeat(seat.name, state.instruments.includes(seat.name), e.clientX, e.clientY, rowLabel, seatId);
-    else renderFormation();
+    else { renderFormation(); showFlash('Plassen du skulle flytte finnes ikke lenger.'); }
     return;
   }
   if (selectedInstrument) {
     placeFormationSeat(selectedInstrument, true, e.clientX, e.clientY, null, null);
   } else if (selectedName) {
     placeFormationSeat(selectedName, false, e.clientX, e.clientY, null, null);
+  } else {
+    // Her sto det før ingenting. Et trykk på tomt kart uten noe valgt er
+    // nettopp det trykket brukeren gjør når hen tror hen har valgt et navn.
+    showFlash('Velg først et navn eller instrument i listen til venstre — trykk så her på kartet.');
   }
+}
+
+// Banneret må ligge over radetikettene (z-index 3) og plassene (2) — se
+// kommentaren ved formationRowLabelHtml. Avbryt-lenken har egen trykkflate på
+// 44 px (--tap-min) via padding, ellers ville den vært en 11 px høy tekstlinje.
+function formationBannerHtml(label, cancelJs) {
+  return `<div style="position:absolute; left:50%; top:4px; transform:translateX(-50%); background:var(--farge-primar); color:var(--farge-tekst-invers); font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; z-index:5;">${label} &nbsp;·&nbsp; <a href="#" onclick="${cancelJs}" style="color:var(--farge-tekst-invers); display:inline-block; padding:12px 8px; margin:-12px -8px;">Avbryt</a></div>`;
 }
 
 function cancelMoveFormationSeat(e) {
   e.preventDefault();
   movingFormationSeat = null;
   renderFormation();
+}
+
+// «Avbryt» på banneret for ny plassering. Nullstiller det samme som en
+// plassering ville gjort, minus selve plasseringen.
+function clearFormationSelection(e) {
+  e.preventDefault();
+  selectedName = null;
+  selectedInstrument = null;
+  renderFormation(); renderNames(); renderInstruments();
 }
 
 function buildFormationPrintSeat(row, seat, x, y, conductorY, seatSize, append) {
@@ -3609,9 +3691,17 @@ function showSeatOptions(kind, rowLabel, seatId, currentName) {
     ? `<button onclick="closeModal(); startMoveFormationSeat('${escJs(rowLabel)}','${escJs(seatId)}')" class="btn btn-secondary">↔️ Flytt</button>`
     : '';
   const removeLabel = kind === 'formation' ? '✕ Fjern plass' : '✕ Fjern tildeling';
+  // På et tett kart dekker plassene mye av buen, så trykket man mente skulle
+  // treffe tom bakgrunn lander ofte her i stedet. Uten denne linjen ser det ut
+  // som om valget forsvant — det gjorde det ikke, trykket bommet bare.
+  const picked = selectedInstrument || selectedName;
+  const pickedNote = picked
+    ? `<p class="text-sm mb-4" style="color:var(--farge-varsel-tekst); background:var(--farge-varsel-bakgrunn-lys); padding:8px 10px; border-radius:var(--radius-md);">Du har fortsatt <strong>${escHtml(picked)}</strong> valgt. Denne plassen er opptatt — lukk denne boksen og trykk et ledig sted på kartet, eller bruk «🔄 Bytt navn/instrument» for å sette ${escHtml(picked)} her i stedet.</p>`
+    : '';
   showModal(`
     <h2 class="text-lg font-bold mb-3">${escHtml(rowLabel)}${escHtml(seatId)}</h2>
     <p class="text-slate-600 mb-4">Tildelt: <strong>${escHtml(currentName)}</strong></p>
+    ${pickedNote}
     <div class="flex flex-col gap-2">
       <button onclick="closeModal(); showAssignDialog('${kind}','${escJs(rowLabel)}','${escJs(seatId)}')" class="btn btn-secondary">🔄 Bytt navn/instrument</button>
       ${moveBtn}
@@ -4906,6 +4996,33 @@ function closeModal() {
 
 function bgCloseModal(e) {
   if (e.target.classList.contains('modal-bg')) closeModal();
+}
+
+// Kortvarig beskjed nederst på skjermen. Finnes fordi en `return` uten et ord
+// til brukeren er den vanligste feilen i trykkveiene våre: et trykk som ikke
+// fører fram ser nøyaktig ut som en app som ikke virker. Bruk den overalt der
+// koden ellers bare ville gitt opp i stillhet.
+//
+// alert() ville stoppet flyten og krevd et trykk til for å komme videre —
+// dette er informasjon, ikke et spørsmål. Samme beskjed to ganger på rad
+// fornyer bare tidsuret i stedet for å stable opp duplikater.
+let flashTimer = null;
+function showFlash(msg, ms) {
+  const container = document.getElementById('flash-container');
+  if (!container) return;
+  const existing = container.firstElementChild;
+  if (existing && existing.textContent === msg) {
+    existing.classList.remove('flash-out');
+  } else {
+    container.innerHTML = `<div class="flash"></div>`;
+    container.firstElementChild.textContent = msg;
+  }
+  clearTimeout(flashTimer);
+  const el = container.firstElementChild;
+  flashTimer = setTimeout(() => {
+    el.classList.add('flash-out');
+    setTimeout(() => { if (el.parentNode === container) container.innerHTML = ''; }, 260);
+  }, ms || 3200);
 }
 
 function toggleExportMenu() {
