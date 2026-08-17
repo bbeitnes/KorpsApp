@@ -110,16 +110,40 @@ er ikke med i dette kortet.
 
 - [x] Reprodusert i simulator/nettleser før fiks, og feilen forstått — ikke
       bare borte
-- [ ] Ny plassering virker på iPad: velg navn, trykk lerret, plass dukker opp
-- [ ] Flytting virker på iPad: trykk plass → «↔️ Flytt» → trykk mål
+- [x] Ny plassering virker på iPad: velg navn, trykk lerret, plass dukker opp
+- [x] Flytting virker på iPad: trykk plass → «↔️ Flytt» → trykk mål
 - [x] Et trykk som ikke fører fram gir en forståelig beskjed, aldri stillhet
-- [x] Testet i fullskjerm (≥1024px) og i Split View (<1024px) — i nettleser;
-      gjenstår på enhet
-- [ ] Til slutt bekreftet på ekte iPad Pro 12,9" (5. gen), ikke bare simulator
-- [ ] Testet på https://beitnes.net/Korpsapp-test
-- [ ] Merget til `main`
+- [x] Testet i fullskjerm (≥1024px) og i Split View (<1024px)
+- [x] Til slutt bekreftet på ekte iPad Pro 12,9" (5. gen), ikke bare simulator
+- [x] Testet på https://beitnes.net/Korpsapp-test — bekreftet av Bjørn Erik
+      2026-08-17
+- [x] Merget til `main`
 
 ## Notater
+
+### Slik endte det (2026-08-17)
+
+Bekreftet på test av Bjørn Erik: Korpsoppsett kan brukes fra iPad. Merget til
+`main` samme dag.
+
+**To plansteg ble aldri lukket, og det er med vilje:**
+
+- *Om klikk-hendelsen fyres på iPad i det hele tatt* — spørsmålet falt bort da
+  flyten begynte å virke. Den nye `showFlash`-beskjeden er selv svaret hvis
+  det skulle dukke opp igjen: får man beskjed når man trykker på tomt kart,
+  fyres hendelsen.
+- *Rulling og knipe-zoom* — ikke systematisk prøvd. Ingen utilsiktede
+  plasseringer er rapportert, men det er ikke det samme som testet.
+
+**Hvilken av mistenkte som forårsaket den opprinnelige rapporten ble aldri
+isolert.** Fiksen fjernet alle tre samtidig. Det er greit for denne
+rapporten, men det betyr at oppfølgingskortene ikke kan anta at én bestemt
+årsak er den viktige — de bør sette opp samme *synlige og snakkende*
+trykkvei, ikke jakte på én enkelt bug.
+
+**Uløst, båret videre:** plassene måles til 43px ved 30 musikanter mot
+`--tap-min: 44px`, og gulvet i koden er 20px. Ikke rørt her fordi det endrer
+layouten for alle store oppstillinger.
 
 ### Hva grillingen 2026-08-16 fastslo
 
