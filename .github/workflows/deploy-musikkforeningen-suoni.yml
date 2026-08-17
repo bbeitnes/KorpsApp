@@ -1,0 +1,51 @@
+# Utrulling til kunden Musikkforeningen Suoni (Firebase Hosting, prosjekt
+# `musikkforeningen-suoni`). Kunden bygges fra `main` med sitt eget
+# kundeoppsett fra config/ — ingen egen kundegren, slik kort 7 la opp til.
+#
+# Nesten identisk med deploy-kvinner-i-kor.yml. Blir det flere kunder enn tre,
+# er dette moden for én arbeidsflyt med matrise over kundene
+# (`${{ secrets[matrix.hemmelighet] }}` virker) i stedet for én fil per kunde.
+name: Deploy Musikkforeningen Suoni (Firebase)
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  checks: write
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Velg kundeoppsett
+        run: cp config/musikkforeningen-suoni.js config.js
+
+      - name: Legg ut tjenestekontoen
+        run: |
+          printf '%s' "$SA" > "$RUNNER_TEMP/musikkforeningen-suoni-sa.json"
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_MUSIKKFORENINGEN_SUONI }}
+
+      # Reglene FØR hostingen, aldri motsatt. Ny kode kan ta i bruk en ny
+      # samling (slik `main` gjorde med korpsIndex), og da må regelen være på
+      # plass før koden som leser den er ute — ellers møter kunden «Kunne ikke
+      # hente listen over korps».
+      #
+      # Trygt her fordi `musikkforeningen-suoni` er kundens EGET prosjekt og dette
+      # regelsettet er hele bildet der. Det motsatte gjelder for
+      # skiensskolemusikk-b5cbc — se advarselen øverst i firestore.rules.
+      - name: Rull ut Firestore-regler
+        run: npx -y firebase-tools@latest deploy --only firestore:rules --project musikkforeningen-suoni --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/musikkforeningen-suoni-sa.json
+
+      - name: Rull ut hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_MUSIKKFORENINGEN_SUONI }}
+          channelId: live
+          projectId: musikkforeningen-suoni
