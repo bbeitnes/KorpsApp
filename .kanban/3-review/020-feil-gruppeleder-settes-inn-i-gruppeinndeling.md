@@ -24,15 +24,15 @@ være markert om gangen.
 
 ## Verifisering
 
-- [ ] Korps med registrerte gruppeledere: velg en gruppeleder, deretter et
+- [x] Korps med registrerte gruppeledere: velg en gruppeleder, deretter et
       navn fra Navnelista — gruppeleder-markeringen forsvinner, og navnet
       blir stående alene som valgt
-- [ ] Trykk lederfeltet etterpå — den gamle gruppeleder-markeringen settes
+- [x] Trykk lederfeltet etterpå — den gamle gruppeleder-markeringen settes
       **ikke** automatisk inn. Siden Navneliste-navnet ikke er en gyldig
       lederkandidat når korpset har egen gruppeledere-liste, åpnes i stedet
       dialogen for å velge blant registrerte gruppeledere
-- [ ] Bare ett navn/én person er markert om gangen, i alle fem moduler
-- [ ] Testet på https://beitnes.net/Korpsapp-test
+- [x] Bare ett navn/én person er markert om gangen, i alle fem moduler
+- [x] Testet på https://beitnes.net/Korpsapp-test
 - [ ] Merget til `main`
 
 ## Notater
@@ -106,4 +106,10 @@ alle fire utvalg forblir gjensidig utelukkende gjennom en full kjede
 https://beitnes.net/Korpsapp-test — testen over gikk direkte mot
 JavaScript-state uten innlogging, som er riktig for å isolere logikken,
 men ikke en erstatning for å se det virke i den ekte appen.
+
+### Verifisert på test av Bjørn Erik (2026-08-18)
+
+Bekreftet logget inn, med korps som har registrerte gruppeledere: samme
+klikkrekke som var buggy før — velg gruppeleder, velg navn, trykk
+lederfeltet — oppfører seg nå riktig.
 
