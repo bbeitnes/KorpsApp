@@ -71,10 +71,6 @@
             600: 'var(--farge-ok-mork)',
             700: 'var(--farge-ok-morkere)',
             800: 'var(--farge-ok-tekst)'
-          },
-          green: {
-            100: 'var(--farge-ok-bakgrunn-avvik)',
-            700: 'var(--farge-ok-tekst-avvik)'
           }
         },
 
@@ -110,9 +106,14 @@
      DESIGNSYSTEM — «Broadsheet»
      Kilden til alt utseende i appen. To lag:
 
-       1) SYSTEMTOKENS (--color-*, --space-*, --radius-*, --shadow-*, --font-*)
+       1) SYSTEMTOKENS (--color-*, --radius-*, --shadow-*, --font-*, --tap-min)
           Hentet rett fra designsystemet. Rør bare disse hvis du vil endre
           selve systemet.
+
+          Merk: avstand (--space-*) er IKKE en del av dette lenger. Appen
+          spacer med Tailwind-klasser (p-3, gap-2 ...), og skalaen sto igjen
+          med én eneste bruk, så den er fjernet. Trengs den igjen, legg den
+          inn på nytt — ikke gjenoppliv den for ett enkelt tilfelle.
 
        2) APPENS PALETT (--farge-*)
           De gamle navnene, uendret, men de peker nå på tokens over.
@@ -130,7 +131,6 @@
     --color-surface:       #eae9e9;
     --color-surface-raised:#ffffff;
     --color-text:          #201e1d;
-    --color-divider:       #d7d3d3;
 
     /* Aksent 1 — cyan: primærhandling, lenker, valgt, bekreftet */
     --color-accent:        #0088b0;
@@ -142,13 +142,10 @@
     --color-accent-600:    #1186ac;   /* hover */
     --color-accent-700:    #006786;   /* trykket / tekst på lys flate */
     --color-accent-800:    #004961;
-    --color-accent-900:    #0a303e;
 
     /* Aksent 2 — magenta: fare, slett, feil, avvik */
-    --color-accent-2:      #d6006c;
     --color-accent-2-100:  #fff1f4;
     --color-accent-2-200:  #ffdee6;
-    --color-accent-2-400:  #ff90b1;
     --color-accent-2-500:  #ff458e;
     --color-accent-2-600:  #d82071;
     --color-accent-2-700:  #aa0b56;
@@ -156,12 +153,10 @@
     --color-accent-2-900:  #4b1528;
 
     /* Nøytral gråskala */
-    --color-neutral-100:   #f8f4f4;
     --color-neutral-200:   #eae7e7;
     --color-neutral-300:   #d7d3d3;
     --color-neutral-400:   #bab6b6;
     --color-neutral-500:   #9b9797;
-    --color-neutral-600:   #7d7979;
     --color-neutral-700:   #605d5d;
     --color-neutral-800:   #444141;
     --color-neutral-900:   #2d2b2b;
@@ -169,14 +164,6 @@
     /* Typografi — serifen ER appens skrift, også i knapper og menyer */
     --font-heading: "Source Serif 4", Georgia, "Times New Roman", serif;
     --font-body:    "Source Serif 4", Georgia, "Times New Roman", serif;
-
-    /* Avstand */
-    --space-1: 5px;
-    --space-2: 10px;
-    --space-3: 15px;
-    --space-4: 20px;
-    --space-6: 30px;
-    --space-8: 40px;
 
     /* Radius og skygge — trykksak: nesten rette hjørner */
     --radius-sm: 1px;
@@ -212,7 +199,6 @@
     --farge-tekst-dempet:       var(--color-neutral-700);    /* undertekst, hjelpetekst */
     --farge-tekst-dempet-mork:  var(--color-neutral-800);    /* undertittel i PDF */
     --farge-tekst-svak:         var(--color-neutral-500);    /* svakeste tekst: tomme felt, tildelte navn */
-    --farge-tekst-graa:         var(--color-text);           /* tekst på sekundærknapp */
     --farge-kant-graa:          var(--color-neutral-300);    /* kantlinje på sekundærknapp */
 
     /* --- Statusfarger ---
@@ -229,28 +215,20 @@
     --farge-fare-mork:          var(--color-accent-2-800);  /* hover på slett-knapp */
     --farge-fare-morkere:       var(--color-accent-2-900);  /* mørkeste magenta tekst */
     --farge-fare-bakgrunn:      var(--color-accent-2-100);  /* lys magenta bakgrunn */
-    --farge-ok:                 var(--color-accent);        /* bekreftet rom */
     --farge-ok-mork:            var(--color-accent-600);    /* mørkere cyan tekst */
     --farge-ok-morkere:         var(--color-accent-700);    /* enda mørkere cyan tekst */
     --farge-ok-tekst:           var(--color-accent-800);    /* mørkeste cyan tekst */
-    --farge-ok-kant:            var(--color-accent-300);    /* cyan kantlinje på fylte felt */
     --farge-ok-kant-svak:       var(--color-accent-200);    /* svakere cyan kantlinje */
-    --farge-ok-bakgrunn:        var(--color-accent-100);    /* cyan bakgrunn på fylte felt */
     --farge-ok-bakgrunn-sterk:  var(--color-accent-200);    /* litt sterkere cyan bakgrunn */
     --farge-ok-bakgrunn-lys:    #f5fcff;                    /* svakeste cyan: bekreftet romkort */
-
-    /* --- Avvikere ---
-       Disse to var nesten-duplikater av de grønne over (Tailwinds «green»
-       vs «emerald»). Ryddet opp nå: de peker på samme sted som søsknene. */
-    --farge-ok-bakgrunn-avvik:  var(--color-accent-100);
-    --farge-ok-tekst-avvik:     var(--color-accent-800);
 
     /* --- Gjennomsiktige farger ---
        Disse lagres som tallverdier (rød, grønn, blå) i stedet for fargekoder,
        fordi de kombineres med ulik gjennomsiktighet. Brukes slik:
        rgba(var(--farge-skygge-rgb), .5) */
-    --farge-skygge-rgb:         45, 43, 43;     /* mørk trykksverte: skygger og bakteppe */
-    --farge-svart-rgb:          0, 0, 0;        /* bakteppe bak modaler */
+    --farge-skygge-rgb:         45, 43, 43;     /* mørk trykksverte: skygger og sidepanelets bakteppe.
+                                                   Modalbakteppet er ikke her — .modal-bg blander
+                                                   --color-neutral-900 med color-mix. */
     --farge-varsel-rgb:         255, 69, 142;   /* magenta pulsering ved «finn person» */
     --farge-bakgrunn-rgb:       243, 242, 242;  /* halvgjennomsiktig radetikett */
   }
@@ -429,7 +407,7 @@
   /* Knapper. Trykkflaten er 40 px på desktop (headeren er tett pakket) og
      vokser til WCAG-målet 44 px på mobil, der fingeren treffer. */
   .btn {
-    min-height: 40px; padding: 0 var(--space-3); border-radius: var(--radius-md);
+    min-height: 40px; padding: 0 15px; border-radius: var(--radius-md);
     font-family: var(--font-heading); font-size: 13px; font-weight: 600; line-height: 1.2;
     cursor: pointer; transition: all .15s;
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -456,15 +434,7 @@
   }
   .chip-sm { padding: 3px 9px; font-size: 10px; }
   .chip-confirmed { background: var(--color-accent-100); color: var(--color-accent-800); }
-  .chip-assigned  { background: var(--color-accent-700); color: var(--farge-tekst-invers); }
-  .chip-free      { background: var(--color-neutral-100); color: var(--color-neutral-700); border: 1px dashed var(--color-neutral-400); }
   .chip-gap       { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
-
-  /* Tom tilstand og lasteskjelett — fra designsystemet, klare til bruk. */
-  .empty-state { text-align: center; padding: var(--space-8) var(--space-4); color: var(--farge-tekst-dempet); }
-  .empty-state h3 { color: var(--farge-tekst); margin-bottom: var(--space-1); }
-  .skeleton { background: var(--color-neutral-200); border-radius: var(--radius-sm); animation: skeleton-pulse 1.4s ease-in-out infinite; }
-  @keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
   .tooltip {
     position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
