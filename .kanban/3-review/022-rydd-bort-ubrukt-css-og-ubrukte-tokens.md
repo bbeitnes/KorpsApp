@@ -15,31 +15,31 @@ som ikke er i bruk.
 
 ## Plan
 
-- [ ] Slett de fire ubrukte klassene med tilhørende regler:
+- [x] Slett de fire ubrukte klassene med tilhørende regler:
       `.chip-assigned`, `.chip-free`, `.empty-state` (+ `.empty-state h3`),
       `.skeleton` (+ `@keyframes skeleton-pulse`)
-- [ ] Slett de tolv ubrukte tokenene: `--color-accent-2`,
+- [x] Slett de tolv ubrukte tokenene: `--color-accent-2`,
       `--color-accent-2-400`, `--color-accent-900`, `--color-divider`,
       `--color-neutral-600`, `--farge-ok`, `--farge-ok-bakgrunn`,
       `--farge-ok-kant`, `--farge-svart-rgb`, `--farge-tekst-graa`,
       `--space-2`, `--space-6`
-- [ ] Fjern `green`-blokken i `tailwind.config` sammen med
+- [x] Fjern `green`-blokken i `tailwind.config` sammen med
       `--farge-ok-bakgrunn-avvik` og `--farge-ok-tekst-avvik`. De to er nå
       rene duplikater av `--farge-ok-bakgrunn`/`--farge-ok-tekst`, og nås
       bare via `green-100`/`green-700` — som ikke brukes noe sted
-- [ ] Rett kommentaren som lyver: `--farge-svart-rgb` står beskrevet som
+- [x] Rett kommentaren som lyver: `--farge-svart-rgb` står beskrevet som
       «bakteppe bak modaler», men brukes ikke. Finn ut hva bakteppet faktisk
       bruker nå, og la kommentaren si det
-- [ ] Kjør samme opptelling på nytt etterpå og sjekk at ingen referanse peker
+- [x] Kjør samme opptelling på nytt etterpå og sjekk at ingen referanse peker
       i løse lufta
 
 ## Verifisering
 
-- [ ] Appen ser helt lik ut før og etter — ingenting av dette males i dag
-- [ ] Ingen `var(--...)` peker på noe som ikke er definert (var 0 av 80 før)
-- [ ] Gå gjennom alle fem moduler visuelt, inkludert PDF-visning og
+- [x] Appen ser helt lik ut før og etter — ingenting av dette males i dag
+- [x] Ingen `var(--...)` peker på noe som ikke er definert (var 0 av 80 før)
+- [x] Gå gjennom alle fem moduler visuelt, inkludert PDF-visning og
       oppstillingsdiagram, som har egne små `<style>`-blokker
-- [ ] Testet på https://beitnes.net/Korpsapp-test
+- [x] Testet på https://beitnes.net/Korpsapp-test
 - [ ] Merget til `main`
 
 ## Notater
