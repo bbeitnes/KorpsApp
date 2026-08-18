@@ -2480,9 +2480,11 @@ function selectName(name) {
   selectedName = selectedName === name ? null : name;
   selectedInstrument = null;
   selectedReiseleder = null;
+  selectedGroupLeader = null;
   renderNames();
   renderInstruments();
   renderReiseledere();
+  renderGroupLeaders();
   // Korpsoppsett tegner et banner («Trykk der X skal stå») som avhenger av
   // hva som er valgt, så kartet må tegnes om når valget endrer seg.
   if (state.mode === 'formation') renderFormation();
@@ -2628,8 +2630,10 @@ function selectInstrument(instr) {
   selectedInstrument = selectedInstrument === instr ? null : instr;
   selectedName = null;
   selectedReiseleder = null;
+  selectedGroupLeader = null;
   renderInstruments();
   renderNames();
+  renderGroupLeaders();
   if (state.mode === 'formation') renderFormation(); // se selectName
   if (selectedInstrument) closeSidebar();            // se selectName
 }
@@ -2685,8 +2689,10 @@ function selectGroupLeader(name) {
   selectedGroupLeader = selectedGroupLeader === name ? null : name;
   selectedName = null;
   selectedInstrument = null;
+  selectedReiseleder = null;
   renderGroupLeaders();
   renderNames();
+  renderReiseledere();
 }
 
 // ===================== REISELEDERE-LISTE (romfordeling) =====================
