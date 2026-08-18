@@ -74,7 +74,7 @@ som fargekortet, som endte med tre nye kort.
 - [x] Hvert funn om død kode eller duplisert logikk er bekreftet, ikke antatt
 - [x] Testet på https://beitnes.net/Korpsapp-test — kortet endrer ingen kode,
       så kravet her er at appen er uendret etter at rapporten er lagt til
-- [ ] Merget til `main`
+- [x] Merget til `main`
 
 ## Notater
 
