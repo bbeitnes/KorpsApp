@@ -1,7 +1,7 @@
 ---
 title: Navnene overlapper på store oppstillinger
 created: 2026-08-17
-updated: 2026-08-17
+updated: 2026-08-18
 ---
 
 ## Mål
@@ -17,46 +17,136 @@ hver.** Appen skal tilpasse seg det tallet, ikke forhandle om det. Ingen
 
 ## Plan
 
-- [ ] Fjern gulvet på etikettbredden. `nameWidth` er
+- [x] Fjern gulvet på etikettbredden. `nameWidth` er
       `Math.round(Math.max(50, baseSeatSize * 1.5))`
       ([index.html:3391](../../index.html)) — den slutter å krympe ved 50px
       selv når raden bare har 27px buelengde per plass. Det er hele årsaken
       til overlappet. Bind bredden til plassens faktiske andel av buen i
       stedet, ikke til et fast tall.
-- [ ] **Fall tilbake til fornavn, så til ingenting.** Når hele navnet ikke får
+- [x] **Fall tilbake til fornavn, så til ingenting.** Når hele navnet ikke får
       plass: vis fornavnet. Når heller ikke det går: dropp etiketten helt.
       Boksen har fortsatt initialer, og navnet finnes i plassmenyen ved trykk.
       Ingen ellipse-stubber — «Bjø…» skiller ikke Bjørn fra Bjørg, og en
       uleselig stub er verre enn tom plass. Se `## Notater` for begrunnelsen.
-- [ ] **Sett skriftgrensa etter måling, ikke før.** `fontSize` er i dag
+- [x] **Sett skriftgrensa etter måling, ikke før.** `fontSize` er i dag
       `Math.max(7, ...)` ([index.html:3392](../../index.html)), og 7px er
       under lesbarhetsgrensen uansett. Rekkefølgen er bestemt: fjern
       breddegulvet først, mål på nytt med 80 musikanter, og la grensa følge av
       hva som faktisk kan leses — på skjerm *og* på papir, siden utskriften
       har sitt eget gulv på `16`. Tallet skal begrunnes i kortet når det
       settes, ikke gjettes nå.
-- [ ] Behold radetiketten lesbar. Kort 4
+- [x] Behold radetiketten lesbar. Kort 4
       (`radetiketten-forsvinner-bak-plassen`, i `4-done`) løste nettopp dette
       med `z-index` og en flytting under linja — sjekk at endringen her ikke
       river opp den fiksen.
-- [ ] Verifiser mot utskriften. `buildFormationPrintHtml` deler geometri med
+- [x] Verifiser mot utskriften. `buildFormationPrintHtml` deler geometri med
       skjermvisningen men sender inn egne tall
       ([index.html:3562](../../index.html), gulv `16`). Utskriften er den som
       virker i dag — den skal ikke bli dårligere av at skjermen blir bedre.
-- [ ] Mål på nytt etterpå med 80 musikanter på 5 rader: antall etiketter som
+- [x] Mål på nytt etterpå med 80 musikanter på 5 rader: antall etiketter som
       dekkes av en boks skal være 0. Tallet før endringen er 18 av 80 (23%).
 
 ## Verifisering
 
-- [ ] 80 musikanter på 5 rader: ingen navneetikett dekkes av en boks
-- [ ] Man kan lese oppstillingen på skjerm uten å skrive den ut
-- [ ] 20 musikanter ser like bra ut som før — den enden av skalaen var aldri
+- [x] 80 musikanter på 5 rader: ingen navneetikett dekkes av en boks
+- [x] Man kan lese oppstillingen på skjerm uten å skrive den ut
+- [x] 20 musikanter ser like bra ut som før — den enden av skalaen var aldri
       ødelagt
-- [ ] Utskrift/PDF er uendret eller bedre
+- [x] Utskrift/PDF er uendret eller bedre
 - [ ] Testet på https://beitnes.net/Korpsapp-test
 - [ ] Merget til `main`
 
 ## Notater
+
+### Hva som ble gjort (2026-08-18)
+
+Alt i `renderFormation`/`renderFormationSeat` i `index.html`. Utskriften er ikke
+rørt — den har sin egen `buildFormationPrintSeat`, og diffen tar ikke i den.
+
+**1. Breddegulvet er borte.** `Math.max(50, ...)` er erstattet av
+`formationLabelWidths`, som for hver plass regner ut hvor mye rom naboene
+faktisk lar stå igjen. Taket er fortsatt `baseSeatSize * 1.5`; det er bare
+gulvet som er fjernet.
+
+**2. Regnestykket ble nødt til å gå over hele oppstillingen, ikke rad for rad.**
+Grillingen målte at alle kollisjonene lå innad i en rad. Det stemte — på et
+944px bredt kart. Første forsøk stolte på det og regnet bare på naboer i samme
+rad; på iPad i stående format (720px kart) klemmes radene sammen, og mot endene
+av buen, der radretningen er vannrett, havner en plass i rad 4 i samme høyde som
+boksene i rad 3. Målt: tre kollisjoner på 20 musikanter, null når naboer i andre
+rader teller med. En nabo teller bare hvis den ligger i veien i høyden også —
+mot buendene står plassene i samme rad nesten rett over hverandre, og å regne på
+x-avstand alene ville tømt buenden for navn helt unødvendig.
+
+**3. Fallback-kjeden er fire hele trinn, ikke to.** Kortet sa «fornavn, så
+ingenting». Det ble til: hele navnet + instrument → hele navnet → alle fornavn →
+første fornavn → ingenting. De to nye trinnene er der fordi begge er hele
+enheter man kan kjenne igjen, ikke stubber: å droppe instrumentlinja koster
+mindre enn å droppe etternavnet, og «Bjørn Erik» er ett navn der «Bjørn» er et
+annet. Ingen ellipse noe sted, som avtalt. Bredden måles med `measureText` mot
+den fonten etiketten faktisk tegnes med — og siden «Source Serif 4» lastes fra
+nettet, tegnes oppstillingen på nytt én gang når fonten er inne.
+
+**4. Skriftgulvet ble 9px, og tallet er målt fram, ikke gjettet.** Antall navn
+som faktisk får plass ved hvert gulv, 80 musikanter på 5 rader à 16, 944px kart:
+
+| gulv | navn som vises |
+|---|---|
+| 7px | 70 av 80 |
+| 8px | 61 |
+| **9px** | **57** |
+| 10px | 38 |
+| 11px | 28 |
+
+Knekkpunktet ligger mellom 9 og 10: et vanlig fornavn på 9px er ~24px bredt, og
+hver plass i innerste rad rår over ~26px. 9px er altså den største skriften som
+fortsatt får fornavnene inn i den trangeste raden, og den minste som fortsatt er
+en bokstav. Under 9px vinner man fire navn på å gjøre alle 57 vanskeligere å
+lese. Utskriftens eget gulv (`16` / `6px` skrift) er urørt.
+
+**5. Etiketten ble flyttet helt opp over boksen.** Den lå før
+`fontSize + 5` over boksens overkant, som er for lite for to linjer — linje to
+havnet bak boksen (boksen har `z-index: 2`, etiketten ikke), så instrumentet var
+i praksis usynlig. Nå ligger hele etiketten over boksen. For en ettlinjes
+etikett er posisjonen den samme som før på piksel-nivå; forskjellen er at
+tolinjes etiketter nå faktisk kan leses. Det er derfor 20 musikanter ser
+*bedre* ut enn før, ikke likt: instrumentnavnet er synlig.
+
+### Målingene etterpå
+
+Målt med samme metode som før endringen: for hver navneetikett, overlapper
+rektangelet dens noen boks (`.seat`) på kartet. Navnene er ikke de samme som i
+grillingens 18-av-80-måling, så baseline med dette navnesettet ble 16 av 80.
+
+944px kart (skrivebord):
+
+| oppsett | plasser | navn vist | droppet | navn over boks | navn over navn |
+|---|---|---|---|---|---|
+| 16+16+16+16+16 | 80 | 57 | 23 | **0** | 0 |
+| 12+15+17+18+18 | 80 | 69 | 11 | **0** | 0 |
+| 10+12+14+14 | 50 | 46 | 4 | **0** | 0 |
+| 8+10+11+11 | 40 | 40 | 0 | **0** | 0 |
+| 4+5+5+6 | 20 | 20 | 0 | **0** | 0 |
+
+720px kart (iPad stående):
+
+| oppsett | plasser | navn vist | droppet | navn over boks |
+|---|---|---|---|---|
+| 16+16+16+16+16 | 80 | 35 | 45 | **0** |
+| 12+15+17+18+18 | 80 | 60 | 20 | **0** |
+| 4+5+5+6 | 20 | 20 | 0 | **0** |
+
+Også testet: én rad med alle 80 (alle etiketter droppes — plassene har ~5px
+hver, og det er det ærlige svaret), blandede radformer (`shallow`/`left`/`flat`),
+og en rad med én plass. Null kollisjoner i alle. Radetikettene («Rad 1» …) blir
+ikke dekket av en boks i noe av oppsettene, så kort 4 sin fiks står urørt.
+Gjengivelsen tar 6,8 ms for 80 plasser.
+
+### Det som gjenstår å se med egne øyne
+
+Om 9px faktisk er lesbart på iPad-en, og om det å droppe 23 av 80 navn i den
+tetteste oppstillingen kjennes riktig i bruk. Begge deler er smaksdommer som
+ikke lar seg måle herfra — det er det testmiljøet er til for.
 
 ### Hva grillingen 2026-08-17 fastslo
 
