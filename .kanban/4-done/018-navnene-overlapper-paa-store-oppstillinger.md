@@ -56,8 +56,8 @@ hver.** Appen skal tilpasse seg det tallet, ikke forhandle om det. Ingen
 - [x] 20 musikanter ser like bra ut som før — den enden av skalaen var aldri
       ødelagt
 - [x] Utskrift/PDF er uendret eller bedre
-- [ ] Testet på https://beitnes.net/Korpsapp-test
-- [ ] Merget til `main`
+- [x] Testet på https://beitnes.net/Korpsapp-test
+- [x] Merget til `main`
 
 ## Notater
 
