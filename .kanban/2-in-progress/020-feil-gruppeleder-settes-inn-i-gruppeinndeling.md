@@ -14,21 +14,23 @@ være markert om gangen.
 
 ## Plan
 
-- [ ] Rett den direkte feilen: `selectName` må nullstille
+- [x] Rett den direkte feilen: `selectName` må nullstille
       `selectedGroupLeader` og kalle `renderGroupLeaders()`, slik
       `selectReiseleder` allerede gjør
-- [ ] Rett samme mangel i `selectInstrument` (mangler gruppeleder) og
+- [x] Rett samme mangel i `selectInstrument` (mangler gruppeleder) og
       `selectGroupLeader` (mangler reiseleder) — de er ufullstendige på hver
       sin måte
-- [ ] Sjekk at `setMode` fortsatt nullstiller alt ved modusbytte
+- [x] Sjekk at `setMode` fortsatt nullstiller alt ved modusbytte
 
 ## Verifisering
 
 - [ ] Korps med registrerte gruppeledere: velg en gruppeleder, deretter et
       navn fra Navnelista — gruppeleder-markeringen forsvinner, og navnet
       blir stående alene som valgt
-- [ ] Trykk lederfeltet etterpå — navnet du valgte *sist* settes inn, ikke
-      gruppelederen
+- [ ] Trykk lederfeltet etterpå — den gamle gruppeleder-markeringen settes
+      **ikke** automatisk inn. Siden Navneliste-navnet ikke er en gyldig
+      lederkandidat når korpset har egen gruppeledere-liste, åpnes i stedet
+      dialogen for å velge blant registrerte gruppeledere
 - [ ] Bare ett navn/én person er markert om gangen, i alle fem moduler
 - [ ] Testet på https://beitnes.net/Korpsapp-test
 - [ ] Merget til `main`
@@ -65,3 +67,43 @@ arkitekturrapporten er overbevisende nok i seg selv — bare
 `selectReiseleder` nullstiller alle tre andre, de tre resten mangler hver
 sin. Verifisering skjer i stedet *etter* rettingen: sett opp et korps med
 gruppeledere, og bekreft at valgrekkefølgen oppfører seg riktig.
+
+### Underveis (2026-08-18)
+
+Arbeidet ligger i PR #19, mot `test`.
+
+**Rettet nøyaktig som planlagt:** kopierte mønsteret fra `selectReiseleder`
+inn i `selectName`, `selectInstrument` og `selectGroupLeader`. Hver
+funksjon nullstiller nå alle tre søsknene sine og re-render alle listene
+som kan ha mistet markeringen.
+
+**Verifisert med negativ kontroll**, ikke bare lest koden: samme
+reproduksjon kjørt både mot koden før og etter endringen, direkte mot
+in-memory `state` i nettleseren (uten innlogging — se PR for hvorfor det er
+trygt, ingen skriving til Firestore skjer uten `auth.currentUser`).
+
+- **Før:** velg gruppeleder «Kari» → velg navn «Ola» → `selectedGroupLeader`
+  forble `'Kari'` → trykk lederfeltet → **Kari** ble satt inn som leder.
+  Bekrefter feilen slik kortet beskriver den.
+- **Etter:** samme rekkefølge → `selectedGroupLeader` blir `null` etter
+  steg 2, markeringen forsvinner fra DOM-en → trykk lederfeltet → **ingen**
+  blir satt inn automatisk. Dialogen for å velge blant registrerte
+  gruppeledere åpnes i stedet.
+
+**Et presiseringspunkt fra `## Mål`:** formuleringen «sist valgte vinner»
+antydet at Ola skulle blitt satt inn som leder. Det stemmer ikke med
+hvordan appen er designet — har korpset en egen gruppeledere-liste, skal
+ledere velges *kun* derfra, ikke fra Navnelista (se kommentaren over
+`showTeamLeaderDialog` i koden). Riktig oppførsel er derfor at *ingen*
+automatisk settes inn, ikke at Ola gjør det. Verifiseringspunktet i kortet
+er justert til å beskrive dette presist.
+
+Testet også: `selectInstrument` nullstiller gruppeleder-valget riktig, og
+alle fire utvalg forblir gjensidig utelukkende gjennom en full kjede
+(Navn → Instrument → Gruppeleder → Reiseleder → kun siste står valgt).
+
+**Gjenstår:** den faktiske appen, innlogget, på
+https://beitnes.net/Korpsapp-test — testen over gikk direkte mot
+JavaScript-state uten innlogging, som er riktig for å isolere logikken,
+men ikke en erstatning for å se det virke i den ekte appen.
+
