@@ -61,3 +61,37 @@ avvikerne ved å la dem peke samme sted, men fjernet dem ikke.
 Merk fella fra kort #1: første forsøk på å telle ubrukte tokens meldte at
 **alle 92** var ubrukte, fordi skallet tolket søkemønsteret feil. Riktig tall
 er 12. Verifiser tellingen før du sletter.
+
+### Underveis (2026-08-18)
+
+Arbeidet ligger i PR #18, mot `test`.
+
+**Tellingen holdt.** De 12 tokenene og de 4 klassene var riktige, bekreftet
+med to uavhengige metoder før sletting. Ingen referanse pekte i løse lufta,
+verken før eller etter.
+
+**Men slettingen utløste en andre runde kortet ikke forutså.** Da den døde
+CSS-en forsvant, ble fire tokens til foreldreløse — de ble bare brukt av
+reglene som nettopp gikk (`--color-neutral-100` av `.chip-free`,
+`--space-1/4/8` av `.empty-state`).
+
+Det avdekket noe større: **hele `--space-*`-skalaen sto igjen med én eneste
+bruk.** Appen spacer med Tailwind-klasser, ikke med tokens — skalaen ble
+aldri tatt i bruk. Valget ble å fjerne den helt og skrive den ene bruken
+(`.btn`) som `15px`, framfor å la en «skala» på ett token bli stående.
+Kommentaren øverst i `:root` sier fra, så ingen gjenoppliver den for ett
+tilfelle. Til sammenlikning er `--radius-*` (17 bruk), `--font-*` (7) og
+`--shadow-*` (3) reelt i bruk.
+
+Sluttilstand: **73 tokens definert, 73 refererte.** Null ubrukte, null
+danglende.
+
+**Verifisering så langt:** innloggingsskjermen er pikselidentisk mot
+testsiden, og computed styles for knapper, felt og bakgrunn er byte for byte
+like — inkludert `padding` på `.btn`, den ene regelen som faktisk ble endret.
+Resten av appen krever innlogging og gjenstår til endringen ligger på `test`.
+
+En bommert verdt å notere: jeg overskrev `.claude/launch.json` ved å sjekke
+om den fantes og skrive til den i samme kommando. Den lå i git og ble
+gjenopprettet uendret — men sjekk før du skriver, ikke samtidig.
+
