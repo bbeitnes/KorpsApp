@@ -40,7 +40,7 @@ som ikke er i bruk.
 - [x] Gå gjennom alle fem moduler visuelt, inkludert PDF-visning og
       oppstillingsdiagram, som har egne små `<style>`-blokker
 - [x] Testet på https://beitnes.net/Korpsapp-test
-- [ ] Merget til `main`
+- [x] Merget til `main`
 
 ## Notater
 
