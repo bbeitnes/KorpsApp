@@ -3533,14 +3533,13 @@ function formationLabelWidths(geometry, baseSeatSize, fontSize, lines) {
 
 // Navnet i fallende fullstendighet. Hvert trinn er en HEL enhet man kan kjenne
 // igjen — aldri et avkuttet navn med ellipse. «Bjø…» skiller ikke Bjørn fra
-// Bjørg, og en stub ser ut som informasjon uten å være det; da er tom plass det
-// ærlige svaret. Initialene står uansett i boksen, og hele navnet er ett trykk
-// unna i plassmenyen.
+// Bjørg, og en stub ser ut som informasjon uten å være det.
 //   1. «Ingrid Hansen» + «Trompet»  (som før, to linjer)
 //   2. «Ingrid Hansen»              (instrumentet er tilleggsinfo, navnet er ikke)
 //   3. «Bjørn Erik»                 (alle fornavn)
 //   4. «Bjørn»                      (bare det første)
-// Går ikke trinn 4 heller, tegnes ingen etikett.
+// Siste trinn vises alltid, også når det ikke er plass til det — se
+// renderFormationSeat.
 function formationNameVariants(name) {
   const commaIdx = name.indexOf(',');
   const person = (commaIdx >= 0 ? name.slice(0, commaIdx) : name).trim();
@@ -3578,15 +3577,34 @@ function renderFormationSeat(row, seat, x, y, conductorY, seatSize, nameWidths, 
   // HEL form — og når heller ikke den korteste får plass, tegnes ingen etikett.
   // Et breddegulv ville i stedet bety at etiketten legger seg oppå naboen, som
   // er nøyaktig feilen dette skal fjerne.
-  const lines = formationNameVariants(seat.name)
-    .find(v => v.every(line => formationTextWidth(line, fontSize) <= nameWidths[v.length - 1]));
-  if (!lines) return;
+  const variants = formationNameVariants(seat.name);
+  let lines = variants.find(v => v.every(line => formationTextWidth(line, fontSize) <= nameWidths[v.length - 1]));
 
-  const nameWidth = nameWidths[lines.length - 1];
+  // Ingen av formene får plass uten å røre en nabo. Da vises fornavnet
+  // LIKEVEL. Første forsøk droppet etiketten her, og det ble prøvd i
+  // testmiljøet: på flankene av buen, der boksene ligger diagonalt oppå
+  // hverandre, står plassen rett over der etiketten skulle vært — så navn
+  // forsvant også på et korps på ~50, der det er god plass ellers. En tom boks
+  // er et dårligere svar enn et fornavn som så vidt rører naboen: man kan
+  // fortsatt lese hvem som står der.
+  //
+  // Et påtvunget navn får sin egen bakgrunn og legges OVER boksene (z-index 3,
+  // samme grep som radetiketten bruker av samme grunn) — uten det ville det
+  // havnet bak en boks og vært like borte som før. Hold deg under 5; der ligger
+  // «Trykk der plassen skal flyttes»-banneret, som skal vinne.
+  const forced = !lines;
+  if (forced) lines = variants[variants.length - 1];
+
+  const nameWidth = forced
+    ? Math.ceil(formationTextWidth(lines[0], fontSize)) + 6
+    : nameWidths[lines.length - 1];
+  const forcedStyle = forced
+    ? ' z-index:3; background:rgba(var(--farge-bakgrunn-rgb), .88); border-radius:4px;'
+    : '';
   const nameLeft = `calc(50% + ${(x - nameWidth/2).toFixed(1)}px)`;
   const nameTop = `${(conductorY - y - seatSize/2 - fontSize*lines.length*1.2 - 3).toFixed(1)}px`;
   const displayName = lines.map(line => escHtml(line)).join('<br>');
-  append(`<div data-name-label="1" style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:var(--farge-tekst); white-space:nowrap; pointer-events:none; line-height:1.2;">${displayName}</div>`);
+  append(`<div data-name-label="1"${forced ? ' data-name-forced="1"' : ''} style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:var(--farge-tekst); white-space:nowrap; pointer-events:none; line-height:1.2;${forcedStyle}">${displayName}</div>`);
 }
 
 // Rad-mål for et slipp/klikk på kartet: finn raden hvis faktiske, tegnede

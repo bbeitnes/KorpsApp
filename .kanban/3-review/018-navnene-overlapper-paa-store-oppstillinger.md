@@ -23,11 +23,11 @@ hver.** Appen skal tilpasse seg det tallet, ikke forhandle om det. Ingen
       selv når raden bare har 27px buelengde per plass. Det er hele årsaken
       til overlappet. Bind bredden til plassens faktiske andel av buen i
       stedet, ikke til et fast tall.
-- [x] **Fall tilbake til fornavn, så til ingenting.** Når hele navnet ikke får
-      plass: vis fornavnet. Når heller ikke det går: dropp etiketten helt.
-      Boksen har fortsatt initialer, og navnet finnes i plassmenyen ved trykk.
-      Ingen ellipse-stubber — «Bjø…» skiller ikke Bjørn fra Bjørg, og en
-      uleselig stub er verre enn tom plass. Se `## Notater` for begrunnelsen.
+- [x] **Fall tilbake til fornavn.** Når hele navnet ikke får plass: vis
+      fornavnet. Ingen ellipse-stubber — «Bjø…» skiller ikke Bjørn fra Bjørg.
+      ~~Når heller ikke det går: dropp etiketten helt.~~ **Omgjort etter
+      verifisering på test 2026-08-18:** fornavnet vises alltid, også når det
+      ikke er plass. Se `### Det som ble gjort om etter test`.
 - [x] **Sett skriftgrensa etter måling, ikke før.** `fontSize` er i dag
       `Math.max(7, ...)` ([index.html:3392](../../index.html)), og 7px er
       under lesbarhetsgrensen uansett. Rekkefølgen er bestemt: fjern
@@ -48,7 +48,10 @@ hver.** Appen skal tilpasse seg det tallet, ikke forhandle om det. Ingen
 
 ## Verifisering
 
-- [x] 80 musikanter på 5 rader: ingen navneetikett dekkes av en boks
+- [x] 80 musikanter på 5 rader: ingen navneetikett dekkes av en boks *utilsiktet*
+      — etiketter som får plass er kollisjonsfrie, og de som ikke får plass
+      tegnes bevisst oppå med egen bakgrunn (se omgjøringen under)
+- [x] Ingen plass står uten navn
 - [x] Man kan lese oppstillingen på skjerm uten å skrive den ut
 - [x] 20 musikanter ser like bra ut som før — den enden av skalaen var aldri
       ødelagt
@@ -112,7 +115,41 @@ etikett er posisjonen den samme som før på piksel-nivå; forskjellen er at
 tolinjes etiketter nå faktisk kan leses. Det er derfor 20 musikanter ser
 *bedre* ut enn før, ikke likt: instrumentnavnet er synlig.
 
-### Målingene etterpå
+### Det som ble gjort om etter test (2026-08-18)
+
+Verifisert i testmiljøet, og det holdt ikke: navn forsvant også på et korps på
+~50, der det er god plass ellers. Årsaken er flankene av buen — der ligger
+boksene diagonalt oppå hverandre, så plassen rett over en boks er opptatt av en
+annen boks, og etiketten hadde ingen steder å være. Fire plasser på rad langs
+venstre flanke sto helt uten navn, mens naboene rett ved siden av hadde navn.
+Utskriften viste de samme navnene helt fint, som gjorde det ekstra tydelig at
+skjermen var den som tok feil.
+
+**Beslutningen fra grillingen er omgjort på ett punkt:** fornavnet vises nå
+alltid, også når det ikke er plass til det. Resten av kjeden er som før — hele
+navnet + instrument → hele navnet → alle fornavn → første fornavn — men siste
+trinn droppes ikke lenger. Begrunnelsen for «tom plass er det ærlige svaret»
+gjaldt avkuttede navn som *ser ut som* informasjon; et helt fornavn som så vidt
+rører naboen er ikke det. Man kan lese hvem som står der, og det var hele målet.
+
+Et påtvunget navn får sin egen bakgrunn og legges over boksene (`z-index: 3`,
+samme grep som radetiketten bruker av samme grunn). Uten det ville det havnet
+bak en boks og vært like borte som før — bokser har `z-index: 2`.
+
+Hva det koster, samme oppsett som tabellene under, 944px kart:
+
+| oppsett | plasser | navn vist | uten konflikt | påtvunget |
+|---|---|---|---|---|
+| 16+16+16+16+16 | 80 | **80** | 57 | 23 |
+| 12+15+17+18+18 | 80 | **80** | 69 | 11 |
+| 10+12+14+14 | 50 | **50** | 46 | 4 |
+| 8+10+11+11 | 40 | **40** | 40 | 0 |
+| 4+5+5+6 | 20 | **20** | 20 | 0 |
+
+Ingen plass står uten navn i noe oppsett. Ved 40 og færre er ingen navn
+påtvunget i det hele tatt — der er alt fortsatt kollisjonsfritt.
+
+### Målingene etterpå (før omgjøringen)
 
 Målt med samme metode som før endringen: for hver navneetikett, overlapper
 rektangelet dens noen boks (`.seat`) på kartet. Navnene er ikke de samme som i
@@ -144,9 +181,9 @@ Gjengivelsen tar 6,8 ms for 80 plasser.
 
 ### Det som gjenstår å se med egne øyne
 
-Om 9px faktisk er lesbart på iPad-en, og om det å droppe 23 av 80 navn i den
-tetteste oppstillingen kjennes riktig i bruk. Begge deler er smaksdommer som
-ikke lar seg måle herfra — det er det testmiljøet er til for.
+Om 9px faktisk er lesbart på iPad-en, og om de påtvungne navnene med egen
+bakgrunn kjennes ryddige nok i den tetteste oppstillingen. Første runde i
+testmiljøet avgjorde spørsmålet om droppede navn — det svaret står over.
 
 ### Hva grillingen 2026-08-17 fastslo
 
