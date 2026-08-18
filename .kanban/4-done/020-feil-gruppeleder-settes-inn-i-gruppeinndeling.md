@@ -33,7 +33,7 @@ være markert om gangen.
       dialogen for å velge blant registrerte gruppeledere
 - [x] Bare ett navn/én person er markert om gangen, i alle fem moduler
 - [x] Testet på https://beitnes.net/Korpsapp-test
-- [ ] Merget til `main`
+- [x] Merget til `main`
 
 ## Notater
 
