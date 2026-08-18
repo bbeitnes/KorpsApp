@@ -3384,11 +3384,19 @@ function renderFormation() {
   formationGeometry = computeFormationGeometry(rows, containerWidth, { seatSize: autoSeatSize });
 
   let html = formationGuidesSvg(formationGeometry);
-  formationGeometry.rowGeoms.forEach(geom => {
+  // Etikettbredden avhenger av hvor ALLE de andre plassene står, ikke bare
+  // plassen selv — så den regnes ut for hele oppstillingen før noe tegnes.
+  const nameFontSize = formationNameFontSize(autoSeatSize);
+  const widthsByLines = [
+    formationLabelWidths(formationGeometry, autoSeatSize, nameFontSize, 1),
+    formationLabelWidths(formationGeometry, autoSeatSize, nameFontSize, 2)
+  ];
+  formationGeometry.rowGeoms.forEach((geom, r) => {
     html += formationRowLabelHtml(geom, formationGeometry.conductorY);
-    geom.row.seats.forEach(seat => {
+    geom.row.seats.forEach((seat, i) => {
       const { x, y } = formationSeatXY(geom, seat.t);
-      renderFormationSeat(geom.row, seat, x, y, formationGeometry.conductorY, geom.seatSize, autoSeatSize, h => html += h);
+      const nameWidths = [widthsByLines[0][r][i], widthsByLines[1][r][i]];
+      renderFormationSeat(geom.row, seat, x, y, formationGeometry.conductorY, geom.seatSize, nameWidths, nameFontSize, h => html += h);
     });
   });
 
@@ -3418,9 +3426,139 @@ function renderFormation() {
   attachFormationCanvasHandlers();
 }
 
-// seatSize er boksstørrelsen for DENNE raden (ganget med 1,6 på store rader);
-// baseSeatSize er størrelsen før det påslaget, felles for hele oppstillingen.
-function renderFormationSeat(row, seat, x, y, conductorY, seatSize, baseSeatSize, append) {
+// Skriftstørrelsen på navneetikettene. Gulvet er 9px, og tallet er satt ETTER
+// at breddegulvet ble fjernet og alt målt på nytt — ikke gjettet på forhånd,
+// for gulvet flytter seg av selve fiksen.
+//
+// Verste tilfelle er 80 musikanter jevnt fordelt på 5 rader (16 i hver, 944px
+// bredt kart): boksen blir 21px, og formelen `baseSeatSize * 0.19` gir 4px.
+// 4px er ikke små bokstaver, det er grå grøt. Målt antall navn som faktisk får
+// plass ved hvert gulv, samme oppstilling:
+//
+//   7px → 70 av 80   8px → 61   9px → 57   10px → 38   11px → 28
+//
+// Mellom 9 og 10 faller det fra 57 til 38 — der ligger knekkpunktet, fordi et
+// vanlig fornavn på 9px er ~24px bredt og hver plass i innerste rad rår over
+// ~26px. Under 9px vinner man 4 navn på å gjøre alle 57 vanskeligere å lese.
+// 9px er altså den største skriften som fortsatt får fornavnene inn i den
+// trangeste raden — og den minste som fortsatt er en bokstav.
+//
+// Blir det trangere enn dette, er svaret å droppe etiketten (se
+// formationNameVariants), ikke å krympe skriften videre.
+const FORMATION_NAME_MIN_FONT = 9;
+function formationNameFontSize(baseSeatSize) {
+  return Math.max(FORMATION_NAME_MIN_FONT, Math.round(baseSeatSize * 0.19));
+}
+
+// Måler tekstbredde med nøyaktig den fonten etiketten faktisk tegnes med.
+// Hele fallback-kjeden hviler på dette tallet: gjetter vi bredden, gjetter vi
+// også hvilket navn som «får plass».
+let formationTextRuler = null;
+function formationTextWidth(text, fontSize) {
+  if (!formationTextRuler) formationTextRuler = document.createElement('canvas').getContext('2d');
+  const family = getComputedStyle(document.body).fontFamily || 'serif';
+  formationTextRuler.font = `700 ${fontSize}px ${family}`;
+  return formationTextRuler.measureText(text).width;
+}
+
+// «Source Serif 4» lastes fra nettet, så aller første gjengivelse kan bli målt
+// mot Georgia og gi feil svar på hva som får plass. Tegn oppstillingen én gang
+// til når fonten faktisk er inne.
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => {
+    if (state.mode === 'formation' && state.formation.rows.length) renderFormation();
+  });
+}
+
+// Hvor bred navneetiketten til hver plass kan være uten å legge seg oppå en
+// boks eller en annen etikett. Dette erstatter et fast gulv på 50px, som var
+// hele årsaken til overlappet: i innerste rad på et korps på 80 har hver plass
+// ~26px langs buen, og en 50px etikett strakk seg da tvers over naboen på hver
+// side. Se kortet navnene-overlapper-paa-store-oppstillinger.
+//
+// Regnestykket går over HELE oppstillingen, ikke rad for rad. Grillingen målte
+// at alle kollisjonene lå innad i en rad, men den målingen var gjort på et
+// 944px bredt kart. På en iPad i stående format (720px kart) klemmes radene
+// sammen, og mot endene av buen — der radretningen er vannrett — havner en
+// plass i rad 4 i samme høyde som boksene i rad 3. Målt: tre slike kollisjoner
+// på 20 musikanter, null når naboer i andre rader teller med.
+//
+// En nabo begrenser bare hvis den faktisk ligger i veien i HØYDEN også. Mot
+// endene av buen står plassene i samme rad nesten rett over hverandre; der er
+// avstanden i x liten uten at etikettene er i konflikt, og å regne på x alene
+// ville tømt buenden for navn helt unødvendig.
+//
+// `lines` er hvor mange linjer etiketten har. Den bestemmer hvor høyt bånd
+// etiketten legger beslag på, og dermed hvem som i det hele tatt er i veien —
+// en ettlinjes etikett rekker ikke opp i raden foran der en tolinjes gjør det,
+// og skal derfor ikke straffes for den. Derfor regnes bredden ut én gang per
+// linjeantall, og renderFormationSeat velger tallet som hører til den formen
+// av navnet den faktisk ender med å tegne.
+//
+// Taket er BASISstørrelsen ganget med 1,5, ikke radens egen boksstørrelse: et
+// navn er et navn, like stort på store rader (`:x`) som på vanlige. Regnet man
+// fra radens egen boksstørrelse, kom påslaget på 1,6 oppå et påslag til, og
+// etiketten ble dobbelt så bred på en boks bare 1,6 ganger bredere.
+function formationLabelWidths(geometry, baseSeatSize, fontSize, lines) {
+  const conductorY = geometry.conductorY;
+  const maxWidth = Math.round(baseSeatSize * 1.5);
+  // Høyden etiketten opptar, rett over boksen — samme tall som
+  // renderFormationSeat plasserer den med.
+  const labelHeight = lines * 1.2 * fontSize + 3;
+  const pts = [];
+  geometry.rowGeoms.forEach((geom, r) => {
+    geom.row.seats.forEach((seat, i) => {
+      const { x, y } = formationSeatXY(geom, seat.t);
+      pts.push({ r, i, x, boxTop: conductorY - y - geom.seatSize/2, size: geom.seatSize });
+    });
+  });
+  const widths = geometry.rowGeoms.map(geom => new Array(geom.row.seats.length).fill(maxWidth));
+  pts.forEach((p, a) => {
+    const labelTop = p.boxTop - labelHeight;
+    let room = maxWidth;
+    pts.forEach((q, b) => {
+      if (a === b) return;
+      const dx = Math.abs(p.x - q.x);
+      // Naboens boks ligger i etikettens høydebånd: stopp før boksens kant.
+      if (q.boxTop < p.boxTop && q.boxTop + q.size > labelTop) {
+        room = Math.min(room, Math.max(0, dx - q.size/2) * 2);
+      }
+      // Naboens egen etikett ligger i samme bånd: del avstanden likt mellom dem.
+      if (Math.abs(p.boxTop - q.boxTop) < labelHeight) room = Math.min(room, dx);
+    });
+    widths[p.r][p.i] = Math.round(room);
+  });
+  return widths;
+}
+
+// Navnet i fallende fullstendighet. Hvert trinn er en HEL enhet man kan kjenne
+// igjen — aldri et avkuttet navn med ellipse. «Bjø…» skiller ikke Bjørn fra
+// Bjørg, og en stub ser ut som informasjon uten å være det; da er tom plass det
+// ærlige svaret. Initialene står uansett i boksen, og hele navnet er ett trykk
+// unna i plassmenyen.
+//   1. «Ingrid Hansen» + «Trompet»  (som før, to linjer)
+//   2. «Ingrid Hansen»              (instrumentet er tilleggsinfo, navnet er ikke)
+//   3. «Bjørn Erik»                 (alle fornavn)
+//   4. «Bjørn»                      (bare det første)
+// Går ikke trinn 4 heller, tegnes ingen etikett.
+function formationNameVariants(name) {
+  const commaIdx = name.indexOf(',');
+  const person = (commaIdx >= 0 ? name.slice(0, commaIdx) : name).trim();
+  const extra = commaIdx >= 0 ? name.slice(commaIdx + 1).trim() : '';
+  const words = person.split(/\s+/).filter(Boolean);
+  const givenNames = words.length > 1 ? words.slice(0, -1).join(' ') : person;
+  const variants = [];
+  if (extra) variants.push([person, extra]);
+  variants.push([person]);
+  if (givenNames !== person) variants.push([givenNames]);
+  if (words.length > 1 && words[0] !== givenNames) variants.push([words[0]]);
+  return variants;
+}
+
+// seatSize er boksstørrelsen for DENNE raden (ganget med 1,6 på store rader).
+// nameWidths er plassen etiketten har fått tildelt av formationLabelWidths,
+// som [bredde for en ettlinjes etikett, bredde for en tolinjes].
+function renderFormationSeat(row, seat, x, y, conductorY, seatSize, nameWidths, fontSize, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
   const initialsFontSize = Math.max(7, Math.round(seatSize * 0.22));
@@ -3435,18 +3573,20 @@ function renderFormationSeat(row, seat, x, y, conductorY, seatSize, baseSeatSize
     <div class="tooltip">${escHtml(seat.name)}</div>
   </div>`);
 
-  // Navneetiketten skaleres med BASISstørrelsen, ikke radens egen boksstørrelse.
-  // Den skal fortsatt krympe i tette oppstillinger — det var den (langt bredere
-  // enn selv en normalstor boks) som var hovedårsaken til overlapping før — men
-  // et navn er et navn: like stort på store rader (`:x`) som på vanlige.
-  // Regnet man fra radens egen boksstørrelse, kom påslaget på 1,6 oppå et påslag
-  // til, og etiketten ble dobbelt så bred på en boks bare 1,6 ganger bredere.
-  const nameWidth = Math.round(Math.max(50, baseSeatSize * 1.5));
-  const fontSize = Math.max(7, Math.round(baseSeatSize * 0.19));
+  // Bredden er den plassen naboene faktisk lar stå igjen (formationLabelWidths),
+  // uten noe fast gulv. Får ikke navnet plass der, kortes det ned til en kortere
+  // HEL form — og når heller ikke den korteste får plass, tegnes ingen etikett.
+  // Et breddegulv ville i stedet bety at etiketten legger seg oppå naboen, som
+  // er nøyaktig feilen dette skal fjerne.
+  const lines = formationNameVariants(seat.name)
+    .find(v => v.every(line => formationTextWidth(line, fontSize) <= nameWidths[v.length - 1]));
+  if (!lines) return;
+
+  const nameWidth = nameWidths[lines.length - 1];
   const nameLeft = `calc(50% + ${(x - nameWidth/2).toFixed(1)}px)`;
-  const nameTop = `${(conductorY - y - seatSize/2 - fontSize - 5).toFixed(1)}px`;
-  const displayName = seat.name.split(',').map(s => escHtml(s.trim())).join('<br>');
-  append(`<div style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:var(--farge-tekst); white-space:normal; overflow:hidden; pointer-events:none; line-height:1.2;">${displayName}</div>`);
+  const nameTop = `${(conductorY - y - seatSize/2 - fontSize*lines.length*1.2 - 3).toFixed(1)}px`;
+  const displayName = lines.map(line => escHtml(line)).join('<br>');
+  append(`<div data-name-label="1" style="position:absolute; left:${nameLeft}; top:${nameTop}; width:${nameWidth}px; text-align:center; font-size:${fontSize}px; font-weight:700; color:var(--farge-tekst); white-space:nowrap; pointer-events:none; line-height:1.2;">${displayName}</div>`);
 }
 
 // Rad-mål for et slipp/klikk på kartet: finn raden hvis faktiske, tegnede
