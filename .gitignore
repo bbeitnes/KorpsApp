@@ -8,3 +8,11 @@ config.js
 
 # Lokal tilstand fra Firebase CLI
 .firebase/
+
+# npm-avhengigheter
+node_modules/
+
+# Bygges av byggesteget (npm run build:css) i CI ved hver deploy — se kort
+# #21 sine notater for hvorfor: ikke commitet, alltid fersk fra
+# tailwind.config.js + src/tailwind-input.css.
+tailwind.css
