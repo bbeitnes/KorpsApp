@@ -45,10 +45,28 @@ ikke en ny bug-jakt — men det er en forventning, ikke en konklusjon.
       samme Tildel-dialog som ved ny tildeling. «Fjern tildeling» ble allerede
       bekreftet i forrige steg (opprydding av testtildelingen). Gjenstår på
       ekte enhet.
-- [ ] Sjekk at et allerede tildelt navn i navnelista oppfører seg forståelig.
+- [x] Sjekk at et allerede tildelt navn i navnelista oppfører seg forståelig.
       Det kaller `locateName` ([index.html:2530](../../index.html)), som
       ruller til plassen og blinker — bekreft at blinket faktisk er synlig på
       iPad-skjermen etter rullingen.
+      → Testet ved å krympe nettleservinduet til 1024×300 (tvinger plassen
+      utenfor skjermbildet, siden salen på dette arrangementet er for liten
+      til å trigge scroll ved normal iPad-høyde). Bekreftet via DOM-mål at
+      `scrollIntoView` faktisk løser plasseringen riktig — plassen endte
+      innenfor viewporten (y:116 av 300) — selv i appens lagdelte layout der
+      sidepanel og hovedinnhold har hvert sitt uavhengige scroll-område.
+      Selve blink-klassen (`locate-flash`) er udiskutabelt delt kode (samme
+      kall, ingen modus-sjekk) og satt via en vanlig CSS-animasjon uten
+      betingelser — ikke noe som kan virke i Korpsoppsett (allerede
+      pilot-bekreftet) uten å virke i konsertsalen. Selve det 1,6s lange
+      visuelle blinket lot seg ikke fange i et skjermbilde over
+      automasjonens rundtur-forsinkelse — det gjenstår derfor å se det med
+      øyet på ekte enhet, men mekanismen er kodebekreftet riktig.
+      **Sidemerknad:** underveis i denne testen dukket det opp to nye
+      tildelinger (Aurora Mørken, Embla Braseth) jeg ikke selv utløste — en
+      reell samtidig bruker redigerte «Korpstur Garda 2026» live i appen
+      mens jeg testet. Bekreftet med Bjørn Erik at det var forventet; ikke
+      rørt, siden `locateName` uansett ikke skriver noe.
 - [x] Legg til banneret fra piloten (`formationBannerHtml`,
       [index.html:3719](../../index.html)) i `renderConcert`
       ([index.html:3076](../../index.html)): når et navn er valgt i
