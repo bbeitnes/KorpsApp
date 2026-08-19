@@ -2211,8 +2211,24 @@ function closeSidebar() {
   document.getElementById('sidebar-backdrop').classList.add('hidden');
 }
 
+// Appen har flere uavhengige modal-systemer (denne fila under, pluss det
+// generiske showModal()/closeModal() lenger ned) som historisk aldri lukket
+// hverandre — to kunne stå åpne samtidig, og en av dem (Velg korps, når den
+// åpnes automatisk) mangler lukkeknapp med vilje, så brukeren kunne oppleve
+// appen som fastlåst. Hver open*Modal-funksjon kaller denne først, så bare
+// én modal kan noensinne være åpen om gangen, uansett hvilken vei den åpnes.
+function closeAllModals() {
+  closeModal();
+  closeNameListModal();
+  closeParentListModal();
+  closeReiseledereListModal();
+  closeGroupLeaderListModal();
+  closeInstrumentListModal();
+}
+
 // ===================== NAMES =====================
 function openNameListModal() {
+  closeAllModals();
   document.getElementById('name-list-modal').classList.remove('hidden');
   refreshNameListSourceHint();
   document.getElementById('name-input').focus();
@@ -2269,6 +2285,7 @@ function parseNames() {
 // Egen liste brukt kun i vaktliste-modus: i et skolekorps er det foreldrene
 // som tar vaktene, ikke musikantene, så navnelisten kan ikke gjenbrukes der.
 function openParentListModal() {
+  closeAllModals();
   document.getElementById('parent-list-modal').classList.remove('hidden');
   document.getElementById('parent-input').focus();
 }
@@ -2290,6 +2307,7 @@ function parseParents() {
 // akkurat de samme sengeplassene som navnelisten — de deler altså samme
 // eksklusivitet/rom-plasser, bare fra en egen liste i sidebaren.
 function openReiseledereListModal() {
+  closeAllModals();
   document.getElementById('reiseledere-list-modal').classList.remove('hidden');
   document.getElementById('reiseledere-input').focus();
 }
@@ -2311,6 +2329,7 @@ function parseReiseledere() {
 // sidetabell-oppslag i tillegg til selve navnelisten. Selve tildelingen
 // bruker uansett bare navnet, som resten av appens rosterlogikk.
 function openGroupLeaderListModal() {
+  closeAllModals();
   document.getElementById('group-leader-list-modal').classList.remove('hidden');
   document.getElementById('group-leader-input').focus();
 }
@@ -2508,7 +2527,7 @@ function locateName(name) {
 // Like the name list, but instruments are never "used up": the same instrument
 // can be placed on any number of formation seats, so nothing is ever marked assigned.
 function openInstrumentListModal() {
-  closeModal();
+  closeAllModals();
   document.getElementById('instrument-list-modal').classList.remove('hidden');
   document.getElementById('instrument-input').focus();
 }
@@ -5069,7 +5088,7 @@ function showHelp() {
 
 // ===================== MODAL =====================
 function showModal(html, wide, customMaxWidthPx) {
-  closeInstrumentListModal();
+  closeAllModals();
   const style = customMaxWidthPx ? `style="max-width:${customMaxWidthPx.toFixed(0)}px;"` : '';
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-bg" onclick="bgCloseModal(event)">
