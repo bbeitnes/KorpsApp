@@ -10,97 +10,49 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Korpsapp">
 <meta name="theme-color" content="#0088b0">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  // ==========================================================================
-  // TAILWIND-FARGER -> FARGEPALETTEN
-  // Her får Tailwind beskjed om å hente fargene sine fra variablene i :root
-  // lenger nede, i stedet for sine egne innebygde farger.
-  //
-  // INGEN klassenavn er endret. "text-slate-400" virker akkurat som før -
-  // den henter bare fargen fra --farge-tekst-svak nå. Det betyr at ETT sted
-  // (:root) styrer hele utseendet.
-  //
-  // Kun fargetonene appen faktisk bruker er listet opp. Resten av Tailwinds
-  // farger er urørt, så nye klasser virker som normalt.
-  //
-  // ⚠️ MERK: Tailwind kan tone ned en farge med skråstrek, f.eks.
-  // "bg-white/50". Den skrivemåten virker IKKE på fargene under, fordi de
-  // kommer fra variabler. Appen bruker den ingen steder i dag. Trenger du
-  // gjennomsiktighet, bruk en rgba-variabel slik som --farge-skygge-rgb.
-  // ==========================================================================
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          white: 'var(--farge-flate)',
-          slate: {
-            50:  'var(--farge-bakgrunn)',
-            100: 'var(--farge-bakgrunn-dempet)',
-            200: 'var(--farge-kant)',
-            300: 'var(--farge-kant-sterk)',
-            400: 'var(--farge-tekst-svak)',
-            500: 'var(--farge-tekst-dempet)',
-            600: 'var(--farge-tekst-dempet-mork)',
-            700: 'var(--farge-tekst-sekundar)',
-            800: 'var(--farge-tekst)'
-          },
-          indigo: {
-            300: 'var(--farge-primar-svakere)',
-            400: 'var(--farge-primar-svak)',
-            600: 'var(--farge-primar)',
-            800: 'var(--farge-primar-mork)'
-          },
-          red: {
-            100: 'var(--farge-fare-bakgrunn)',
-            400: 'var(--farge-fare-lys)',
-            500: 'var(--farge-fare)',
-            600: 'var(--farge-fare-mork)',
-            700: 'var(--farge-fare-morkere)'
-          },
-          amber: {
-            100: 'var(--farge-varsel-bakgrunn)',
-            700: 'var(--farge-varsel-tekst)'
-          },
-          emerald: {
-            100: 'var(--farge-ok-bakgrunn-sterk)',
-            200: 'var(--farge-ok-kant-svak)',
-            600: 'var(--farge-ok-mork)',
-            700: 'var(--farge-ok-morkere)',
-            800: 'var(--farge-ok-tekst)'
-          }
-        },
+<link rel="stylesheet" href="tailwind.css">
+<style>
+  /* ==========================================================================
+     SOURCE SERIF 4 — vendoret, ikke hentet fra fonts.googleapis.com/gstatic.com
+     Kun latin-delmengden (dekker norsk fullt ut: æøå ligger i U+0000-00FF).
+     De andre delmengdene Google tilbyr (kyrillisk, gresk, vietnamesisk ...)
+     ble aldri lastet av nettlesere som viser norsk tekst uansett, så å
+     vendorere dem ville bare vært død vekt i repoet.
 
-        // ------------------------------------------------------------------
-        // HJØRNERADIUS -> DESIGNSYSTEMET
-        // Broadsheet-systemet er trykksak: nesten rette hjørner (1-4 px) i
-        // stedet for Tailwinds runde 8-16 px. Klassenavnene i appen er
-        // uendret - "rounded-lg" virker som før, den er bare skarpere nå.
-        // "rounded-full" er med vilje IKKE endret: avatarer, merkelapper og
-        // fremdriftslinjer skal fortsatt være helt runde.
-        // ------------------------------------------------------------------
-        borderRadius: {
-          DEFAULT: 'var(--radius-md)',
-          sm:      'var(--radius-sm)',
-          md:      'var(--radius-md)',
-          lg:      'var(--radius-md)',
-          xl:      'var(--radius-lg)',
-          '2xl':   'var(--radius-lg)',
-          '3xl':   'var(--radius-lg)'
-        },
-
-        // Skrifttypen hentes fra samme sted som resten (--font-body).
-        fontFamily: {
-          sans:  ['var(--font-body)'],
-          serif: ['var(--font-heading)']
-        }
-      }
-    }
-  };
-</script>
+     Normal-varianten (400/600/700) er samme fil for alle tre vektene — det
+     er nøyaktig slik Google selv serverte den (se kort #21 sine notater for
+     hvorfor: fila er i praksis en variabel skrift, og de tre @font-face-
+     reglene er «statiske» fasader over samme kildedata).
+     ========================================================================== */
+  @font-face {
+    font-family: 'Source Serif 4';
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url(fonts/source-serif-4-italic-400.woff2) format('woff2');
+  }
+  @font-face {
+    font-family: 'Source Serif 4';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(fonts/source-serif-4-normal.woff2) format('woff2');
+  }
+  @font-face {
+    font-family: 'Source Serif 4';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url(fonts/source-serif-4-normal.woff2) format('woff2');
+  }
+  @font-face {
+    font-family: 'Source Serif 4';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url(fonts/source-serif-4-normal.woff2) format('woff2');
+  }
+</style>
 <style>
   /* ==========================================================================
      DESIGNSYSTEM — «Broadsheet»

@@ -1,16 +1,24 @@
-const CACHE = 'fordeling-v1';
+const CACHE = 'fordeling-v2';
 const ASSETS = [
   './index.html',
   './config.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  'https://cdn.tailwindcss.com'
+  './tailwind.css',
+  './fonts/source-serif-4-normal.woff2',
+  './fonts/source-serif-4-italic-400.woff2'
 ];
 
 self.addEventListener('install', e => {
+  // c.addAll er alt-eller-ingenting: feiler ETT kall (f.eks. brukeren er
+  // offline akkurat idet appen installeres første gang), caches INGENTING —
+  // heller ikke index.html. Promise.allSettled cacher det som lar seg cache
+  // og lar resten være; installasjonen fullfører uansett.
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => Promise.allSettled(ASSETS.map(a => c.add(a))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -35,13 +43,13 @@ self.addEventListener('fetch', e => {
   if (isMainPage) {
     e.respondWith(
       fetch(e.request)
-        .then(res => { caches.open(CACHE).then(c => c.put(e.request, res.clone())); return res; })
+        .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return res; })
         .catch(() => caches.match(e.request))
     );
   } else {
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request)
-        .then(res => { caches.open(CACHE).then(c => c.put(e.request, res.clone())); return res; })
+        .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return res; })
       )
     );
   }
