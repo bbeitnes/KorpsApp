@@ -2485,9 +2485,11 @@ function selectName(name) {
   renderInstruments();
   renderReiseledere();
   renderGroupLeaders();
-  // Korpsoppsett tegner et banner («Trykk der X skal stå») som avhenger av
-  // hva som er valgt, så kartet må tegnes om når valget endrer seg.
+  // Korpsoppsett og konsertsalen tegner et banner («Trykk der X skal stå»)
+  // som avhenger av hva som er valgt, så visningen må tegnes om når valget
+  // endrer seg.
   if (state.mode === 'formation') renderFormation();
+  else if (state.mode === 'concert') renderConcert();
   // Under 1024px ligger sidepanelet som et overlegg oppå kartet. Valgte man
   // et navn ble panelet stående, så neste steg — «trykk der hen skal stå» —
   // var bokstavelig talt skjult bak panelet man nettopp brukte. Lukk det når
@@ -3087,7 +3089,7 @@ function renderConcert() {
   hint.classList.add('hidden');
   layout.classList.remove('hidden');
 
-  grid.innerHTML = state.concert.rows.map(row => {
+  const rowsHtml = state.concert.rows.map(row => {
     const parts = []; // groups of seats separated by physical gaps
     let currentGroup = [];
     for (let idx = 0; idx < row.seats.length; idx++) {
@@ -3137,6 +3139,16 @@ function renderConcert() {
       <div class="text-xs text-slate-400 shrink-0 ml-2">${assigned}/${row.seats.length}</div>
     </div>`;
   }).join('');
+
+  // Konsertsalen har alltid en fungerende reservevei (trykk på en tom plass
+  // åpner Tildel-dialogen uansett), så banneret er ikke strengt nødvendig her
+  // slik det er i Korpsoppsett. Det holder likevel trykkveien «velg navn →
+  // trykk plass» synlig og konsekvent med de andre modusene.
+  const bannerHtml = selectedName
+    ? selectionBannerHtml(`👇 Trykk der ${escHtml(selectedName)} skal stå`, 'clearConcertSelection(event)', { static: true })
+    : '';
+
+  grid.innerHTML = bannerHtml + rowsHtml;
 
   attachSeatDropHandlers('seat-grid', 'concert');
 }
@@ -3385,11 +3397,11 @@ function renderFormation() {
   // ellers står det bare «dra ...» i hjelpeteksten, og på touch er dra det
   // vanskeligste man kan be noen om.
   if (movingFormationSeat) {
-    html += formationBannerHtml('↔️ Trykk der plassen skal flyttes', 'cancelMoveFormationSeat(event)');
+    html += selectionBannerHtml('↔️ Trykk der plassen skal flyttes', 'cancelMoveFormationSeat(event)');
   } else if (selectedInstrument) {
-    html += formationBannerHtml(`👇 Trykk der ${escHtml(selectedInstrument)} skal stå`, 'clearFormationSelection(event)');
+    html += selectionBannerHtml(`👇 Trykk der ${escHtml(selectedInstrument)} skal stå`, 'clearFormationSelection(event)');
   } else if (selectedName) {
-    html += formationBannerHtml(`👇 Trykk der ${escHtml(selectedName)} skal stå`, 'clearFormationSelection(event)');
+    html += selectionBannerHtml(`👇 Trykk der ${escHtml(selectedName)} skal stå`, 'clearFormationSelection(event)');
   }
 
   canvas.style.height = formationGeometry.canvasHeight + 'px';
@@ -3714,11 +3726,17 @@ function formationCanvasClick(e) {
   }
 }
 
-// Banneret må ligge over radetikettene (z-index 3) og plassene (2) — se
-// kommentaren ved formationRowLabelHtml. Avbryt-lenken har egen trykkflate på
+// I korpsoppsett flyter banneret over kartet — det må ligge over
+// radetikettene (z-index 3) og plassene (2), se kommentaren ved
+// formationRowLabelHtml. I konsertsalen er det i stedet en vanlig blokk over
+// radene (opts.static), siden seat-grid er en flex-kolonne uten reservert
+// plass til å legge et overlegg oppå. Avbryt-lenken har egen trykkflate på
 // 44 px (--tap-min) via padding, ellers ville den vært en 11 px høy tekstlinje.
-function formationBannerHtml(label, cancelJs) {
-  return `<div style="position:absolute; left:50%; top:4px; transform:translateX(-50%); background:var(--farge-primar); color:var(--farge-tekst-invers); font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; z-index:5;">${label} &nbsp;·&nbsp; <a href="#" onclick="${cancelJs}" style="color:var(--farge-tekst-invers); display:inline-block; padding:12px 8px; margin:-12px -8px;">Avbryt</a></div>`;
+function selectionBannerHtml(label, cancelJs, opts) {
+  const position = (opts && opts.static)
+    ? 'align-self:center;'
+    : 'position:absolute; left:50%; top:4px; transform:translateX(-50%); z-index:5;';
+  return `<div style="${position} background:var(--farge-primar); color:var(--farge-tekst-invers); font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap;">${label} &nbsp;·&nbsp; <a href="#" onclick="${cancelJs}" style="color:var(--farge-tekst-invers); display:inline-block; padding:12px 8px; margin:-12px -8px;">Avbryt</a></div>`;
 }
 
 function cancelMoveFormationSeat(e) {
@@ -3734,6 +3752,13 @@ function clearFormationSelection(e) {
   selectedName = null;
   selectedInstrument = null;
   renderFormation(); renderNames(); renderInstruments();
+}
+
+// «Avbryt» på banneret i konsertsalen — se clearFormationSelection.
+function clearConcertSelection(e) {
+  e.preventDefault();
+  selectedName = null;
+  renderConcert(); renderNames();
 }
 
 function buildFormationPrintSeat(row, seat, x, y, conductorY, seatSize, append) {
