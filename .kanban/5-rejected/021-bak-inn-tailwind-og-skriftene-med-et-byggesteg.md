@@ -1,7 +1,7 @@
 ---
 title: Bak inn Tailwind og skriftene med et byggesteg
 created: 2026-08-18
-updated: 2026-08-18
+updated: 2026-08-19
 ---
 
 ## Mål
@@ -180,4 +180,23 @@ Firebase-workflowene (`deploy-kvinner-i-kor.yml`,
 `test`. Bare SFTP-veien (skolekorps, som er det testsiden faktisk kjører)
 er bekreftet i CI så langt. De to andre kundene bekreftes først når dette
 merges til `main`.
+
+### Avvist (2026-08-19)
+
+Landet på `test` og ble reverta **to ganger** samme dag: første gang for å
+gi en trygg, kjent-fungerende baseline mens kort #23 (modal-stabling) ble
+undersøkt, andre gang fordi Bjørn rapporterte at siden faktisk sluttet å
+fungere etter at byggesteget + sw.js-rettelsen ble lagt tilbake på `test`
+("the page fails"). Nøyaktig hva som feilet er ikke diagnostisert — verken
+konsoll, nettverksfane eller skjermdump fanget noe unormalt fra
+undersøkelsesverktøyets side denne dagen (se kort #23 sitt eget notat om at
+det verktøyet viste seg upålitelig på akkurat denne siden), så feilen er kun
+kjent fra et direkte, ekte brukerrapport — ikke bekreftet eller reprodusert
+av Claude.
+
+Alt kodearbeid ligger fortsatt i historikken (PR #20, #21, #23, samt
+revertene #23→again). Skal dette tas opp igjen, trengs en ny runde: finn
+faktisk hva som feilet på ekte enhet (DevTools åpne), ikke bare re-deploy og
+håpe. Flytt tilbake til `backlog` når/hvis det skjer — ikke bare fjern denne
+fra `rejected`.
 
