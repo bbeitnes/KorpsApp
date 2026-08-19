@@ -2556,6 +2556,7 @@ function locateName(name) {
 // Like the name list, but instruments are never "used up": the same instrument
 // can be placed on any number of formation seats, so nothing is ever marked assigned.
 function openInstrumentListModal() {
+  closeModal();
   document.getElementById('instrument-list-modal').classList.remove('hidden');
   document.getElementById('instrument-input').focus();
 }
@@ -5116,6 +5117,7 @@ function showHelp() {
 
 // ===================== MODAL =====================
 function showModal(html, wide, customMaxWidthPx) {
+  closeInstrumentListModal();
   const style = customMaxWidthPx ? `style="max-width:${customMaxWidthPx.toFixed(0)}px;"` : '';
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-bg" onclick="bgCloseModal(event)">
