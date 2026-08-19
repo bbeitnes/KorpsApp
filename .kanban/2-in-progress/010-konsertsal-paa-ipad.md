@@ -84,8 +84,21 @@ ikke en ny bug-jakt — men det er en forventning, ikke en konklusjon.
       ved navnevalg, «Avbryt» rydder valget, plassering fjerner banneret
       igjen. Ingen regresjon i Korpsoppsett — testet flytt-banneret der også.
       Ingen testdata står igjen.
-- [ ] Test både i fullskjerm (≥1024px) og i Split View (<1024px) på iPad Pro
+- [x] Test både i fullskjerm (≥1024px) og i Split View (<1024px) på iPad Pro
       12,9" (5. gen).
+      → Fullskjerm (1024×1366) allerede dekket i tidligere steg. Split View
+      testet ved 768×1024 (samme bredde piloten brukte som referanse for
+      «under 1024px»): sidepanelet blir et overlegg med hamburger-meny,
+      navnevalg lukker det automatisk og banneret vises riktig plassert
+      under «— SCENE —»-linjen, plassering fungerer og fjerner banneret,
+      Tildel- og Fjern-dialogene ser riktige ut. Regresjonstestet
+      Korpsoppsett på samme bredde — flytt-banneret virker uendret der også
+      (fant en forhåndseksisterende, ufarlig detalj: Avbryt-lenken bobler opp
+      til kartets egen klikk-handler siden den ligger inni kartet, så en
+      ekstra «velg navn først»-melding dukker opp etter avbrytelsen — samme
+      mønster fantes allerede i piloten, ikke noe denne endringen innførte,
+      og ingen tilstand endres av det). Ekte enhet (iPad Pro 12,9", 5. gen)
+      gjenstår.
 
 ## Verifisering
 
