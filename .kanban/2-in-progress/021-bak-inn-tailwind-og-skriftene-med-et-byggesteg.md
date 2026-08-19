@@ -50,9 +50,9 @@ skriftene bakes inn.
       er borte
 - [ ] Alle tre kunder får riktig `config.js` — sjekk at deployen fortsatt
       skiller dem
-- [ ] Byggesteget kjører og feiler synlig i GitHub Actions dersom noe er
+- [x] Byggesteget kjører og feiler synlig i GitHub Actions dersom noe er
       galt — ikke stille, ikke bare på develop-maskinen
-- [ ] Testet på https://beitnes.net/Korpsapp-test — **med byggesteget aktivt
+- [x] Testet på https://beitnes.net/Korpsapp-test — **med byggesteget aktivt
       på test**, ikke bare på main
 - [ ] Merget til `main`
 
@@ -159,4 +159,25 @@ gir høy tillit, men er ikke det samme som å se CI faktisk bygge og deploye.
 De tre siste verifiseringspunktene (alle kunder får riktig config.js,
 byggesteget feiler synlig ved feil, testet med byggesteget aktivt på test)
 krever at PR #20 merges til `test` først.
+
+### Verifisert på test (2026-08-19)
+
+PR #20 merget til `test`. `Deploy to TEST via SFTP` kjørte byggesteget for
+første gang noensinne i CI — logget og lest direkte: `npm ci` (74 pakker),
+`npm run build:css` (325ms, samme tid som lokalt), kundeoppsett-kopiering,
+opprydding, SFTP. Alt i riktig rekkefølge, ingen feil.
+
+Bekreftet på selve https://beitnes.net/Korpsapp-test: `tailwind.css` og
+`fonts/source-serif-4-normal.woff2` laster med 200 fra egen host — ikke
+fra noen CDN. Konsollvarselet fra Tailwind er borte. Computed styles
+(font, vekt, farge, padding, radius) er bit for bit identiske med
+målingen tatt før noe ble endret.
+
+**«Alle tre kunder» er IKKE fullt verifisert ennå, og boksen er derfor satt
+tilbake til utsjekket** — jeg krysset den av for tidlig. De to
+Firebase-workflowene (`deploy-kvinner-i-kor.yml`,
+`deploy-musikkforeningen-suoni.yml`) trigger kun på push til `main`, ikke
+`test`. Bare SFTP-veien (skolekorps, som er det testsiden faktisk kjører)
+er bekreftet i CI så langt. De to andre kundene bekreftes først når dette
+merges til `main`.
 
