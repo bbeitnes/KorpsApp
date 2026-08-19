@@ -10,26 +10,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Sett opp Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      # Baker Tailwind og skriftene permanent inn i tailwind.css, se kort #21.
-      # Erstatter den uversjonerte cdn.tailwindcss.com.
-      - name: Bygg Tailwind
-        run: |
-          npm ci
-          npm run build:css
-      # SFTP-steget laster opp './*', så både config/ og byggefilene ville
-      # fulgt med — config/ ville lagt andre kunders oppsett ut på denne
-      # kundens vert, og byggefilene tjener ingen hensikt på en levende host.
-      # Kopier/bygg det som trengs, rydd bort resten.
+      # SFTP-steget laster opp './*', så config/ ville fulgt med og lagt andre
+      # kunders oppsett ut på denne kundens vert. Kopier ut, rydd bort resten.
       - name: Velg kundeoppsett
         run: |
           cp config/skolekorps.js config.js
           rm -rf config
-      - name: Rydd bort byggefiler
-        run: rm -rf node_modules src tailwind.config.js package.json package-lock.json
       - name: Deploy to server via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
