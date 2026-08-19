@@ -35,11 +35,14 @@ brukbar skjerm.
       (`openInstrumentListModal`, `showModal`/`showProjectPicker`, og andre)
       lukke enhver ANNEN åpen modal før de åpner sin egen — i stedet for å
       punktrette akkurat denne kombinasjonen
-  - Implementert: `openInstrumentListModal()` kaller nå `closeModal()` først,
-    og `showModal()` kaller nå `closeInstrumentListModal()` først. Alle
-    dialoger bygget på `showModal()` (inkl. `showProjectPicker`) går gjennom
-    samme funksjon, så dette dekker alle kombinasjoner, ikke bare denne ene.
-    Verifisert direkte i konsollen (uten innlogging, siden de to
+  - Utvidet (samme dag): appen har **seks** uavhengige modal-systemer, ikke
+    to — `name-list-modal`, `parent-list-modal`, `reiseledere-list-modal`,
+    `group-leader-list-modal` og `instrument-list-modal` (hver med egen
+    dedikert `<div>`), pluss det generiske `#modal-container` bak
+    `showModal()`/`closeModal()`. Alle seks led av samme mangel. Løsningen er
+    nå én delt `closeAllModals()`-funksjon som hver `open*Modal()`-funksjon
+    (og `showModal()`) kaller først, så bare én kan noensinne stå åpen.
+    Verifisert direkte i konsollen (uten innlogging, siden alle
     modal-funksjonene er globale og uavhengige av auth-tilstand): åpne den
     ene lukker alltid den andre, i begge retninger
 - [ ] Rett årsaken når den er funnet, og fjern anledningen til at to modaler
@@ -181,3 +184,37 @@ modal-systemene kan ikke lenger stables, uansett hva som utløser dem —
 verifisert direkte i konsollen i begge retninger. Dette fjerner ikke årsaken,
 men gjør at symptomet (fastlåst skjerm) ikke kan oppstå igjen selv om
 utløseren aldri blir funnet.
+
+### Rettelse (2026-08-19, samme dag): tidligere «reproduksjoner» i denne
+### runden var trolig ikke ekte
+
+Ved forsøk på å verifisere sikkerhetsnettet live på
+https://beitnes.net/Korpsapp-test dukket det stablede skjermbildet opp igjen
+i skjermdumper — men et JavaScript-sjekk i samme øyeblikk
+(`document.querySelectorAll('.modal-bg')`) viste at **alle** modaler faktisk
+sto lukket i den ekte DOM-en. Ny fane, fersk navigering: samme sprik —
+skjermdump viste den stablede modalen, JS-sjekk viste alt lukket.
+`computer`-verktøyet feilet samtidig med «unresponsive renderer». Navigering
+til `example.com` i samme fane ga korrekt, oppdatert skjermdump — så
+skjermdump-verktøyet var ikke generelt ødelagt, men fanens rendering av
+akkurat denne siden satt fast på et gammelt malt bilde av en modal som i
+den ekte DOM-en allerede var lukket igjen.
+
+**Konsekvens: alle «live reproduksjoner» av feilen i denne økten (inkludert
+den aller første, som satte i gang denne undersøkelsesrunden) må regnes som
+uverifiserte.** De kan ha vært et rendering-artefakt i undersøkelsesverktøyet,
+ikke faktiske forekomster av brukerens feil. Sikkerhetsnettet over er fortsatt
+reelt og ufarlig uansett, men kortet har **ingen bekreftet, reproduserbar
+feilforekomst** å vise til lenger — kun det opprinnelige brukerrapportet.
+
+Interessant nok kan selve rendering-glippen være en reell pekepinn: en side-
+spesifikk paint-fastlåsing rett etter en kort, reell åpne-så-lukke-sekvens
+(f.eks. nøyaktig `onAuthStateChanged`-racen kortet allerede har spekulert i)
+kunne forklare akkurat det brukeren opprinnelig rapporterte — «ingen klikk,
+fersk økt, reproduserbart på flere enheter» — uten at noen kode faktisk
+forblir i feil tilstand. Ikke bekreftet, kun nevnt som enda en mulig
+forklaring ved siden av cache-hypotesen over.
+
+**Konklusjon uendret:** neste steg er fortsatt ekte innlogging med DevTools
+åpne, gjort av noen med tilgang — ikke flere forsøk på å gjette fra kildekode
+eller fra dette verktøyets skjermdumper alene.
