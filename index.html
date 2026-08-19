@@ -2485,11 +2485,12 @@ function selectName(name) {
   renderInstruments();
   renderReiseledere();
   renderGroupLeaders();
-  // Korpsoppsett og konsertsalen tegner et banner («Trykk der X skal stå»)
-  // som avhenger av hva som er valgt, så visningen må tegnes om når valget
-  // endrer seg.
+  // Korpsoppsett, konsertsalen og rom/vakter tegner et banner
+  // («Trykk der X skal stå») som avhenger av hva som er valgt, så visningen
+  // må tegnes om når valget endrer seg.
   if (state.mode === 'formation') renderFormation();
   else if (state.mode === 'concert') renderConcert();
+  else if (state.mode === 'room' || state.mode === 'shift') renderGroups(state.mode);
   // Under 1024px ligger sidepanelet som et overlegg oppå kartet. Valgte man
   // et navn ble panelet stående, så neste steg — «trykk der hen skal stå» —
   // var bokstavelig talt skjult bak panelet man nettopp brukte. Lukk det når
@@ -2746,6 +2747,10 @@ function selectReiseleder(name) {
   selectedGroupLeader = null;
   renderReiseledere();
   renderNames();
+  // Reiseledere velges kun i romfordeling (se kommentaren over
+  // renderReiseledere) — samme banner- og sidepanel-behandling som selectName.
+  if (state.mode === 'room') renderGroups('room');
+  if (selectedReiseleder) closeSidebar();
 }
 
 // ===================== PHOTOS =====================
@@ -3761,6 +3766,15 @@ function clearConcertSelection(e) {
   renderConcert(); renderNames();
 }
 
+// «Avbryt» på banneret i rom/vakter — se clearConcertSelection. Nullstiller
+// også selectedReiseleder, som er romfordelingens eneste ekstra kilde.
+function clearGroupSelection(kind, e) {
+  e.preventDefault();
+  selectedName = null;
+  selectedReiseleder = null;
+  renderGroups(kind); renderNames(); renderReiseledere();
+}
+
 function buildFormationPrintSeat(row, seat, x, y, conductorY, seatSize, append) {
   const left = `calc(50% + ${x.toFixed(1)}px - ${seatSize/2}px)`;
   const top = `${(conductorY - y - seatSize/2).toFixed(1)}px`;
@@ -4038,7 +4052,7 @@ function renderGroups(kind) {
     groups.forEach(g => g.occupants.forEach(n => shiftCounts.set(n, (shiftCounts.get(n)||0)+1)));
   }
 
-  grid.innerHTML = groups.map((g, gi) => {
+  const cardsHtml = groups.map((g, gi) => {
     const slots = [];
     for (let i=0; i<g.capacity; i++) {
       const occ = g.occupants[i] || null;
@@ -4075,6 +4089,18 @@ function renderGroups(kind) {
         <div class="flex flex-col gap-1.5">${slots.join('')}</div>
       </div>`;
   }).join('');
+
+  // Rom/vakter har alltid en fungerende reservevei (trykk på en ledig plass
+  // åpner Tildel-dialogen uansett), så banneret er ikke strengt nødvendig her
+  // slik det er i Korpsoppsett — samme avveining som i konsertsalen. Rutenettet
+  // er et CSS-grid (ikke en flex-kolonne som konsertsalen), så banneret må
+  // selv spenne over alle kolonnene og sentrere innholdet sitt.
+  const picked = selectedName || (kind === 'room' ? selectedReiseleder : null);
+  const bannerHtml = picked
+    ? `<div style="grid-column:1/-1; display:flex; justify-content:center;">${selectionBannerHtml(`👇 Trykk der ${escHtml(picked)} skal stå`, `clearGroupSelection('${kind}', event)`, { static: true })}</div>`
+    : '';
+
+  grid.innerHTML = bannerHtml + cardsHtml;
 
   grid.querySelectorAll('.confirm-toggle').forEach(el => {
     el.addEventListener('click', e => {
@@ -4418,8 +4444,12 @@ function applyGroupSetup(kind) {
 function groupSlotClick(kind, groupIdx, slotIdx) {
   const groups = groupsFor(kind);
   const g = groups[groupIdx];
-  if (!g || g.confirmed) return;
-  if (g.occupants[slotIdx]) return;
+  if (!g) return;
+  if (g.confirmed) { showFlash('Låst — lås opp for å gjøre endringer.'); return; }
+  // Et trykk her (utenom selve ✕-en) rammer museklikk akkurat like mye som
+  // touch — plassen har aldri vært avhengig av dra-og-slipp. Tas med her
+  // likevel siden koden uansett endres for iPad-trykkveien.
+  if (g.occupants[slotIdx]) { showFlash('Plassen er opptatt — bruk ✕ for å fjerne, eller trykk en ledig plass.'); return; }
 
   // Reiseledere deler samme sengeplasser som navnelisten i romfordeling, så
   // et valgt navn derfra tas med som fallback når ingen Navneliste-navn er valgt.

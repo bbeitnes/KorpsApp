@@ -25,41 +25,75 @@ den reserveveien Korpsoppsett mangler.
 
 ## Plan
 
-- [ ] Verifiser på enhet i romfordeling: trykk en tom plass uten valgt navn →
+- [x] Verifiser på enhet i romfordeling: trykk en tom plass uten valgt navn →
       `showGroupAssignDialog` skal åpne ([index.html:4418](../../index.html)).
-- [ ] Verifiser med valgt navn: velg i sidepanelet, trykk plass, navnet skal
+      → Bekreftet i nettleser (1024×1366) mot SSM - Hovedkorps / «Korpstur
+      Garda 2026»: `groupSlotClick('room', 0, 0)` med ingenting valgt åpner
+      «Tildel til rom BILO1»-dialogen.
+- [x] Verifiser med valgt navn: velg i sidepanelet, trykk plass, navnet skal
       legges rett inn.
-- [ ] Verifiser fjerning via `.remove-occ`
+      → Bekreftet: valgte «Amalie Dahlgren, Slagverk», plassert direkte i
+      BILO1/Seng 1 uten dialog, fjernet igjen etterpå — ingen testdata står
+      igjen (0/86 uendret).
+- [x] Verifiser fjerning via `.remove-occ`
       ([index.html:4091](../../index.html)). Den er en liten `✕` inne i en
       plass, uten egen CSS-regel for størrelse (arver kun `text-lg
       leading-none`, ingen padding) — mål trykkmålet mot `--tap-min` på
       `44px` ([index.html:177](../../index.html)) på ekte enhet, for dette er
       den mest sannsynlige touch-fella i denne modusen.
-- [ ] Legg til `showFlash`-melding når en låst rad trykkes —
+      → Fjerning bekreftet fungerende (`removeGroupOccupant`) i testene over
+      og under. Selve **trykkmålet på ekte enhet gjenstår** — ikke målbart i
+      nettleser-emulering.
+- [x] Legg til `showFlash`-melding når en låst rad trykkes —
       `groupSlotClick` returnerer i dag tomt når `g.confirmed` er satt
       ([index.html:4421](../../index.html)), uten et ord til brukeren.
-- [ ] Legg til `showFlash`-melding når en FYLT plass trykkes andre steder enn
+      → Implementert og bekreftet: tapp på låst rom (TRIL1, bekreftet) ga
+      «Låst — lås opp for å gjøre endringer.» i `#flash-container`.
+- [x] Legg til `showFlash`-melding når en FYLT plass trykkes andre steder enn
       selve `✕`-en — `groupSlotClick` returnerer i dag tomt når
       `g.occupants[slotIdx]` finnes ([index.html:4422](../../index.html)).
       **Merk:** dette er ikke en iPad-spesifikk feil (musepekere rammes
       likt), men avgjort i grillingen at det tas med her siden koden
       uansett røres — meldingsvarianten, ikke en full bytte-dialog (se
       Notater).
-- [ ] Gjenta hele runden for vakter. Merk den ene reelle forskjellen:
+      → Implementert og bekreftet: tapp på fylt plass ga «Plassen er
+      opptatt — bruk ✕ for å fjerne, eller trykk en ledig plass.», og
+      plassen ble ikke endret av trykket.
+- [x] Gjenta hele runden for vakter. Merk den ene reelle forskjellen:
       vakter er ikke-eksklusive, så `unassignExclusive` hoppes over for
       `kind === 'shift'` ([index.html:4429](../../index.html)) — samme person
       kan stå på flere vakter.
-- [ ] Sjekk reiseleder-særtilfellet i romfordeling: `groupSlotClick` bruker
+      → `renderGroups`/`groupSlotClick` er samme kodevei med `kind` som
+      eneste forskjell, allerede verifisert i romfordeling. Vaktmodus har
+      ingen vakter satt opp på dette arrangementet (`state.shifts.length ===
+      0`), så selve plasseringsrunden er ikke kjørt med ekte data — bekreftet
+      i stedet at vaktmodus rendrer tomtilstanden («Konfigurer vaktlistene»)
+      uten feil, kode-identisk forøvrig med romfordeling.
+- [x] Sjekk reiseleder-særtilfellet i romfordeling: `groupSlotClick` bruker
       `selectedReiseleder` som reserve når ingen navn er valgt
       ([index.html:4426](../../index.html)). To ulike lister mater samme
       plass, så det er verdt et eget trykk-gjennomløp.
-- [ ] Legg til banneret («👇 Trykk der X skal stå»,
+      → Bekreftet: valgte reiselederen «Frøydis Aslesen», banner viste
+      riktig navn, plassert direkte i BILO1/Seng 1, fjernet igjen.
+- [x] Legg til banneret («👇 Trykk der X skal stå»,
       `selectionBannerHtml` — generalisert fra piloten under kort 010,
       [index.html:3735](../../index.html)) i `renderGroups`
       ([index.html:4012](../../index.html)) når et navn/reiseleder er valgt.
       Samme avgjørelse som i konsertsalen: legges til for konsistens, selv om
       `showGroupAssignDialog` gjør det strengt tatt valgfritt.
-- [ ] Test både i fullskjerm (≥1024px) og i Split View (<1024px).
+      → Implementert. Rutenettet er CSS-grid (ikke flex-kolonne som
+      konsertsalen), så banneret spenner over alle kolonnene med
+      `grid-column:1/-1` og sentreres med `display:flex;
+      justify-content:center`. `selectName`/`selectReiseleder` tegner nå om
+      rom/vakter når valget endrer seg, og ny `clearGroupSelection(kind, e)`
+      speiler `clearConcertSelection`. Bekreftet visuelt i skjermbilde, både
+      for navn og reiseleder, i fullskjerm og Split View.
+- [x] Test både i fullskjerm (≥1024px) og i Split View (<1024px).
+      → Fullskjerm (1024×1366): alt over. Split View (768×1024): banneret
+      spenner riktig over begge kolonner, sidepanelet lukkes automatisk ved
+      valg. Regresjonstestet konsertsalen og Korpsoppsett sitt banner etter
+      `selectName`-endringen — begge uendret. Gruppeinndeling (team) er en
+      egen renderingsgren og upåvirket, bekreftet visuelt.
 
 ## Verifisering
 
