@@ -43,13 +43,13 @@ self.addEventListener('fetch', e => {
   if (isMainPage) {
     e.respondWith(
       fetch(e.request)
-        .then(res => { caches.open(CACHE).then(c => c.put(e.request, res.clone())); return res; })
+        .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return res; })
         .catch(() => caches.match(e.request))
     );
   } else {
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request)
-        .then(res => { caches.open(CACHE).then(c => c.put(e.request, res.clone())); return res; })
+        .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return res; })
       )
     );
   }
