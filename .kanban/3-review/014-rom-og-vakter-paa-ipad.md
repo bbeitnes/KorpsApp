@@ -1,7 +1,7 @@
 ---
 title: Rom og vakter på iPad
 created: 2026-08-16
-updated: 2026-08-19
+updated: 2026-08-20
 ---
 
 ## Mål
