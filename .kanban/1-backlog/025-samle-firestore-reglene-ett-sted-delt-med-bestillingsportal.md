@@ -16,15 +16,31 @@ sine egne.
 
 ## Plan
 
-- [ ] Rett opp dagens utfall FØRST — dette kortet er den varige fiksen, ikke
+- [x] Rett opp dagens utfall FØRST — dette kortet er den varige fiksen, ikke
       strakstiltaket. Se kort-notatene for målt status per blokk
-  - Blokkene som manglet 2026-09-07: `korpsIndex` på `(default)`, og både
-    `korpsapp` og `korpsIndex` på `test`
+  - Gjort 2026-09-07: begge databasene verifisert grønne, korpsvelgeren lister
+    korps igjen på både produksjon og test. Se notatene for hva som FAKTISK var
+    galt (ikke det som først ble antatt)
 - [ ] Hent det som FAKTISK ligger aktivt på begge databasene (Firebase Console
       → Firestore → Regler, eller Rules REST API) — ikke anta at repo-kopiene
       er hele bildet. Bestillingsportals `firebase.json` har ingen
       `firestore`-seksjon og repoet har ingen `.firebaserc`, så reglene der
       publiseres trolig for hånd i Console og kan ha drevet fra repo-fila
+- [ ] Finn og rydd opp i ALLE kopiene av regelsettet før du velger én kilde —
+      det er minst fire i omløp i dag, og det er selve problemet:
+  - `Korpsapp/firestore.rules` i dette repoet (kun KorpsApp-delen)
+  - `~/Claude/Bestillingsportal/firestore.rules` (kun Bestillingsportal-delen)
+  - `/Documents/KorpsApp/KorpsApp/firestore.rules` — en TREDJE kopi, oppdaget
+    2026-09-07 fordi den er oppgitt som kilde i toppkommentaren til det som
+    ligger utrullet på `(default)`. Uavklart hva den inneholder og om den er
+    ajour med dette repoet
+  - Det som er utrullet i Console på hver av de to databasene — den eneste
+    kopien som faktisk håndhever noe
+- [ ] Rett toppkommentaren i det utrullede regelsettet på `(default)` samtidig:
+      den sier at «test»-databasen har sitt eget regelsett «uten
+      KorpsApp-delen». Det er ikke lenger sant — KorpsApp-blokkene ble lagt inn
+      på `test` 2026-09-07. En kommentar som beskriver virkeligheten feil er
+      farlig akkurat her, siden den leses rett før noen publiserer
 - [ ] Bestem hvor den samlede kilden skal bo. Alternativene, med den åpenbare
       ulempen ved hver:
   - Ett av de to repoene eier hele fila, det andre slutter å ha en
@@ -84,6 +100,22 @@ og `permission-denied` dersom den mangler. Rører ingen data.
 
 Kjør per database med `getFirestore(app, 'test')` mot `getFirestore(app)`.
 
+To forbehold ved denne probe-metoden, begge lært den harde veien samme dag:
+
+1. **«Mangler» betyr «ingen regel gjaldt denne stien»**, ikke nødvendigvis at
+   blokken er borte fra fila. På `(default)` LÅ `korpsIndex`-blokken der — bare
+   på feil nivå (se under).
+2. **Den virker kun på samlinger med en `resource == null`-gren** i leseregelen
+   (`korpsapp`, `korpsIndex`, `organisasjoner`, `prosjekter`). Samlinger som
+   `soknader`, `bestillinger`, `kjop` og `aktivitetslogg` leser
+   `resource.data.organisasjonId` direkte, så de svarer `permission-denied` på
+   et ikke-eksisterende dokument selv når reglene er helt i orden. De ble tatt
+   med i en probe-runde og ga fire falske «mangler» som kortvarig så ut som at
+   Bestillingsportal også var nede.
+
+Dokument-ID-er pakket i doble understreker (`__x__`) er reservert i Firestore
+og gir `invalid-argument` — bruk en vanlig ID som `diagnose-finnes-ikke-9f2a`.
+
 ### Hvorfor produksjon bare delvis var nede
 
 `korpsapp`-blokken overlevde på `(default)`, så brukere med et korps allerede
@@ -94,13 +126,37 @@ hvorfor feilen så ut til å ramme bare noen.
 
 Data var uskadd hele tiden. Kun reglene var feil.
 
-### Utkast til sammenslått regelsett
+### Hva som FAKTISK var galt — ikke det som først ble antatt
 
-Et utkast (Bestillingsportals fil + KorpsApps to blokker, med den doble
-`isSignedIn()` slått sammen til én) ble laget 2026-09-07, men **ikke rullet
-ut** — det må først sammenlignes mot det som er aktivt i Console, ellers
-gjentar man nøyaktig samme feil. Utkastet lå i sesjonens scratchpad og er
-trolig borte; det gjenskapes lett fra de to repo-filene.
+Førstediagnosen var «Bestillingsportals regelsett ble publisert over det
+sammenslåtte, tredje gang». Det stemte for `test`, men **ikke** for
+`(default)`. Der var ingenting overskrevet: `korpsIndex`-blokken lå der hele
+tiden, men **én krøllparentes for dypt** — limt inn inne i
+`match /arrangementer/{arrangementId}`, etter at `checkpoints` var lukket. Den
+ga altså tilgang til stien
+`korpsapp/{korpsId}/arrangementer/{arrangementId}/korpsIndex/{korpsId}`, som
+ingen kode noensinne spør etter, mens toppnivå-samlingen appen faktisk lister
+sto uten regel.
+
+Dette er gyldig syntaks. Console publiserer det uten å klage, og det ser helt
+riktig ut når man leter etter «finnes blokken?». **Sjekk nivået, ikke bare at
+blokken er der.** Alle `match`-blokker som gjelder toppnivå-samlinger skal ligge
+på samme dybde som `match /korpsapp/...` og `match /organisasjoner/...`, rett
+inne i `match /databases/{database}/documents`.
+
+Rettelsen ble gjort ved at brukeren limte inn det aktive regelsettet fra
+Console, blokken ble flyttet ut, og resten av fila stod urørt tegn for tegn
+(verifisert med `diff`: eneste endring var flyttingen pluss én blank linje).
+**Den arbeidsmåten — rediger det som faktisk ligger der, ikke gjenskap en
+sammenslått fil fra repo-kopiene — er den som bør brukes neste gang.** En
+gjenskapt fil kan aldri inneholde mer enn repoene vet om.
+
+### Ikke et sikkerhetshull likevel
+
+Underveis ble det mistenkt at `korpsapp`-regelen på `(default)` var en eldre,
+mer åpen variant uten `korpsAllowed(...)`-sjekken, altså at låste korps ikke
+var beskyttet i produksjon. **Det var feil** — det utrullede regelsettet hadde
+den riktige, håndhevende regelen hele tiden. Ingenting å stramme.
 
 ### Verktøybegrensninger som er verdt å vite neste gang
 
