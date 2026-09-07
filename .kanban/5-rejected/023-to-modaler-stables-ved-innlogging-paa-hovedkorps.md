@@ -1,7 +1,7 @@
 ---
 title: To modaler stables ved innlogging på Hovedkorps
 created: 2026-08-19
-updated: 2026-08-19
+updated: 2026-09-07
 ---
 
 ## Mål
@@ -181,3 +181,39 @@ modal-systemene kan ikke lenger stables, uansett hva som utløser dem —
 verifisert direkte i konsollen i begge retninger. Dette fjerner ikke årsaken,
 men gjør at symptomet (fastlåst skjerm) ikke kan oppstå igjen selv om
 utløseren aldri blir funnet.
+
+### Oppfølging (2026-09-07): sannsynlig utløser funnet — `permission-denied`
+
+Dette kortet ble forkastet fordi utløseren aldri lot seg forklare. Under
+feilsøkingen av et helt annet utfall samme høst (se kort #25) dukket
+forklaringen trolig opp av seg selv.
+
+`startKorpsSync` sin feilhåndtering gjør nøyaktig det kortet beskriver som
+uforklarlig: får `onSnapshot` svaret `permission-denied`
+([index.html:1644](../../index.html)), nullstiller den valgt korps og kaller
+`showProjectPicker(false)` ([index.html:1663](../../index.html)) — altså
+varianten UTEN lukkeknapp, med vilje. Ingen brukerhandling kreves. Det er
+selve mekanismen bak «Velg korps dukker opp av seg selv og kan ikke lukkes».
+
+Tidspunktet passer: dette kortet er skrevet 19.–20. august, altså rett etter
+at regelsettet ble slettet fra begge databasene 10. august. Var KorpsApps
+regler fortsatt i ustand da — slik de viste seg å være 7. september, og slik
+de var uoppdaget i ukevis — ville enhver innlogging truffet
+`permission-denied` og fått den fastlåste skjermen, uten å ha klikket på noe.
+Det forklarer «ingen innlogging, flere enheter, inkognito, rett til ødelagt
+skjerm», som ellers ikke gav mening.
+
+**Hva dette IKKE forklarer:** hvorfor Slagverksliste-modalen sto åpen samtidig.
+Den har fortsatt bare ett kallsted («✏️ Rediger»). Hypotesen om en gammel,
+cachet `index.html` fra en service worker står derfor fortsatt som den beste
+forklaringen på akkurat den halvdelen.
+
+**Slik kan det bekreftes:** Firebase har ruleset-historikk med tidsstempel.
+Hent regelsettene som var aktive 19.–20. august 2026 og se om KorpsApp-delen
+manglet eller lå på feil nivå da. Blir det bekreftet, var dette aldri en
+modal-feil i det hele tatt, men det samme regelsett-problemet i forkledning —
+og da hører lærdommen hjemme i kort #25, ikke her.
+
+Kortet blir liggende i `5-rejected`: sikkerhetsnettet er på plass, symptomet
+kan ikke oppstå igjen, og feilmeldingen som skjulte årsaken håndteres i kort
+#26. Dette notatet står her for at neste person ikke skal lete på nytt.
