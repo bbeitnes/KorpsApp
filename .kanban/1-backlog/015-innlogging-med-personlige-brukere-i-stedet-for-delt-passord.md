@@ -66,8 +66,8 @@ claims er raskere og ligger i tokenet, men krever Admin SDK — altså en
 backend. KorpsApp er i dag en ren statisk side uten noe serverledd, så det er
 en arkitekturendring, ikke en detalj.
 
-Uavklart: Er tilgang per installasjon eller per korps? Kvinner i Kor har ett
-korps og trenger neppe to nivåer. Skiens skolemusikk har flere korps og bruker
+Uavklart: Er tilgang per installasjon eller per korps? En kunde med ett korps
+(slik Kvinner i Kor var før nedleggelsen, kort 27) trenger neppe to nivåer. Skiens skolemusikk har flere korps og bruker
 allerede `accessMode: 'restricted'` per korps.
 
 Uavklart: Hvem administrerer lista — utvikleren i konsollet, eller en
@@ -91,9 +91,10 @@ Funnene under er lest ut av koden mens kort 7 ble rullet ut, ikke antatt.
 **Google-innlogging krever et Workspace-domene i dag.**
 [index.html:1977](../../index.html) gjør `provider.setCustomParameters({ hd:
 ALLOWED_GOOGLE_DOMAIN })` og avviser deretter alt som ikke ender på domenet.
-Tomt domene avviser alle. Ingen har lagt merke til det fordi den ene kunden med
-tomt domene også har Google-innlogging avslått
-([config/kvinner-i-kor.js](../../config/kvinner-i-kor.js)).
+Tomt domene avviser alle. Ingen har lagt merke til det fordi kundene med tomt
+domene også har Google-innlogging avslått
+([config/musikkforeningen-suoni.js](../../config/musikkforeningen-suoni.js);
+det samme gjaldt Kvinner i Kor før nedleggelsen, kort 27).
 
 **En liste i `config.js` ville ikke vært håndhevelse.** Klienten kan logge
 brukeren ut etter innlogging, men Firebase har da allerede utstedt et gyldig

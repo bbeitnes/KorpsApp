@@ -7,7 +7,6 @@
     "Se advarselen øverst i firestore.rules før du deployer regler dit."
   ],
   "projects": {
-    "kvinner-i-kor": "kvinner-i-kor",
     "musikkforeningen-suoni": "musikkforeningen-suoni",
     "skolekorps": "skiensskolemusikk-b5cbc"
   }
