@@ -2,8 +2,9 @@
 # `musikkforeningen-suoni`). Kunden bygges fra `main` med sitt eget
 # kundeoppsett fra config/ — ingen egen kundegren, slik kort 7 la opp til.
 #
-# Nesten identisk med deploy-kvinner-i-kor.yml. Blir det flere kunder enn tre,
-# er dette moden for én arbeidsflyt med matrise over kundene
+# Var nesten identisk med deploy-kvinner-i-kor.yml (kunden nedlagt 2026-09-30,
+# kort 27). Blir det flere Firebase-kunder enn én igjen, er dette moden for én
+# arbeidsflyt med matrise over kundene
 # (`${{ secrets[matrix.hemmelighet] }}` virker) i stedet for én fil per kunde.
 name: Deploy Musikkforeningen Suoni (Firebase)
 on:

@@ -1,16 +1,19 @@
 ---
 title: Delt innloggingskonto bør eies av kunden, ikke utvikleren
 created: 2026-08-16
-updated: 2026-08-16
+updated: 2026-09-30
 ---
 
 ## Mål
 
 Den delte innloggingskontoen hos hver kunde skal være en adresse **kunden**
 rår over, ikke utviklerens private Gmail. I dag er `bbeitnes@gmail.com` delt
-konto for Kvinner i Kor, og Musikkforeningen Suoni settes opp på den samme
-adressen fordi de ikke hadde noe alternativ klart. Etterpå skal begge stå på
-hver sin adresse som overlever at utvikleren slutter å være involvert.
+konto for Musikkforeningen Suoni, satt opp slik fordi de ikke hadde noe
+alternativ klart. Etterpå skal kunden stå på en adresse som overlever at
+utvikleren slutter å være involvert.
+
+Kvinner i Kor hadde samme oppsett, men er nedlagt (2026-09-30, kort 27) og
+faller bort fra dette kortet.
 
 Oppdaget 2026-08-16 under oppsettet av Suoni: adressen ligger i klartekst i
 `config.js`, som serveres til enhver besøkende.
@@ -25,17 +28,15 @@ Oppdaget 2026-08-16 under oppsettet av Suoni: adressen ligger i klartekst i
       **samme passord** som den gamle. Da er byttet usynlig for brukerne —
       se «Byttet er billigere enn det høres ut» i Notater.
 - [ ] Bytt `auth.sharedLoginEmail` i `config/<kunde>.js` og rull ut.
-- [ ] Gjør det for Kvinner i Kor
-      ([config/kvinner-i-kor.js](../../config/kvinner-i-kor.js)) og for
-      Musikkforeningen Suoni.
-- [ ] Bestem hva som skjer med den gamle `bbeitnes@gmail.com`-brukeren i hvert
-      prosjekt — slettes, eller beholdes som reservevei inn.
+- [ ] Gjør det for Musikkforeningen Suoni
+      ([config/musikkforeningen-suoni.js](../../config/musikkforeningen-suoni.js)).
+- [ ] Bestem hva som skjer med den gamle `bbeitnes@gmail.com`-brukeren i
+      prosjektet — slettes, eller beholdes som reservevei inn.
 - [ ] Skriv ned regelen for nye kunder, så neste oppsett ikke gjentar dette.
       I dag finnes den ingen steder; Suoni ble satt opp på en privat adresse
       nettopp fordi ingenting sa noe annet.
 
-Uavklart: Har Kvinner i Kor og Suoni i det hele tatt et domene eller en
-postkasse de kan eie en slik adresse i? Hvis ikke, hva er alternativet — en
+Uavklart: Har Suoni i det hele tatt et domene eller en postkasse de kan eie en slik adresse i? Hvis ikke, hva er alternativet — en
 gratis postkasse opprettet i korpsets navn, med passordet delt mellom to
 tillitsvalgte?
 
@@ -60,7 +61,8 @@ men fjerner samtidig utviklerens vei inn hvis kunden mister passordet sitt.
 
 ### Hva som faktisk er eksponert
 
-`config.js` serveres til enhver besøkende. Bekreftet 2026-08-16:
+`config.js` serveres til enhver besøkende. Bekreftet 2026-08-16 (mot
+Kvinner i Kor, som da fortsatt var i drift; Suoni serverer samme fil):
 
 ```
 $ curl -s https://kvinner-i-kor.web.app/config.js | grep sharedLoginEmail
