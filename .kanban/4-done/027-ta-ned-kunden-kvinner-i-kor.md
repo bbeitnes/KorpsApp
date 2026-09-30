@@ -27,23 +27,27 @@ I repoet (går rett til `main` — ingenting her kan verifiseres på test-siden)
 
 Utenfor repoet (må gjøres av den som eier kontoene, i denne rekkefølgen):
 
-- [ ] Ta ned nettstedet: `firebase hosting:disable --project kvinner-i-kor`.
+- [x] Ta ned nettstedet: `firebase hosting:disable --project kvinner-i-kor`.
       Reverserbart — en ny `firebase deploy` setter det opp igjen.
-- [ ] Slett GitHub-hemmeligheten `FIREBASE_SERVICE_ACCOUNT_KVINNER_I_KOR`.
+- [x] Slett GitHub-hemmeligheten `FIREBASE_SERVICE_ACCOUNT_KVINNER_I_KOR`.
       Ingen arbeidsflyt bruker den lenger.
 - [ ] Slett tjenestekontoen `github-action-*@kvinner-i-kor.iam.gserviceaccount.com`
       i Google Cloud IAM, eller hopp over hvis hele prosjektet slettes.
-- [ ] Bestem om Firebase-prosjektet `kvinner-i-kor` skal slettes. Det tar med
-      seg Firestore-dataene (romfordelingene deres) og Auth-brukeren. Google
-      holder prosjektet i 30 dager før det er borte for godt.
+- [ ] Slett Firebase-prosjektet `kvinner-i-kor`. Besluttet 2026-09-30, men
+      ikke utført: Firebase CLI kan ikke slette prosjekter og `gcloud` er ikke
+      installert. Gjøres i konsollet, nederst på
+      https://console.firebase.google.com/project/kvinner-i-kor/settings/general
+      Det tar med seg Firestore-dataene (romfordelingene deres) og
+      Auth-brukerne. Google holder prosjektet i 30 dager før det er borte for
+      godt.
 
 ## Verifisering
 
 - [ ] Testet på https://beitnes.net/Korpsapp-test — ikke aktuelt, endringen
       er bare arbeidsflyt, kundeoppsett og dokumentasjon.
 - [x] Merget til `main`
-- [ ] `https://kvinner-i-kor.web.app` svarer ikke lenger med appen.
-- [ ] Neste push til `main` kjører bare `deploy.yml` og
+- [x] `https://kvinner-i-kor.web.app` svarer ikke lenger med appen.
+- [x] Neste push til `main` kjører bare `deploy.yml` og
       `deploy-musikkforeningen-suoni.yml` under Actions.
 
 ## Notater
@@ -62,6 +66,20 @@ filer. De som er rettet står i planen. De som er latt stå:
 
 Kundegrenen `customer/kvinner-i-kor` ble allerede slettet under kort 7, så
 det er ingen grener å rydde.
+
+### Utført 2026-09-30
+
+Merget som c232548 (PR 28). Actions kjørte bare SFTP-utrullingen,
+Suoni-utrullingen og GitHub Pages, alle grønne. Begge gjenværende kunder
+svarte 200 etterpå med riktig `projectId` i `config.js`.
+
+Før nedtaking inneholdt prosjektet akkurat det ventede: én hosting-side, én
+web-app («KorApp»), én Firestore-database `(default)` og to Auth-brukere.
+Siste innlogging var 2026-09-03.
+
+Etter `hosting:disable` svarer `kvinner-i-kor.web.app` med Firebase sin
+«Site Not Found» (404), også for `config.js`. Hemmeligheten er slettet fra
+repoet. Tjenestekontoen bak den lever til prosjektet slettes.
 
 ### Hvorfor den delen utenfor repoet er skilt ut
 
