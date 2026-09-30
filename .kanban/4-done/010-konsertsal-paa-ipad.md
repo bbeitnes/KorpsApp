@@ -103,7 +103,7 @@ ikke en ny bug-jakt — men det er en forventning, ikke en konklusjon.
 ## Verifisering
 
 - [x] Testet på https://beitnes.net/Korpsapp-test
-- [ ] Merget til `main`
+- [x] Merget til `main`
 
 ## Notater
 

@@ -1,7 +1,7 @@
 ---
 title: Sett opp ny kunde: Musikkforeningen Suoni
 created: 2026-08-16
-updated: 2026-08-17
+updated: 2026-08-18
 ---
 
 ## Mål
@@ -50,14 +50,46 @@ neste kunde skal kunne følge den uten å finne den opp på nytt.
       feiler jobben.
 - [x] Bekreft at `musikkforeningen-suoni.web.app` svarer, at `config.js`
       serveres med riktig prosjekt, og at `config/` ikke ligger ute.
-- [ ] Logg inn og opprett ett korps, som røyktest av regelsettet CI la ut.
+- [x] Logg inn og opprett ett korps, som røyktest av regelsettet CI la ut.
 
 ## Verifisering
 
-- [ ] Testet på https://beitnes.net/Korpsapp-test
+- [x] Testet på https://beitnes.net/Korpsapp-test — gjelder ikke dette kortet.
+      Testsiden kjører `skolekorps`-oppsettet, så et Suoni-kundeoppsett kan
+      ikke vises der i det hele tatt. Verifisert direkte mot
+      `musikkforeningen-suoni.web.app` i stedet, se Notater.
 - [x] Merget til `main`
 
 ## Notater
+
+### Røyktesten, 2026-08-18
+
+Bekreftet av Bjørn Erik: innlogging og oppretting av korps virker mot kundens
+eget prosjekt. Dermed er regelsettet CI la ut faktisk i bruk, ikke bare rullet
+ut uten feilmelding — det var hele poenget med å ha punktet stående åpent.
+
+Kontrollert samme dag rett mot `musikkforeningen-suoni.web.app`, uten
+innlogging:
+
+| sjekk | resultat |
+|---|---|
+| `/` | 200 |
+| `/config.js` | 200, `projectId: "musikkforeningen-suoni"`, `googleLoginEnabled: false`, kun `formation: true` |
+| `/config/skolekorps.js` | 404 |
+| `/config/kvinner-i-kor.js` | 404 |
+| SHA-256 på `index.html` | identisk med `git show main:index.html` |
+
+At `config/` gir 404 er den viktigste av dem: det er kopier-så-slett-steget i
+arbeidsflyten som holder én kundes oppsett unna en annen kundes vert. SHA-summen
+viser samtidig at kunden lå på siste `main` samme dag, altså at kort 18 kom med.
+
+### Hvorfor «Testet på Korpsapp-test» ikke gjaldt her
+
+Linja står i malen for alle kort og er riktig for kodeendringer, men den passer
+ikke på et kundeoppsett: testmiljøet bygges med `skolekorps`-oppsettet, så en ny
+kundes `config/`-fil er per definisjon usynlig der. Verifiseringen måtte skje på
+kundens egen vert, og gjorde det. Neste kunde får samme situasjon — det er en
+egenskap ved oppskriften, ikke en forglemmelse her.
 
 ### Utrullingen 2026-08-17
 

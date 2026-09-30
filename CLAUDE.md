@@ -8,7 +8,7 @@ There is no staging step between the two. `main` is not a place to try things.
 | Branch | Workflow | Where it lands |
 |---|---|---|
 | `test` | `deploy-test.yml` | https://beitnes.net/Korpsapp-test |
-| `main` | `deploy.yml`, `deploy-kvinner-i-kor.yml`, `deploy-musikkforeningen-suoni.yml`, GitHub Pages | Production, all customers |
+| `main` | `deploy.yml`, `deploy-musikkforeningen-suoni.yml`, GitHub Pages | Production, all customers |
 
 So the flow is **feature branch → `test` → verify in the test environment →
 `main`**:

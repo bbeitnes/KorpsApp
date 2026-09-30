@@ -17,6 +17,8 @@ on a card shows when it started and when it finished.
   3-review/        ← pushed to `test`, awaiting verification on
                      https://beitnes.net/Korpsapp-test
   4-done/          ← merged to `main`, kept as a record
+  5-rejected/      ← abandoned outright, kept as a record — not paused,
+                     not queued, not coming back without a new card
 ```
 
 All paths below are relative to the repo root.
@@ -25,7 +27,8 @@ All paths below are relative to the repo root.
 
 `.claude/skills/kanban/kanban.sh` — works from any directory inside the repo
 (it resolves the root with `git rev-parse`). Column names accept short
-aliases: `backlog`/`b`, `in-progress`/`wip`, `review`/`r`, `done`/`d`.
+aliases: `backlog`/`b`, `in-progress`/`wip`, `review`/`r`, `done`/`d`,
+`rejected`/`rej`.
 Cards are addressed by **their number** — `move 7 review` — or by **any unique
 substring** of their filename. The number is tried first, so a bare `1` means
 card 1 and never the six other cards with a `1` somewhere in the name.
@@ -129,6 +132,12 @@ passed:
   checked on https://beitnes.net/Korpsapp-test.
 - **Merging to `main`:** `move … done`. Tick the remaining checkboxes; leave
   the notes section as-is — that's the record of what actually happened.
+- **Abandoning it:** `move … rejected`. For work that's being dropped
+  outright, not paused — e.g. tried on `test` more than once and reverted
+  each time. Add a note to the card on *why*, same as `done` keeps the record
+  of what happened. A rejected card can still be revived later by moving it
+  back to `backlog`, but that should mean something changed (new information,
+  new approach), not just impatience.
 - Keep **one** card in `2-in-progress` unless there's a reason not to.
 
 ## Gotchas
@@ -155,7 +164,7 @@ passed:
 | Symptom | Fix |
 |---|---|
 | `kanban: not inside a git repository` | You're outside the repo. `cd` into `KorpsApp/`. |
-| `kanban: unknown column 'testing'` | Only `backlog`, `in-progress`, `review`, `done` (plus aliases) exist. |
+| `kanban: unknown column 'testing'` | Only `backlog`, `in-progress`, `review`, `done`, `rejected` (plus aliases) exist. |
 | `kanban: no card matching 'x'` | Run `board` and copy the name from the parentheses. |
 | `kanban: … already exists` | A card with that slug is already on the board — `move` it instead of creating a duplicate. |
 | Board renders with literal `[1m` escape codes | Output is being piped somewhere that strips TTY handling; pipe through `cat -v` to confirm, or just read the filenames. |

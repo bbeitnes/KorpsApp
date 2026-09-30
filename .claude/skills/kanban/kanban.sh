@@ -9,7 +9,7 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 [ -n "$ROOT" ] || { echo "kanban: not inside a git repository" >&2; exit 1; }
 BOARD="$ROOT/.kanban"
 
-COLUMNS=(1-backlog 2-in-progress 3-review 4-done)
+COLUMNS=(1-backlog 2-in-progress 3-review 4-done 5-rejected)
 TODAY="$(date +%F)"
 
 # --- helpers ---------------------------------------------------------------
@@ -22,8 +22,9 @@ resolve_column() {
     2|in-progress|wip|progress|p) echo 2-in-progress ;;
     3|review|r|test)             echo 3-review ;;
     4|done|d|ferdig)             echo 4-done ;;
-    1-backlog|2-in-progress|3-review|4-done) echo "$1" ;;
-    *) echo "kanban: unknown column '${1:-}' (use backlog|in-progress|review|done)" >&2; return 1 ;;
+    5|rejected|rej|avvist)       echo 5-rejected ;;
+    1-backlog|2-in-progress|3-review|4-done|5-rejected) echo "$1" ;;
+    *) echo "kanban: unknown column '${1:-}' (use backlog|in-progress|review|done|rejected)" >&2; return 1 ;;
   esac
 }
 
