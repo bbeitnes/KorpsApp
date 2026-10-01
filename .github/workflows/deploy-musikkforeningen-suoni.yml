@@ -21,8 +21,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # API-nøkkelen ligger ikke i repoet (det er offentlig): kundeoppsettet har
+      # en plassholder som byttes ut med secreten her. Mangler secreten, stopper
+      # utrullingen før noe er rullet ut.
       - name: Velg kundeoppsett
-        run: cp config/musikkforeningen-suoni.js config.js
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY_MUSIKKFORENINGEN_SUONI }}
+        run: |
+          test -n "$FIREBASE_API_KEY" || { echo "Mangler secret FIREBASE_API_KEY_MUSIKKFORENINGEN_SUONI"; exit 1; }
+          sed "s|__FIREBASE_API_KEY__|$FIREBASE_API_KEY|" config/musikkforeningen-suoni.js > config.js
+          if grep -q "__FIREBASE_API_KEY__" config.js; then echo "Plassholderen står igjen i config.js"; exit 1; fi
 
       - name: Legg ut tjenestekontoen
         run: |

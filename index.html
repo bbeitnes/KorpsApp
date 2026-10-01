@@ -897,7 +897,10 @@
   // — skal appen si tydelig fra i stedet for å dø halvveis inne i
   // initializeApp() og etterlate en blank side.
   const CONFIG = window.KORPSAPP_CONFIG;
-  if (!CONFIG || !CONFIG.firebase || !CONFIG.firebase.apiKey || !CONFIG.firebase.projectId) {
+  // En apiKey som fortsatt er plassholderen fra config/ teller som manglende:
+  // da er filen kopiert uten at nøkkelen er satt inn.
+  if (!CONFIG || !CONFIG.firebase || !CONFIG.firebase.apiKey || !CONFIG.firebase.projectId
+      || /^__.*__$/.test(CONFIG.firebase.apiKey)) {
     document.getElementById('auth-gate').innerHTML = `
       <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
         <h1 class="text-lg font-bold text-slate-800 mb-3">Kundeoppsettet mangler</h1>
@@ -907,9 +910,13 @@
         </p>
         <p class="text-sm text-slate-600 mb-2">
           Utrullingen skal kopiere riktig kundeoppsett fra <code>config/</code> til
-          <code>config.js</code> i rota. Lokalt gjør du det samme selv:
+          <code>config.js</code> i rota og sette inn API-nøkkelen. Lokalt gjør du det samme selv:
         </p>
         <pre class="text-xs bg-slate-100 rounded-lg p-3 overflow-x-auto">cp config/skolekorps.js config.js</pre>
+        <p class="text-sm text-slate-600 mt-2">
+          Bytt deretter ut <code>__FIREBASE_API_KEY__</code> i <code>config.js</code> med
+          nøkkelen fra Google Cloud Console. Filen er ikke sporet av git.
+        </p>
       </div>`;
     throw new Error('KorpsApp: config.js mangler eller er ufullstendig.');
   }
