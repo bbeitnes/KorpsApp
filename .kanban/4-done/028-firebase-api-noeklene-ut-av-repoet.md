@@ -29,8 +29,8 @@ Bestillingsportal allerede bruker, så den gamle kan slettes i Google Cloud.
 - [x] Lokalt: `config.js` laget med samme `sed` som utrullingen, appen laster
       til innlogging med ren konsoll
 - [x] Lokalt: `config.js` med plassholderen gir «Kundeoppsettet mangler»
-- [ ] Testet på https://beitnes.net/Korpsapp-test (innlogging, åpne et korps)
-- [ ] Merget til `main`
+- [x] Testet på https://beitnes.net/Korpsapp-test (innlogging, åpne et korps)
+- [x] Merget til `main`
 - [ ] Sjekket prod: beitnes.net/Korpsapp og Musikkforeningen Suoni laster og
       logger inn
 
