@@ -40,3 +40,25 @@ customer's file to `config.js` and deletes the rest before uploading — the SFT
 step uploads `./*`, so anything left in `config/` would publish one customer's
 setup onto another customer's host. Keep that copy-then-remove step intact when
 touching a deploy workflow.
+
+### API keys never go in the repo
+
+The repo is public, so the Firebase API key is **not** in `config/`. Each
+customer file carries the placeholder `__FIREBASE_API_KEY__`, and the deploy
+workflow substitutes it from a GitHub secret while writing `config.js`:
+
+| Customer file | Secret |
+|---|---|
+| `config/skolekorps.js` | `FIREBASE_API_KEY` |
+| `config/musikkforeningen-suoni.js` | `FIREBASE_API_KEY_MUSIKKFORENINGEN_SUONI` |
+
+A missing secret fails the deploy on purpose. Locally, copy the customer file
+to `config.js` (untracked) and paste the key in by hand; the app shows
+«Kundeoppsettet mangler» if the placeholder is still there. A new customer
+needs its own secret and the same substitution step in its workflow.
+
+The browser has to receive the key, so it is always readable on the deployed
+site. What protects the data is the Firestore rules and the restrictions on
+the key in Google Cloud Console — not secrecy. The Skiens skolemusikk key is
+shared with Bestillingsportal and Søknadsportal; rotating it is described in
+Søknadsportal's `OPPSETT.md` §8.

@@ -4,11 +4,14 @@
 // Utrullingen kopierer denne filen til `config.js` i rota. Alt som skiller én
 // kunde fra en annen står her — `index.html` er tegn for tegn lik for alle.
 //
-// Web-API-nøklene under er offentlige av design (de ligger i klienten uansett).
-// Tilgangen styres av Firestore-reglene, ikke av nøkkelen.
+// API-nøkkelen står IKKE her: repoet er offentlig. Utrullingen bytter ut
+// `__FIREBASE_API_KEY__` med nøkkelen fra en GitHub-secret; lokalt setter du
+// den inn selv i `config.js` (som ikke er sporet). Se CLAUDE.md. Nettleseren
+// må uansett få nøkkelen, så tilgangen styres av Firestore-reglene og av
+// begrensningene på nøkkelen i Google Cloud — ikke av at den er skjult.
 window.KORPSAPP_CONFIG = {
   firebase: {
-    apiKey: "AIzaSyAQCB7OzgdOy6SkcWeJZLvmXnXjxe5l9dk",
+    apiKey: "__FIREBASE_API_KEY__",
     authDomain: "musikkforeningen-suoni.firebaseapp.com",
     projectId: "musikkforeningen-suoni",
     storageBucket: "musikkforeningen-suoni.firebasestorage.app",

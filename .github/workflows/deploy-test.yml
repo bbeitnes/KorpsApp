@@ -12,9 +12,16 @@ jobs:
         uses: actions/checkout@v4
       # SFTP-steget laster opp './*', så config/ ville fulgt med og lagt andre
       # kunders oppsett ut på denne kundens vert. Kopier ut, rydd bort resten.
+      # API-nøkkelen ligger ikke i repoet (det er offentlig): kundeoppsettet har
+      # en plassholder som byttes ut med secreten her. Mangler secreten, stopper
+      # utrullingen i stedet for å legge ut en app som ikke kan logge inn.
       - name: Velg kundeoppsett
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
         run: |
-          cp config/skolekorps.js config.js
+          test -n "$FIREBASE_API_KEY" || { echo "Mangler secret FIREBASE_API_KEY"; exit 1; }
+          sed "s|__FIREBASE_API_KEY__|$FIREBASE_API_KEY|" config/skolekorps.js > config.js
+          if grep -q "__FIREBASE_API_KEY__" config.js; then echo "Plassholderen står igjen i config.js"; exit 1; fi
           rm -rf config
       - name: Deploy to server via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
