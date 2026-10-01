@@ -4,7 +4,7 @@
 // kunde fra en annen står her — `index.html` er tegn for tegn lik for alle.
 //
 // API-nøkkelen står IKKE her: repoet er offentlig. Utrullingen bytter ut
-// `__FIREBASE_API_KEY__` med nøkkelen fra en GitHub-secret; lokalt setter du
+// plassholderen i `apiKey` med nøkkelen fra en GitHub-secret; lokalt setter du
 // den inn selv i `config.js` (som ikke er sporet). Se CLAUDE.md. Nettleseren
 // må uansett få nøkkelen, så tilgangen styres av Firestore-reglene og av
 // begrensningene på nøkkelen i Google Cloud — ikke av at den er skjult.
