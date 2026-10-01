@@ -22,7 +22,7 @@ Bestillingsportal allerede bruker, så den gamle kan slettes i Google Cloud.
 - [x] `index.html`: en `apiKey` som fortsatt er plassholderen gir
       «Kundeoppsettet mangler», med oppskrift for lokal kjøring
 - [x] `CLAUDE.md`: regelen og tabellen over secrets
-- [ ] Secretene lagt inn i GitHub (gjøres av eier)
+- [x] Secretene lagt inn i GitHub (gjøres av eier)
 
 ## Verifisering
 
