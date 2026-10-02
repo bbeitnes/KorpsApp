@@ -1,7 +1,7 @@
 ---
 title: Firebase API-nøklene ut av repoet
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-02
 ---
 
 ## Mål
@@ -31,7 +31,7 @@ Bestillingsportal allerede bruker, så den gamle kan slettes i Google Cloud.
 - [x] Lokalt: `config.js` med plassholderen gir «Kundeoppsettet mangler»
 - [x] Testet på https://beitnes.net/Korpsapp-test (innlogging, åpne et korps)
 - [x] Merget til `main`
-- [ ] Sjekket prod: beitnes.net/Korpsapp og Musikkforeningen Suoni laster og
+- [x] Sjekket prod: beitnes.net/Korpsapp og Musikkforeningen Suoni laster og
       logger inn
 
 ## Notater
@@ -50,3 +50,15 @@ Bestillingsportal allerede bruker, så den gamle kan slettes i Google Cloud.
   kortet ligger bare plassholderen der.
 - Nettleseren må ha nøkkelen, så den er alltid lesbar på den utrullede siden.
   Beskyttelsen er Firestore-reglene og begrensningene på nøkkelen.
+- 2026-10-01: Første utrulling til prod la Skiens-nøkkelen ut på Suoni-siden,
+  fordi secreten `FIREBASE_API_KEY_MUSIKKFORENINGEN_SUONI` hadde fått feil
+  verdi. Jobben ble grønn likevel — den sjekker bare at secreten finnes, ikke
+  at nøkkelen hører til riktig prosjekt. Innloggingen hos Suoni var nede til
+  secreten ble rettet 2026-10-02 og jobben kjørt på nytt.
+- 2026-10-02: Suoni-nøkkelen ble byttet. Den gamle ble slettet før
+  utrullingen med den nye var kjørt, så innloggingen falt ut én gang til. En
+  secret tas ikke i bruk før jobben kjøres (Actions → «Run workflow»).
+  Rekkefølgen er: ny nøkkel → secret → utrulling → sjekk → slett den gamle.
+- Kontroll etter utrulling: kall `getProjectConfig` med nøkkelen fra den
+  utrullede `config.js` og se at prosjektnummeret stemmer (Suoni:
+  987449247681, Skiens skolemusikk: 125188360972).
