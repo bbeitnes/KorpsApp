@@ -318,6 +318,15 @@
   .name-item.assigned .name-text { color: var(--farge-tekst-svak); }
   .name-item.assigned .assigned-badge { color: var(--farge-tekst-svak); }
   .name-item[draggable="true"]:active { cursor: grabbing; }
+  /* Voksen/barn-merkelapp i billettfordelingen */
+  .ticket-badge {
+    font-size: 11px; line-height: 1; padding: 3px 6px; border-radius: 999px;
+    border: 1px solid var(--farge-kant); background: var(--farge-flate); color: var(--farge-tekst-dempet);
+    font-weight: 500; white-space: nowrap;
+  }
+  .ticket-badge.adult { background: var(--color-accent-100); border-color: var(--color-accent); color: var(--color-accent-800); }
+  button.ticket-badge { cursor: pointer; }
+  button.ticket-badge:hover { border-color: var(--farge-primar); }
   .locate-flash { animation: locate-pulse 1.6s ease-out; }
   @keyframes locate-pulse {
     0% { box-shadow: 0 0 0 5px rgba(var(--farge-varsel-rgb), .9); }
@@ -588,13 +597,13 @@
       <div class="mt-1 text-xs text-slate-400" id="name-count">0 navn</div>
     </div>
 
-    <!-- Vaktlister involverer foreldre, ikke musikantene selv (typisk skolekorps-scenario) -->
+    <!-- Voksne (tidligere «Foreldreliste»): de som tar vaktene i Vaktlister (typisk foreldre i et skolekorps), og som også kan få billett i Billettfordeling. -->
     <div id="parent-section" class="p-3 border-b border-slate-100 hidden">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Foreldreliste</span>
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Voksne</span>
         <button onclick="openParentListModal()" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;">✏️ Rediger</button>
       </div>
-      <div class="mt-1 text-xs text-slate-400" id="parent-count">0 foreldre</div>
+      <div class="mt-1 text-xs text-slate-400" id="parent-count">0 voksne</div>
     </div>
 
     <div id="percussion-section" class="p-3 border-b border-slate-100 hidden">
@@ -797,14 +806,14 @@
 <div id="parent-list-modal" class="modal-bg hidden" onclick="if(event.target.id==='parent-list-modal') closeParentListModal()">
   <div class="modal">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-lg font-bold">Foreldreliste</h2>
+      <h2 class="text-lg font-bold">Voksne</h2>
       <button onclick="closeParentListModal()" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1" aria-label="Lukk">✕</button>
     </div>
-    <p class="text-xs text-slate-500 mb-2">Brukes kun i Vaktlister — foreldre tar vaktene, ikke musikantene.</p>
+    <p class="text-xs text-slate-500 mb-2">Brukes i Vaktlister (det er de voksne, ikke musikantene, som tar vaktene) og i Billettfordeling, der de får voksenbillett.</p>
     <div class="flex gap-1 mb-2">
-      <button onclick="showImportRoster('parent-input','parseParents','foreldre')" class="text-xs text-indigo-600 hover:underline">Importer</button>
+      <button onclick="showImportRoster('parent-input','parseParents','voksne')" class="text-xs text-indigo-600 hover:underline">Importer</button>
     </div>
-    <textarea id="parent-input" placeholder="Skriv ett foreldrenavn per linje..."
+    <textarea id="parent-input" placeholder="Skriv ett navn per linje..."
       class="w-full h-64 text-sm border border-slate-200 rounded-lg p-2 resize-none focus:border-indigo-400"
       oninput="parseParents()"></textarea>
     <div class="mt-3 flex justify-end">
@@ -2038,7 +2047,8 @@ let state = {
   names: [], // effektiv navneliste for gjeldende arrangement — enten samme referanse som korpsNames (namesSource==='korps'), eller arrangementets egen kopi (namesSource==='own')
   korpsNames: [], // korpsets felles master-navneliste, alltid oppdatert uavhengig av om gjeldende arrangement bruker en egen kopi
   namesSource: 'korps', // 'korps' | 'own' — avgjør om Navneliste-redigering skriver til korpset eller kun til dette arrangementet
-  parents: [], // egen liste brukt i vaktliste-modus, siden det er foreldrene og ikke musikantene som tar vakter
+  parents: [], // «Voksne»: egen liste brukt i vaktliste-modus (det er de voksne, ikke musikantene, som tar vakter) og i billettfordeling. Feltnavnet beholdes for å ikke bryte lagrede data.
+  adultMusicians: [], // musikanter (fra navnelisten) markert som voksne — styrer voksen/barn i billettfordelingen
   groupLeaders: [], // egen liste brukt i gruppeinndeling-modus, som ledere velges fra
   groupLeaderYears: {}, // navn -> fødselsår (valgfritt), speiler photos-mønsteret
   reiseledere: [], // egen liste brukt i romfordelings-modus — kan tildeles de samme sengeplassene som navnelisten
@@ -2078,7 +2088,7 @@ window.onload = () => {
 // Erstatter hele state-objektet — brukt både ved manuell fil-import og når
 // appen henter inn korpsets delte prosjekt fra Firestore.
 function replaceState(loaded) {
-  state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], teams: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {}, parents: [], groupLeaders: [], groupLeaderYears: {}, reiseledere: [], korpsNames: [], namesSource: 'korps' }, loaded);
+  state = Object.assign({ formation: { rows: [], title: '' }, shifts: [], teams: [], instruments: DEFAULT_INSTRUMENTS.slice(), photos: {}, parents: [], adultMusicians: [], groupLeaders: [], groupLeaderYears: {}, reiseledere: [], korpsNames: [], namesSource: 'korps' }, loaded);
   // Gamle lokale filer (fra før arrangementer kunne ha egen navneliste-kopi) har ingen korpsNames-felt — da er state.names alltid korpsets liste.
   if (!Array.isArray(loaded.korpsNames)) state.korpsNames = (state.names || []).slice();
   document.getElementById('name-input').value = state.names.join('\n');
@@ -2097,6 +2107,7 @@ function applyKorpsData(data) {
   state.korpsNames = data.names || [];
   if (state.namesSource !== 'own') state.names = state.korpsNames;
   state.parents = data.parents || [];
+  state.adultMusicians = data.adultMusicians || [];
   state.groupLeaders = data.groupLeaders || [];
   state.groupLeaderYears = data.groupLeaderYears || {};
   state.reiseledere = data.reiseledere || [];
@@ -2116,6 +2127,7 @@ function getKorpsData() {
   return {
     names: state.korpsNames,
     parents: state.parents,
+    adultMusicians: state.adultMusicians,
     groupLeaders: state.groupLeaders,
     groupLeaderYears: state.groupLeaderYears,
     reiseledere: state.reiseledere,
@@ -2235,8 +2247,8 @@ function setMode(mode) {
   selectedGroupLeader = null;
   selectedReiseleder = null;
   document.getElementById('name-section').classList.toggle('hidden', mode === 'shift');
-  document.getElementById('parent-section').classList.toggle('hidden', mode !== 'shift');
-  document.getElementById('name-search').placeholder = mode === 'shift' ? 'Søk foreldre...' : 'Søk navn...';
+  document.getElementById('parent-section').classList.toggle('hidden', mode !== 'shift' && mode !== 'concert');
+  document.getElementById('name-search').placeholder = mode === 'shift' ? 'Søk voksne...' : 'Søk navn...';
   renderNames();
   updateStats();
   document.getElementById('percussion-section').classList.toggle('hidden', mode !== 'formation');
@@ -2320,9 +2332,11 @@ function parseNames() {
   updateStats();
 }
 
-// ===================== FORELDRELISTE (vaktlister) =====================
-// Egen liste brukt kun i vaktliste-modus: i et skolekorps er det foreldrene
-// som tar vaktene, ikke musikantene, så navnelisten kan ikke gjenbrukes der.
+// ===================== VOKSNE (vaktlister + billettfordeling) =====================
+// Egen liste (lagret som state.parents, tidligere kalt «Foreldreliste»). I et
+// skolekorps er det de voksne som tar vaktene, ikke musikantene, så
+// navnelisten kan ikke gjenbrukes der. I billettfordelingen vises de i
+// tillegg til musikantene, og får alltid voksenbillett.
 function openParentListModal() {
   document.getElementById('parent-list-modal').classList.remove('hidden');
   document.getElementById('parent-input').focus();
@@ -2334,7 +2348,7 @@ function closeParentListModal() {
 function parseParents() {
   const raw = document.getElementById('parent-input').value;
   state.parents = raw.split('\n').map(n=>n.trim()).filter(Boolean);
-  document.getElementById('parent-count').textContent = `${state.parents.length} foreldre`;
+  document.getElementById('parent-count').textContent = `${state.parents.length} voksne`;
   renderNames();
   updateStats();
 }
@@ -2405,9 +2419,46 @@ function formatGroupLeaderLines() {
   return state.groupLeaders.map(n => state.groupLeaderYears[n] ? `${n}, ${state.groupLeaderYears[n]}` : n).join('\n');
 }
 
-// Musikanter i konsert/korpsoppsett/rom/gruppeinndeling, foreldre i vaktlister.
+// Musikanter i korpsoppsett/rom/gruppeinndeling, voksne i vaktlister, og
+// begge deler i billettfordelingen (der også de voksne skal ha plass).
 function rosterFor(mode = state.mode) {
-  return mode === 'shift' ? state.parents : state.names;
+  if (mode === 'shift') return state.parents;
+  if (mode === 'concert') {
+    const seen = new Set(state.names);
+    return state.names.concat(state.parents.filter(n => !seen.has(n)));
+  }
+  return state.names;
+}
+
+// Voksen eller barn — avgjør billettprisen i billettfordelingen. Alle på
+// Voksne-listen er voksne; en musikant er barn med mindre den er markert som
+// voksen (state.adultMusicians).
+function isAdult(name) {
+  return state.parents.includes(name) || state.adultMusicians.includes(name);
+}
+function ticketTypeLabel(name) {
+  return isAdult(name) ? 'Voksen' : 'Barn';
+}
+function toggleAdultMusician(name) {
+  if (state.adultMusicians.includes(name)) {
+    state.adultMusicians = state.adultMusicians.filter(n => n !== name);
+  } else {
+    state.adultMusicians = state.adultMusicians.concat(name);
+  }
+  renderNames();
+  renderConcert();
+}
+
+// Liten merkelapp ved navnet i billettfordelingen. Voksne-listen er alltid
+// voksen (fast merkelapp); for musikanter er den en knapp som veksler mellom
+// barn og voksen.
+function ticketBadgeHtml(name, fromAdultList) {
+  if (fromAdultList) {
+    return `<span class="ticket-badge adult" title="Fra Voksne-listen — alltid voksenbillett">Voksen</span>`;
+  }
+  const adult = state.adultMusicians.includes(name);
+  return `<button type="button" class="ticket-badge ticket-toggle ${adult ? 'adult' : ''}" data-ticket-name="${escAttr(name)}"
+    title="Trykk for å markere som ${adult ? 'barn' : 'voksen'}" aria-pressed="${adult}">${adult ? 'Voksen' : 'Barn'}</button>`;
 }
 
 function renderNames() {
@@ -2415,6 +2466,8 @@ function renderNames() {
   const filter = document.getElementById('name-filter').value;
   // Shifts are non-exclusive: nobody is "taken" from the sidebar's perspective in shift mode
   const isShift = state.mode === 'shift';
+  const isConcert = state.mode === 'concert';
+  const parentSet = new Set(state.parents);
   const roster = rosterFor(state.mode);
   const assignedSet = isShift ? new Set() : getExclusiveAssignedNames();
 
@@ -2436,7 +2489,7 @@ function renderNames() {
   el.innerHTML = filtered.map(n => {
     const isAssigned = assignedSet.has(n);
     const isSelected = selectedName === n;
-    // Foreldre har ingen bilde-opplasting — bare initialer, enklere enn musikant-avataren.
+    // Voksne har ingen bilde-opplasting — bare initialer, enklere enn musikant-avataren.
     const photo = isShift ? null : state.photos[n];
     const avatarInner = photo
       ? `<img src="${photo}" alt="">`
@@ -2451,9 +2504,19 @@ function renderNames() {
         <span class="avatar ${isShift ? 'static' : ''}" data-avatar-name="${escAttr(n)}" title="${isShift ? '' : (photo?'Bytt eller fjern bilde':'Last opp bilde')}">${avatarInner}${removeBtn}</span>
         <span class="name-text truncate">${escHtml(n)}</span>
       </span>
-      ${isAssigned ? '<span class="assigned-badge text-xs shrink-0">✓ plassert 🔎</span>' : ''}
+      <span class="flex items-center gap-1 shrink-0">
+        ${isConcert ? ticketBadgeHtml(n, parentSet.has(n)) : ''}
+        ${isAssigned ? '<span class="assigned-badge text-xs shrink-0">✓ plassert 🔎</span>' : ''}
+      </span>
     </div>`;
   }).join('');
+
+  document.querySelectorAll('#name-list .ticket-toggle').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleAdultMusician(el.dataset.ticketName);
+    });
+  });
 
   document.querySelectorAll('#name-list .name-item[draggable="true"]').forEach(el => {
     el.addEventListener('dragstart', e => {
@@ -3118,7 +3181,7 @@ function renderConcert() {
         const gapSeat = !seat.name && isGapSeat(row, rowIdx);
         const cls = seat.name ? 'occupied' : (gapSeat ? 'gap' : '');
         const tooltipText = seat.name
-          ? escHtml(seat.name)
+          ? `${escHtml(seat.name)} · ${ticketTypeLabel(seat.name)}`
           : `Rad ${escHtml(row.label)} · Sete ${escHtml(seat.id)}${gapSeat?' (hull)':''}`;
         const label = seat.name
           ? `<span>${initials(seat.name)}</span>`
@@ -3903,7 +3966,7 @@ function startMoveFormationSeat(rowLabel, seatId) {
 }
 
 function showAssignDialog(kind, rowLabel, seatId) {
-  const unassigned = state.names.filter(n => !getExclusiveAssignedNames(kind).has(n));
+  const unassigned = rosterFor(kind === 'concert' ? 'concert' : 'formation').filter(n => !getExclusiveAssignedNames(kind).has(n));
   const namesHtml = unassigned.map(n =>
     `<div class="name-item" data-name="${escAttr(n)}" data-kind="name">${escHtml(n)}</div>`
   ).join('');
@@ -4547,7 +4610,7 @@ function updateStats() {
     const occupied = groups.reduce((s,g)=>s+g.occupants.length,0);
     extra = `Plasser: <b>${occupied}/${totalCap}</b>`;
   }
-  const label = state.mode === 'shift' ? 'Foreldre' : 'Navn';
+  const label = state.mode === 'shift' ? 'Voksne' : 'Navn';
   el.innerHTML = `${label}: <b>${assigned}/${total}</b> plassert &nbsp;·&nbsp; ${extra}`;
 }
 
@@ -4603,8 +4666,8 @@ function render() {
   updateStats();
 }
 
-// ===================== IMPORT ROSTER (navn eller foreldre) =====================
-// Delt av Navneliste og Foreldreliste — targetInputId/parseFnName sier hvilken
+// ===================== IMPORT ROSTER (navn eller voksne) =====================
+// Delt av Navneliste og Voksne — targetInputId/parseFnName sier hvilken
 // tekstliste importen skal skrives inn i og hvilken parse-funksjon som skal
 // kjøres etterpå (parseFnName slås opp globalt, siden alle parse-funksjonene
 // er vanlige toppnivå-funksjoner).
@@ -4869,14 +4932,27 @@ function buildPdfHtml() {
     const rows = rowsFor(state.mode);
     const title = state.mode === 'concert' ? 'Billettfordeling konserter' : 'Korpsoppsett';
     body += `<h1>${title}</h1><div class="subtitle">Generert ${date}</div>`;
+    const isConcert = state.mode === 'concert';
+    // Billettfordelingen viser i tillegg voksen/barn per plass (billettprisen
+    // kan skille), med opptelling per rad og totalt.
+    const countTypes = seats => {
+      const named = seats.filter(s => s.name);
+      const adults = named.filter(s => isAdult(s.name)).length;
+      return { adults, children: named.length - adults };
+    };
+    if (isConcert) {
+      const all = countTypes(rows.flatMap(r => r.seats));
+      body += `<div class="subtitle">Totalt: ${all.adults} voksne, ${all.children} barn</div>`;
+    }
     rows.forEach(row => {
       const occupied = row.seats.filter(s=>s.name);
+      const c = isConcert ? countTypes(row.seats) : null;
       body += `<div class="group">
-        <div class="group-title">Rad ${escHtml(row.label)} &nbsp;·&nbsp; ${occupied.length} av ${row.seats.length} plasser tildelt</div>
+        <div class="group-title">Rad ${escHtml(row.label)} &nbsp;·&nbsp; ${occupied.length} av ${row.seats.length} plasser tildelt${c ? ` &nbsp;·&nbsp; ${c.adults} voksne, ${c.children} barn` : ''}</div>
         <table>
-          <colgroup><col class="col-seat"><col class="col-name"></colgroup>
-          <tr><th>Plass</th><th>Navn</th></tr>
-          ${row.seats.map(s => `<tr><td>${escHtml(s.id)}</td><td class="${s.name?'':'empty'}">${escHtml(s.name||'—')}</td></tr>`).join('')}
+          <colgroup><col class="col-seat"><col class="col-name">${isConcert ? '<col class="col-seat">' : ''}</colgroup>
+          <tr><th>Plass</th><th>Navn</th>${isConcert ? '<th>Billett</th>' : ''}</tr>
+          ${row.seats.map(s => `<tr><td>${escHtml(s.id)}</td><td class="${s.name?'':'empty'}">${escHtml(s.name||'—')}</td>${isConcert ? `<td>${s.name ? ticketTypeLabel(s.name) : ''}</td>` : ''}</tr>`).join('')}
         </table>
       </div>`;
     });
@@ -5038,9 +5114,11 @@ function doPrintFormationDiagram(pageSize) {
 function exportCSV() {
   let csv = '';
   if (state.mode === 'concert' || state.mode === 'formation') {
-    csv = 'Rad,Plass,Navn\n';
+    const isConcert = state.mode === 'concert';
+    csv = isConcert ? 'Rad,Plass,Navn,Billett\n' : 'Rad,Plass,Navn\n';
     rowsFor(state.mode).forEach(r => r.seats.forEach(s => {
-      csv += `"${r.label}","${s.id}","${(s.name||'').replace(/"/g,'""')}"\n`;
+      csv += `"${r.label}","${s.id}","${(s.name||'').replace(/"/g,'""')}"` +
+        (isConcert ? `,"${s.name ? ticketTypeLabel(s.name) : ''}"` : '') + '\n';
     }));
   } else if (state.mode === 'team') {
     csv = 'Gruppe,Leder,Deltaker,Navn\n';
@@ -5074,9 +5152,10 @@ function exportCSV() {
 function showGSheetsExport() {
   let csv = '';
   if (state.mode === 'concert' || state.mode === 'formation') {
-    csv = 'Rad,Plass,Navn\n';
+    const isConcert = state.mode === 'concert';
+    csv = isConcert ? 'Rad,Plass,Navn,Billett\n' : 'Rad,Plass,Navn\n';
     rowsFor(state.mode).forEach(r => r.seats.forEach(s => {
-      csv += `${r.label},${s.id},${s.name||''}\n`;
+      csv += `${r.label},${s.id},${s.name||''}` + (isConcert ? `,${s.name ? ticketTypeLabel(s.name) : ''}` : '') + '\n';
     }));
   } else if (state.mode === 'team') {
     csv = 'Gruppe,Leder,Deltaker,Navn\n';
@@ -5120,11 +5199,11 @@ function showHelp() {
   // faktisk har slått på (se ENABLED_MODULES) — resten av hjelpeteksten er
   // felles og vises alltid.
   const moduleHelp = [
-    ['concert', `<div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter.</div>`],
+    ['concert', `<div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter. Både navnelisten og Voksne-listen kan få plass. Alle på Voksne-listen får voksenbillett; musikanter er barn med mindre du trykker «Barn» ved navnet for å gjøre dem om til «Voksen». Utskrift og CSV viser voksen/barn per plass.</div>`],
     ['formation', `<div><strong>🎺 Korpsmodus:</strong> Klikk «Rader» → skriv hvor mange rader og formen på hver (venstre/senter/høyre/flat/bred) – øverste linje er fremste rad. Ingen antall å sette opp: dra et navn fra listen til nøyaktig der på kartet musikanten skal stå, så vokser raden. Slippunktet avgjør både hvilken rad og nøyaktig posisjon i den – to musikanter kan stå tett inntil hverandre om du ønsker det. Dra en allerede plassert musikant for å flytte/finjustere, til samme rad eller en annen. «↔️ Spre jevnt» fordeler alle utover sin rad med jevne mellomrom (samme rekkefølge) som et raskt utgangspunkt du kan finjustere videre fra.</div>`],
     ['formation', `<div><strong>🥁 Slagverksliste:</strong> Vises i sidebaren kun i korpsmodus, under navnelisten. I motsetning til navn kan et instrument plasseres flere steder samtidig – f.eks. flere "Congas". Klikk et instrument og deretter et sted på kartet, eller dra det direkte dit.</div>`],
     ['room', `<div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass. Reiseledere (egen liste i sidebaren, under navnelisten) kan tildeles de samme sengeplassene som musikantene.</div>`],
-    ['shift', `<div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt. Bruker en egen Foreldreliste i stedet for navnelisten, siden det er foreldrene og ikke musikantene som tar vaktene.</div>`],
+    ['shift', `<div><strong>🕐 Vaktmodus:</strong> Samme prinsipp som rom, men for vaktlister – sett opp vakter (f.eks. «Kiosk kl 12-14») og antall personer per vakt. Bruker en egen liste, Voksne, i stedet for navnelisten, siden det er de voksne og ikke musikantene som tar vaktene.</div>`],
     ['team', `<div><strong>👥 Gruppeinndeling:</strong> Klikk «Sett opp grupper» → skriv ett gruppenavn per linje (ingen fast størrelse). Hver gruppe har ett lederfelt (👑 øverst i kortet, valgt fra den egne Gruppeledere-listen) og en åpen liste med deltakere fra navnelisten – klikk «+ Legg til deltaker» eller dra et navn direkte inn i kortet. En gruppeleder kan bare lede én gruppe om gangen, akkurat som et navn bare kan sitte i én gruppe om gangen.</div>`]
   ].filter(([mod]) => ENABLED_MODULES[mod]).map(([, html]) => html).join('');
 
