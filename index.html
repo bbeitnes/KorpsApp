@@ -354,6 +354,16 @@
   }
   .avatar:hover .avatar-remove { display: flex; }
   .seat.drop-hover { border-color: var(--farge-varsel) !important; background: var(--farge-varsel-bakgrunn) !important; transform: scale(1.1); }
+  /* Trykk-og-hold-dra av tildelte seter i salkartet (billettfordeling).
+     Uten callout/user-select åpner iOS en tekstmeny i stedet for å la draget starte. */
+  #seat-grid .seat.occupied { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  .seat.drag-source { opacity: .35; }
+  .seat-drag-ghost {
+    position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none;
+    box-shadow: var(--shadow-lg); transform: translate(-50%, -50%) scale(1.15);
+  }
+  .seat-drag-ghost.touch { transform: translate(-50%, -130%) scale(1.15); }
+  body.seat-dragging, body.seat-dragging * { cursor: grabbing !important; }
   .room-slot.drop-hover { border-color: var(--farge-varsel) !important; background: var(--farge-varsel-bakgrunn-lys) !important; border-style: solid; }
   .room-card {
     border: 1px solid var(--farge-kant); border-radius: var(--radius-md);
@@ -689,8 +699,9 @@
         <p class="text-sm mt-1">Klikk "Sett opp sal" for å definere rader og seter</p>
       </div>
       <div id="concert-layout" class="hidden">
-        <div class="mb-4 text-center text-xs text-slate-400 border-b-2 border-slate-200 pb-2 font-medium tracking-widest uppercase">— SCENE —</div>
+        <!-- Scenen nederst, og laveste rad nærmest den (se renderConcert) — slik salen ser ut fra salen og ned mot scenen. -->
         <div id="seat-grid" class="flex flex-col gap-3 items-center"></div>
+        <div class="mt-4 text-center text-xs text-slate-400 border-t-2 border-slate-200 pt-2 font-medium tracking-widest uppercase">— SCENE —</div>
       </div>
     </div>
 
@@ -3164,7 +3175,13 @@ function renderConcert() {
   hint.classList.add('hidden');
   layout.classList.remove('hidden');
 
-  const rowsHtml = state.concert.rows.map(row => {
+  // Scenen står nederst på kartet, så raden med lavest navn (A, 1, «Rad 1» —
+  // naturlig sortering, så «Rad 10» kommer etter «Rad 2») skal ligge nederst,
+  // nærmest scenen. Gjelder bare visningen; rekkefølgen i oppsettet og i
+  // utskrift/CSV er uendret.
+  const displayRows = state.concert.rows.slice()
+    .sort((a, b) => String(b.label).localeCompare(String(a.label), 'no', { numeric: true }));
+  const rowsHtml = displayRows.map(row => {
     const parts = []; // groups of seats separated by physical gaps
     let currentGroup = [];
     for (let idx = 0; idx < row.seats.length; idx++) {
@@ -3226,6 +3243,169 @@ function renderConcert() {
   grid.innerHTML = bannerHtml + rowsHtml;
 
   attachSeatDropHandlers('seat-grid', 'concert');
+  initConcertSeatDrag();
+}
+
+// ----- Concert: trykk og hold på en tildelt plass, og dra den til en ny -----
+// Bruker Pointer Events (ikke HTML5 drag-and-drop), så det virker likt med
+// mus, finger og penn. Med finger må man holde i SEAT_HOLD_MS før draget
+// starter — beveger fingeren seg før det, er det et vanlig rulletrykk, og
+// draget avbrytes. Med mus starter draget også straks musen beveger seg.
+// Slipp på ledig plass flytter, slipp på opptatt plass bytter de to.
+// Et vanlig kort klikk åpner fortsatt plassvalg-dialogen som før.
+const SEAT_HOLD_MS = 350;
+const SEAT_MOVE_SLOP = 8;
+let seatDrag = null;
+let suppressSeatClickUntil = 0;
+
+// Lytterne legges på #seat-grid én gang (beholderen byttes aldri ut, bare
+// innholdet), med delegering ned til setene.
+function initConcertSeatDrag() {
+  const grid = document.getElementById('seat-grid');
+  if (!grid || grid.dataset.dragInit) return;
+  grid.dataset.dragInit = '1';
+  grid.addEventListener('pointerdown', onSeatPointerDown);
+  // Må være registrert (og ikke passiv) allerede når fingeren settes ned,
+  // ellers lar ikke nettleseren oss stoppe rullingen når draget er i gang.
+  grid.addEventListener('touchmove', e => { if (seatDrag && seatDrag.active) e.preventDefault(); }, { passive: false });
+  grid.addEventListener('contextmenu', e => { if (e.target.closest('.seat.occupied')) e.preventDefault(); });
+}
+
+function onSeatPointerDown(e) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const el = e.target.closest('.seat.occupied');
+  if (!el || seatDrag) return;
+  if (e.pointerType === 'mouse') e.preventDefault(); // hindrer tekstmarkering mens man drar
+  seatDrag = {
+    el, pointerId: e.pointerId, touch: e.pointerType !== 'mouse',
+    row: el.dataset.row, seat: el.dataset.seat,
+    startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
+    active: false, ghost: null, target: null,
+    timer: setTimeout(activateSeatDrag, SEAT_HOLD_MS)
+  };
+  document.addEventListener('pointermove', onSeatPointerMove);
+  document.addEventListener('pointerup', onSeatPointerUp);
+  document.addEventListener('pointercancel', endSeatDrag);
+  document.addEventListener('keydown', onSeatDragKey);
+}
+
+function onSeatPointerMove(e) {
+  if (!seatDrag || e.pointerId !== seatDrag.pointerId) return;
+  seatDrag.x = e.clientX;
+  seatDrag.y = e.clientY;
+  if (!seatDrag.active) {
+    if (Math.hypot(e.clientX - seatDrag.startX, e.clientY - seatDrag.startY) <= SEAT_MOVE_SLOP) return;
+    if (seatDrag.touch) { endSeatDrag(); return; } // fingeren ville rulle, ikke dra
+    activateSeatDrag();
+    return;
+  }
+  updateSeatDrag();
+}
+
+function activateSeatDrag() {
+  if (!seatDrag || seatDrag.active) return;
+  clearTimeout(seatDrag.timer);
+  const seat = findConcertSeat(seatDrag.row, seatDrag.seat);
+  if (!seat || !seat.name) { endSeatDrag(); return; }
+  seatDrag.active = true;
+  seatDrag.name = seat.name;
+  const ghost = document.createElement('div');
+  ghost.className = `seat occupied seat-drag-ghost${seatDrag.touch ? ' touch' : ''}`;
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.innerHTML = `<span>${initials(seat.name)}</span>`;
+  document.body.appendChild(ghost);
+  seatDrag.ghost = ghost;
+  seatDrag.el.classList.add('drag-source');
+  document.body.classList.add('seat-dragging');
+  if (seatDrag.touch && navigator.vibrate) navigator.vibrate(15);
+  updateSeatDrag();
+  seatDrag.scrollFrame = requestAnimationFrame(seatDragAutoScroll);
+}
+
+// Ruller hovedområdet når man drar nær øvre/nedre (eller venstre/høyre) kant,
+// slik at man når plasser utenfor skjermen i en stor sal — særlig på mobil.
+const SEAT_SCROLL_EDGE = 48;
+function seatDragAutoScroll() {
+  const d = seatDrag;
+  if (!d || !d.active) return;
+  const main = document.getElementById('seat-grid').closest('main');
+  if (main) {
+    const b = main.getBoundingClientRect();
+    const speed = dist => Math.min(20, Math.ceil((SEAT_SCROLL_EDGE - dist) / 4)); // raskere jo nærmere kanten
+    let dx = 0, dy = 0;
+    if (d.y < b.top + SEAT_SCROLL_EDGE) dy = -speed(d.y - b.top);
+    else if (d.y > b.bottom - SEAT_SCROLL_EDGE) dy = speed(b.bottom - d.y);
+    if (d.x < b.left + SEAT_SCROLL_EDGE) dx = -speed(d.x - b.left);
+    else if (d.x > b.right - SEAT_SCROLL_EDGE) dx = speed(b.right - d.x);
+    if (dx || dy) { main.scrollBy(dx, dy); updateSeatDrag(); }
+  }
+  d.scrollFrame = requestAnimationFrame(seatDragAutoScroll);
+}
+
+function updateSeatDrag() {
+  const d = seatDrag;
+  d.ghost.style.left = d.x + 'px';
+  d.ghost.style.top = d.y + 'px';
+  const under = document.elementFromPoint(d.x, d.y);
+  let target = under ? under.closest('#seat-grid .seat') : null;
+  if (target === d.el) target = null;
+  if (target !== d.target) {
+    if (d.target) d.target.classList.remove('drop-hover');
+    if (target) target.classList.add('drop-hover');
+    d.target = target;
+  }
+}
+
+function onSeatPointerUp(e) {
+  if (!seatDrag || e.pointerId !== seatDrag.pointerId) return;
+  if (!seatDrag.active) { endSeatDrag(); return; } // kort klikk: la onclick åpne dialogen
+  // Klikket som følger etter et slipp skal ikke åpne plassvalg-dialogen.
+  suppressSeatClickUntil = Date.now() + 500;
+  const target = seatDrag.target;
+  const from = { row: seatDrag.row, seat: seatDrag.seat };
+  endSeatDrag();
+  if (target) moveConcertSeat(from.row, from.seat, target.dataset.row, target.dataset.seat);
+}
+
+function onSeatDragKey(e) {
+  if (e.key === 'Escape' && seatDrag) {
+    if (seatDrag.active) suppressSeatClickUntil = Date.now() + 500;
+    endSeatDrag();
+  }
+}
+
+function endSeatDrag() {
+  if (!seatDrag) return;
+  clearTimeout(seatDrag.timer);
+  if (seatDrag.scrollFrame) cancelAnimationFrame(seatDrag.scrollFrame);
+  document.removeEventListener('pointermove', onSeatPointerMove);
+  document.removeEventListener('pointerup', onSeatPointerUp);
+  document.removeEventListener('pointercancel', endSeatDrag);
+  document.removeEventListener('keydown', onSeatDragKey);
+  if (seatDrag.ghost) seatDrag.ghost.remove();
+  if (seatDrag.target) seatDrag.target.classList.remove('drop-hover');
+  seatDrag.el.classList.remove('drag-source');
+  document.body.classList.remove('seat-dragging');
+  seatDrag = null;
+}
+
+function findConcertSeat(rowLabel, seatId) {
+  const row = state.concert.rows.find(r => r.label === rowLabel);
+  return row ? row.seats.find(s => s.id === seatId) : null;
+}
+
+function moveConcertSeat(fromRow, fromSeat, toRow, toSeat) {
+  const from = findConcertSeat(fromRow, fromSeat);
+  const to = findConcertSeat(toRow, toSeat);
+  if (!from || !to || from === to || !from.name) return;
+  const moving = from.name;
+  const displaced = to.name || null;
+  to.name = moving;
+  from.name = displaced;
+  renderConcert(); renderNames(); updateStats();
+  showFlash(displaced
+    ? `${moving} og ${displaced} byttet plass`
+    : `${moving} flyttet til ${toRow}${toSeat}`);
 }
 
 // ----- Formation (half-circle rows) -----
@@ -3906,6 +4086,9 @@ function buildFormationPrintHtml(pageSize) {
 }
 
 function seatClick(kind, rowLabel, seatId) {
+  // Et trykk-og-hold-drag i salkartet avsluttes med et klikk — det skal ikke
+  // også åpne plassvalg-dialogen (se moveConcertSeat).
+  if (kind === 'concert' && Date.now() < suppressSeatClickUntil) return;
   const rows = rowsFor(kind);
   const row = rows.find(r=>r.label===rowLabel);
   if (!row) return;
@@ -5229,7 +5412,7 @@ function showHelp() {
   // faktisk har slått på (se ENABLED_MODULES) — resten av hjelpeteksten er
   // felles og vises alltid.
   const moduleHelp = [
-    ['concert', `<div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter. Både navnelisten og Voksne-listen kan få plass. Alle på Voksne-listen får voksenbillett; musikanter er barn med mindre du trykker «Barn» ved navnet for å gjøre dem om til «Voksen». Utskrift og CSV viser voksen/barn per plass.</div>`],
+    ['concert', `<div><strong>🎵 Konsertmodus:</strong> Klikk «Sett opp sal» → skriv rader og seter → klikk et navn → klikk et ledig sete. Grå seter er «hull» mellom opptatte seter. Trykk og hold på en tildelt plass for å dra den til en ny: slipper du på en ledig plass flyttes personen, slipper du på en opptatt plass bytter de to plass. Både navnelisten og Voksne-listen kan få plass. Alle på Voksne-listen får voksenbillett; musikanter er barn med mindre du trykker «Barn» ved navnet for å gjøre dem om til «Voksen». Utskrift og CSV viser voksen/barn per plass.</div>`],
     ['formation', `<div><strong>🎺 Korpsmodus:</strong> Klikk «Rader» → skriv hvor mange rader og formen på hver (venstre/senter/høyre/flat/bred) – øverste linje er fremste rad. Ingen antall å sette opp: dra et navn fra listen til nøyaktig der på kartet musikanten skal stå, så vokser raden. Slippunktet avgjør både hvilken rad og nøyaktig posisjon i den – to musikanter kan stå tett inntil hverandre om du ønsker det. Dra en allerede plassert musikant for å flytte/finjustere, til samme rad eller en annen. «↔️ Spre jevnt» fordeler alle utover sin rad med jevne mellomrom (samme rekkefølge) som et raskt utgangspunkt du kan finjustere videre fra.</div>`],
     ['formation', `<div><strong>🥁 Slagverksliste:</strong> Vises i sidebaren kun i korpsmodus, under navnelisten. I motsetning til navn kan et instrument plasseres flere steder samtidig – f.eks. flere "Congas". Klikk et instrument og deretter et sted på kartet, eller dra det direkte dit.</div>`],
     ['room', `<div><strong>🏨 Rommodus:</strong> Klikk «Sett opp rom» → skriv rom og kapasitet → klikk et navn → klikk en ledig sengeplass. Reiseledere (egen liste i sidebaren, under navnelisten) kan tildeles de samme sengeplassene som musikantene.</div>`],
